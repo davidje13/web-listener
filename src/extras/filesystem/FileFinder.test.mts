@@ -70,6 +70,25 @@ describe(
       expect(await fileExists(fileFinder, ['sub2'])).isFalse();
     });
 
+    it('serves root index file if the root is requested', async (props) => {
+      const fileFinder = await initialise(props, {
+        'index.htm': 'Index Content',
+      });
+
+      const index = await fileFinder.find([]);
+      expect(index).isTruthy();
+      try {
+        expect(index!.canonicalPath).endsWith(sep + join('index.htm'));
+        expect(index!.negotiatedPath).endsWith(sep + join('index.htm'));
+        expect(index!.stats.size).equals(13);
+      } finally {
+        index?.handle.close();
+      }
+
+      // direct access to file is blocked
+      expect(await fileExists(fileFinder, ['index.htm'])).isFalse();
+    });
+
     it('does not allow access to files outside the directory', async (props) => {
       const dir = props.getTyped(TEST_DIR);
       const fileFinder = await initialise(

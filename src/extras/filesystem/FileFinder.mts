@@ -241,7 +241,7 @@ export class FileFinder implements FileFinderCore {
       subPath = subPath.toLowerCase();
     }
     const resolvedPath = resolve(this._basePath, subPath);
-    if (!resolvedPath.startsWith(this._basePath)) {
+    if (!resolvedPath.startsWith(this._basePath) && resolvedPath + sep !== this._basePath) {
       return null; // directory traversal escaped root directory: fail
     }
     const parts = resolvedPath

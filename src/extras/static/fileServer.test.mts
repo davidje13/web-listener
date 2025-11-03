@@ -11,6 +11,11 @@ describe('fileServer', () => {
   const TEST_DIR = makeTestTempDir('ff-', {
     'file.txt': 'Content',
     'file.txt.gz': 'Compressed',
+    'index.htm': 'Root Index',
+    sub: {
+      'index.htm': 'Sub Index',
+    },
+    none: {},
   });
 
   it('serves files from the filesystem', { timeout: 3000 }, async ({ getTyped }) => {
@@ -32,6 +37,32 @@ describe('fileServer', () => {
       expect(await resHEAD.text()).equals('');
     });
   });
+
+  it(
+    'serves index pages when directories are requested',
+    { timeout: 3000 },
+    async ({ getTyped }) => {
+      const handler = await fileServer(getTyped(TEST_DIR));
+
+      return withServer(handler, async (url) => {
+        const res1 = await fetch(url);
+        expect(res1.status).equals(200);
+        expect(await res1.text()).equals('Root Index');
+
+        const res2 = await fetch(url + '/sub');
+        expect(res2.status).equals(200);
+        expect(await res2.text()).equals('Sub Index');
+
+        const res3 = await fetch(url + '/sub/');
+        expect(res3.status).equals(200);
+        expect(await res3.text()).equals('Sub Index');
+
+        const res4 = await fetch(url + '/none/');
+        expect(res4.status).equals(404);
+        expect(await res4.text()).equals('');
+      });
+    },
+  );
 
   it('supports content negotiation', { timeout: 3000 }, async ({ getTyped }) => {
     const handler = await fileServer(getTyped(TEST_DIR), {
