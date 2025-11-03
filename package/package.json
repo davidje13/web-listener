@@ -1,0 +1,12 @@
+{
+  "name": "web-listener-package-test",
+  "private": true,
+  "scripts": {
+    "test": "./commonjs.cjs && ./es6modules.mjs && tsc typescript.ts --noEmit && ./cli-test.sh"
+  },
+  "devDependencies": {
+    "@types/ws": "8.x",
+    "web-listener": "file:web-listener.tgz",
+    "typescript": "5.9.x"
+  }
+}

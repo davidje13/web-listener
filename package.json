@@ -1,0 +1,53 @@
+{
+  "name": "web-listener",
+  "version": "0.1.0",
+  "private": true,
+  "description": "a small server abstraction for creating API and resource endpoints with middleware",
+  "author": "David Evans",
+  "license": "MIT",
+  "keywords": [
+    "server",
+    "api",
+    "middleware",
+    "http",
+    "websocket",
+    "webserver",
+    "web-listener"
+  ],
+  "type": "module",
+  "main": "./index.js",
+  "types": "./index.d.ts",
+  "bin": "./run.js",
+  "scripts": {
+    "format": "prettier --write .",
+    "test": "lean-test --preprocess=tsc --parallel-suites && package/build.sh && package/run.sh && tsc && prettier --check .",
+    "test-run": "./src/bin/run.mts",
+    "dopublish": "package/build.sh && npm publish package.tgz"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/davidje13/web-listener.git"
+  },
+  "bugs": {
+    "url": "https://github.com/davidje13/web-listener/issues"
+  },
+  "homepage": "https://github.com/davidje13/web-listener#readme",
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "28.x",
+    "@rollup/plugin-node-resolve": "16.x",
+    "@rollup/plugin-terser": "0.4.x",
+    "@rollup/plugin-typescript": "12.x",
+    "@types/busboy": "1.x",
+    "@types/node": "24.x",
+    "@types/ws": "8.x",
+    "busboy": "1.6.0",
+    "eventsource": "^4.0.0",
+    "lean-test": "2.x",
+    "prettier": "3.6.2",
+    "rollup": "4.x",
+    "rollup-plugin-dts": "6.x",
+    "streamsearch": "1.1.0",
+    "typescript": "5.9.x",
+    "ws": "8.x"
+  }
+}
