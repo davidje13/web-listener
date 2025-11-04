@@ -127,22 +127,27 @@ export const configServerOptions = obj({
   logRequests: opt(bool, true),
   restartTimeout: opt(num, 2000),
   shutdownTimeout: opt(num, 500),
-}) satisfies Mapper<
-  CombinedServerOptions & {
-    logRequests: boolean;
-    restartTimeout: number;
-    shutdownTimeout: number;
-  }
->;
-export type ConfigServerOptions = Type<typeof configServerOptions>;
+}) satisfies Mapper<ConfigServerOptions>;
+
+export interface ConfigServerOptions extends CombinedServerOptions {
+  logRequests: boolean;
+  restartTimeout: number;
+  shutdownTimeout: number;
+}
 
 export const configServer = obj({
   port: int,
   host: opt(str, 'localhost'),
   options: opt(configServerOptions, () => configServerOptions({})),
   mount: list(configMount),
-});
-export type ConfigServer = Type<typeof configServer>;
+}) satisfies Mapper<ConfigServer>;
+
+export interface ConfigServer {
+  port: number;
+  host: string;
+  options: ConfigServerOptions;
+  mount: ConfigMount[];
+}
 
 export const config = obj({
   servers: list(configServer),

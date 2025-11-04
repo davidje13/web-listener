@@ -1,7 +1,7 @@
 # Web Listener
 
-A small server abstraction for creating API and resource endpoints with middleware. Supports
-HTTP/1.1 and upgrade requests.
+A small, dependency-free server abstraction for serving static files, proxying, and creating API
+endpoints with middleware. Supports HTTP/1.1 and upgrade requests.
 
 `web-listener` is designed to be tree-shakable so that it provides a minimal framework for those who
 want something simple, while still being able to deliver advanced capabilities for those who need

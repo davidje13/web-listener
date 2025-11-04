@@ -29,6 +29,8 @@ const params = new Map<string, { type: 'string' | 'number' | 'boolean'; multi?: 
   ['gzip', { type: 'boolean' }],
   ['deflate', { type: 'boolean' }],
   ['proxy', { type: 'string' }],
+  ['404', { type: 'string' }],
+  ['spa', { type: 'string' }],
   ['mime', { type: 'string', multi: true }],
   ['mime-types', { type: 'string', multi: true }],
   ['help', { type: 'boolean' }],
@@ -106,7 +108,7 @@ export function readArgs(argv: string[]) {
       }
       (list as unknown[]).push(value);
     } else if (lookup.has(key)) {
-      throw new Error(`multiple values for: ${k}`);
+      throw new Error(`multiple values for ${key}`);
     } else {
       lookup.set(key, value);
     }
@@ -127,9 +129,11 @@ export async function loadConfig(cwd: string, args: Map<string, unknown>): Promi
 
   const file = fileParam('config-file');
   const json = stringParam('config-json');
-  const dir = fileParam('dir', '.');
   const port = args.get('port') as number | undefined;
   const host = stringParam('host');
+  const dir = fileParam('dir', '.');
+  const err404 = stringParam('404');
+  const spa = stringParam('spa');
   const proxy = stringParam('proxy');
   const mime = stringListParam('mime');
   const mimeTypes = stringListParam('mime-types');
@@ -144,7 +148,13 @@ export async function loadConfig(cwd: string, args: Map<string, unknown>): Promi
   } else if (json) {
     c = JSON.parse(json);
   } else {
-    const mount: unknown[] = [{ type: 'files', dir: dir }];
+    let fallback: unknown;
+    if (spa) {
+      fallback = { statusCode: 200, filePath: spa };
+    } else if (err404) {
+      fallback = { statusCode: 404, filePath: err404 };
+    }
+    const mount: unknown[] = [{ type: 'files', dir: dir, options: { fallback } }];
     c = { servers: [{ port: 8080, mount }] };
     if (proxy) {
       mount.push({ type: 'proxy', target: proxy });
@@ -170,7 +180,7 @@ export async function loadConfig(cwd: string, args: Map<string, unknown>): Promi
   }
   const addNegotiation = (
     type: 'mime' | 'language' | 'encoding',
-    option: ConfigFileNegotiationOption,
+    option: Partial<ConfigFileNegotiationOption>,
   ) => {
     for (const server of sanitised.servers) {
       for (const mount of server.mount) {
@@ -181,7 +191,7 @@ export async function loadConfig(cwd: string, args: Map<string, unknown>): Promi
             mount.options.negotiation = [...mount.options.negotiation, enc];
           }
           if (!enc.options.find((o) => o.match === option.match)) {
-            enc.options.push(option);
+            enc.options.push(option as ConfigFileNegotiationOption);
           }
         }
       }
@@ -207,8 +217,8 @@ export async function loadConfig(cwd: string, args: Map<string, unknown>): Promi
 }
 
 const encodings = [
-  { match: 'zstd', as: undefined, file: '{file}.zst' },
-  { match: 'brotli', as: undefined, file: '{file}.br' },
-  { match: 'gzip', as: undefined, file: '{file}.gz' },
-  { match: 'deflate', as: undefined, file: '{file}.deflate' },
+  { match: 'zstd', file: '{file}.zst' },
+  { match: 'brotli', file: '{file}.br' },
+  { match: 'gzip', file: '{file}.gz' },
+  { match: 'deflate', file: '{file}.deflate' },
 ];

@@ -26,14 +26,15 @@ export class ServerManager {
       this._building = true;
       const ports = new Set<number>();
       const tasks: (() => Promise<void>)[] = [];
-      for (const serverConfig of servers) {
+      for (let i = 0; i < servers.length; ++i) {
+        const serverConfig = servers[i]!;
         const port = serverConfig.port;
         if (port <= 0 || port > 65535) {
-          this._log('server must have a specific port from 1 to 65535');
+          this._log(`servers[${i}] must have a specific port from 1 to 65535`);
           continue;
         }
         if (ports.has(port)) {
-          this._log(`ignoring multiple servers on port ${port}`);
+          this._log(`skipping servers[${i}] because port ${port} has already been defined`);
           continue;
         }
         ports.add(port);
@@ -55,7 +56,7 @@ export class ServerManager {
       await Promise.all(tasks.map((task) => task()));
       if (this._stopping) {
         this._shutdown();
-      } else if (servers.length) {
+      } else if (this._servers.size) {
         this._log('all servers ready');
       } else {
         this._log('no servers configured');
@@ -140,14 +141,12 @@ export class ServerManager {
     };
   }
 
-  private _shutdown() {
-    if (!this._servers.size) {
-      return;
+  private async _shutdown() {
+    if (this._servers.size) {
+      this._log(this._colour('2', 'shutting down'));
+      await Promise.all([...this._servers.values()].map((state) => state.close()));
     }
-    this._log(this._colour('2', 'shutting down'));
-    Promise.all([...this._servers.values()].map((state) => state.close())).then(() =>
-      this._log('shutdown complete'),
-    );
+    this._log('shutdown complete');
   }
 
   shutdown() {

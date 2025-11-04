@@ -72,7 +72,10 @@ export const obj =
       if (!mapper) {
         throw new Error(`unknown property ${path}.${k}`);
       }
-      r[key] = mapper(v, `${path}.${k}`);
+      const val = mapper(v, `${path}.${k}`);
+      if (val !== undefined) {
+        r[key] = val;
+      }
     }
     for (const k of Object.keys(structure)) {
       if (!seen.has(k)) {
