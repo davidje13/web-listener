@@ -129,39 +129,39 @@ describe('getBodyStream', () => {
       timeout: 3000,
       parameters: [
         {
-          encoding: 'gzip',
+          name: 'gzip',
           body: gzipSync('this is my content'),
           expected: Buffer.from('this is my content', 'utf-8'),
         },
         {
-          encoding: 'x-gzip',
+          name: 'x-gzip',
           body: gzipSync('this is my content'),
           expected: Buffer.from('this is my content', 'utf-8'),
         },
         {
-          encoding: 'deflate',
+          name: 'deflate',
           body: deflateSync('this is my content'),
           expected: Buffer.from('this is my content', 'utf-8'),
         },
         {
-          encoding: 'br',
+          name: 'br',
           body: brotliCompressSync('this is my content'),
           expected: Buffer.from('this is my content', 'utf-8'),
         },
         {
-          encoding: 'zstd',
+          name: 'zstd',
           body: zstdCompressSync('this is my content'),
           expected: Buffer.from('this is my content', 'utf-8'),
         },
       ],
     },
-    ({ encoding, body, expected }: any) =>
+    ({ name, body, expected }: any) =>
       inRequestHandler(
         async (req) => {
           const content = await buffer(getBodyStream(req));
           expect(content).equals(expected);
         },
-        { method: 'POST', headers: { 'content-encoding': encoding }, body },
+        { method: 'POST', headers: { 'content-encoding': name }, body },
       ),
   );
 
