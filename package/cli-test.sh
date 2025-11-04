@@ -2,7 +2,7 @@
 set -e
 BASEDIR="$(dirname "$0")"
 
-EXPECTED="web-listener 0.1.0";
+EXPECTED="web-listener 0.2.0";
 
 ACTUAL="$(npm --prefix "$BASEDIR" exec --offline -- web-listener --version)";
 
