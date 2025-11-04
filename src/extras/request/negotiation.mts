@@ -176,7 +176,7 @@ function internalSortQuality(list: QualityValue[] | undefined): QualityValue[] |
   return [...list].sort((a, b) => b.q - a.q || b.specificity - a.specificity);
 }
 
-function internalMutateName(original: string, mutation: string) {
+export function internalMutateName(original: string, mutation: string) {
   return mutation.replaceAll(/\{(?:file|base|ext)\}/g, (param) =>
     param === '{file}'
       ? original

@@ -22,12 +22,11 @@ import {
   type Type,
 } from './types.mts';
 
-const configFileNegotiationOption = obj({
+const configFileNegotiationOption: Mapper<FileNegotiationOption> = obj({
   match: str,
   as: opt(str, undefined),
   file: str,
-}) satisfies Mapper<FileNegotiationOption>;
-export type ConfigFileNegotiationOption = Type<typeof configFileNegotiationOption>;
+});
 
 const configFileNegotiation = obj({
   type: choice('mime', 'language', 'encoding'),
@@ -152,5 +151,8 @@ export interface ConfigServer {
 export const config = obj({
   servers: list(configServer),
   mime: maybeList(or(str, record(str))),
+  writeCompressed: opt(bool, false),
+  minCompress: opt(num, 300),
+  noServe: opt(bool, false),
 });
 export type Config = Type<typeof config>;

@@ -60,6 +60,12 @@ export {
 export { generateWeakETag, generateStrongETag } from './extras/cache/etag.mts';
 
 export {
+  compressFileOffline,
+  compressFilesInDir,
+  type CompressionInfo,
+} from './extras/compress/offline.mjs';
+
+export {
   FileFinder,
   type FileFinderCore,
   type FileFinderOptions,

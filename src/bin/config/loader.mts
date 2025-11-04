@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
-import { config, type Config, type ConfigFileNegotiationOption } from './shape.mts';
+import { config, type Config } from './shape.mts';
+import type { FileNegotiationOption } from '../../index.mts';
 
 const shorthands = new Map<string, string>([
   ['', 'dir'],
@@ -33,6 +33,9 @@ const params = new Map<string, { type: 'string' | 'number' | 'boolean'; multi?: 
   ['spa', { type: 'string' }],
   ['mime', { type: 'string', multi: true }],
   ['mime-types', { type: 'string', multi: true }],
+  ['write-compressed', { type: 'boolean' }],
+  ['min-compress', { type: 'number' }],
+  ['no-serve', { type: 'boolean' }],
   ['help', { type: 'boolean' }],
   ['version', { type: 'boolean' }],
 ]);
@@ -116,25 +119,20 @@ export function readArgs(argv: string[]) {
   return lookup;
 }
 
-export async function loadConfig(cwd: string, args: Map<string, unknown>): Promise<Config> {
+export async function loadConfig(args: Map<string, unknown>): Promise<Config> {
   const stringListParam = (name: string) => (args.get(name) ?? []) as string[];
   const stringParam = (name: string) => args.get(name) as string | undefined;
-  const fileParam = (name: string, fallback?: string) => {
-    const v = stringParam(name) || fallback;
-    if (v === undefined) {
-      return undefined;
-    }
-    return resolve(cwd, v);
-  };
+  const numberParam = (name: string) => args.get(name) as number | undefined;
 
-  const file = fileParam('config-file');
+  const file = stringParam('config-file');
   const json = stringParam('config-json');
-  const port = args.get('port') as number | undefined;
+  const port = numberParam('port');
   const host = stringParam('host');
-  const dir = fileParam('dir', '.');
+  const dir = stringParam('dir') || '.';
   const err404 = stringParam('404');
   const spa = stringParam('spa');
   const proxy = stringParam('proxy');
+  const minCompress = numberParam('min-compress');
   const mime = stringListParam('mime');
   const mimeTypes = stringListParam('mime-types');
 
@@ -180,7 +178,7 @@ export async function loadConfig(cwd: string, args: Map<string, unknown>): Promi
   }
   const addNegotiation = (
     type: 'mime' | 'language' | 'encoding',
-    option: Partial<ConfigFileNegotiationOption>,
+    encoding: FileNegotiationOption,
   ) => {
     for (const server of sanitised.servers) {
       for (const mount of server.mount) {
@@ -190,15 +188,15 @@ export async function loadConfig(cwd: string, args: Map<string, unknown>): Promi
             enc = { type, options: [] };
             mount.options.negotiation = [...mount.options.negotiation, enc];
           }
-          if (!enc.options.find((o) => o.match === option.match)) {
-            enc.options.push(option as ConfigFileNegotiationOption);
+          if (!enc.options.find((o) => o.match === encoding.match)) {
+            enc.options.push(encoding);
           }
         }
       }
     }
   };
-  for (const enc of encodings) {
-    if (args.get(enc.match)) {
+  for (const [flag, enc] of ENCODINGS) {
+    if (args.get(flag)) {
       addNegotiation('encoding', enc);
     }
   }
@@ -213,12 +211,21 @@ export async function loadConfig(cwd: string, args: Map<string, unknown>): Promi
     sanitised.mime.push(...mime);
     sanitised.mime.push(...mimeTypes.map((path) => `file://${path}`));
   }
+  if (args.get('write-compressed')) {
+    sanitised.writeCompressed = true;
+  }
+  if (minCompress !== undefined) {
+    sanitised.minCompress = minCompress;
+  }
+  if (args.get('no-serve')) {
+    sanitised.noServe = true;
+  }
   return sanitised;
 }
 
-const encodings = [
-  { match: 'zstd', file: '{file}.zst' },
-  { match: 'brotli', file: '{file}.br' },
-  { match: 'gzip', file: '{file}.gz' },
-  { match: 'deflate', file: '{file}.deflate' },
-];
+const ENCODINGS = new Map<string, FileNegotiationOption>([
+  ['zstd', { match: 'zstd', file: '{file}.zst' }],
+  ['brotli', { match: 'brotli', file: '{file}.br' }],
+  ['gzip', { match: 'gzip', file: '{file}.gz' }],
+  ['deflate', { match: 'deflate', file: '{file}.deflate' }],
+]);

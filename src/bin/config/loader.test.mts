@@ -47,7 +47,7 @@ describe('loadConfig', () => {
   it(
     'converts arguments into configuration',
     async ({ args, expected }: any) => {
-      const config = await loadConfig('/cwd', readArgs(args));
+      const config = await loadConfig(readArgs(args));
       expect(config).equals(expected);
     },
     {
@@ -55,35 +55,33 @@ describe('loadConfig', () => {
         {
           name: 'no arguments',
           args: [],
-          expected: { servers: [DEFAULT_SERVER], mime: [] },
+          expected: DEFAULT_CONFIG,
         },
         {
           name: 'dir',
           args: ['this/directory'],
           expected: {
-            servers: [
-              { ...DEFAULT_SERVER, mount: [{ ...DEFAULT_FILES, dir: '/cwd/this/directory' }] },
-            ],
-            mime: [],
+            ...DEFAULT_CONFIG,
+            servers: [{ ...DEFAULT_SERVER, mount: [{ ...DEFAULT_FILES, dir: 'this/directory' }] }],
           },
         },
         {
           name: 'absolute dir',
           args: ['/this/directory'],
           expected: {
+            ...DEFAULT_CONFIG,
             servers: [{ ...DEFAULT_SERVER, mount: [{ ...DEFAULT_FILES, dir: '/this/directory' }] }],
-            mime: [],
           },
         },
         {
           name: 'port',
           args: ['--port', '2000'],
-          expected: { servers: [{ ...DEFAULT_SERVER, port: 2000 }], mime: [] },
+          expected: { ...DEFAULT_CONFIG, servers: [{ ...DEFAULT_SERVER, port: 2000 }] },
         },
         {
           name: 'host',
           args: ['--host', '0.0.0.0'],
-          expected: { servers: [{ ...DEFAULT_SERVER, host: '0.0.0.0' }], mime: [] },
+          expected: { ...DEFAULT_CONFIG, servers: [{ ...DEFAULT_SERVER, host: '0.0.0.0' }] },
         },
         {
           name: 'zstd',
@@ -120,6 +118,7 @@ describe('loadConfig', () => {
           name: 'proxy',
           args: ['--proxy', 'https://example.com'],
           expected: {
+            ...DEFAULT_CONFIG,
             servers: [
               {
                 ...DEFAULT_SERVER,
@@ -129,13 +128,13 @@ describe('loadConfig', () => {
                 ],
               },
             ],
-            mime: [],
           },
         },
         {
           name: '404',
           args: ['--404', 'nope.htm'],
           expected: {
+            ...DEFAULT_CONFIG,
             servers: [
               {
                 ...DEFAULT_SERVER,
@@ -150,13 +149,13 @@ describe('loadConfig', () => {
                 ],
               },
             ],
-            mime: [],
           },
         },
         {
           name: 'spa',
           args: ['--spa', 'root.htm'],
           expected: {
+            ...DEFAULT_CONFIG,
             servers: [
               {
                 ...DEFAULT_SERVER,
@@ -171,21 +170,36 @@ describe('loadConfig', () => {
                 ],
               },
             ],
-            mime: [],
           },
         },
         {
           name: 'mime',
           args: ['--mime', 'foo=text/foo'],
-          expected: { servers: [DEFAULT_SERVER], mime: ['foo=text/foo'] },
+          expected: { ...DEFAULT_CONFIG, servers: [DEFAULT_SERVER], mime: ['foo=text/foo'] },
         },
         {
           name: 'multiple mime',
           args: ['--mime', 'foo=text/foo', '--mime', 'bar=text/bar;baz=text/baz'],
           expected: {
+            ...DEFAULT_CONFIG,
             servers: [DEFAULT_SERVER],
             mime: ['foo=text/foo', 'bar=text/bar;baz=text/baz'],
           },
+        },
+        {
+          name: 'write-compressed',
+          args: ['--write-compressed'],
+          expected: { ...DEFAULT_CONFIG, writeCompressed: true },
+        },
+        {
+          name: 'min-compress',
+          args: ['--min-compress', '400'],
+          expected: { ...DEFAULT_CONFIG, minCompress: 400 },
+        },
+        {
+          name: 'no-serve',
+          args: ['--no-serve'],
+          expected: { ...DEFAULT_CONFIG, noServe: true },
         },
       ],
     },
@@ -216,7 +230,7 @@ const DEFAULT_FILES_OPTIONS = {
 
 const DEFAULT_FILES = {
   type: 'files',
-  dir: '/cwd',
+  dir: '.',
   options: DEFAULT_FILES_OPTIONS,
   path: '/',
 };
@@ -228,12 +242,20 @@ const DEFAULT_SERVER = {
   options: DEFAULT_SERVER_OPTIONS,
 };
 
+const DEFAULT_CONFIG = {
+  servers: [DEFAULT_SERVER],
+  mime: [],
+  writeCompressed: false,
+  minCompress: 300,
+  noServe: false,
+};
+
 const withNegotiation = (negotiation: unknown[]) => ({
+  ...DEFAULT_CONFIG,
   servers: [
     {
       ...DEFAULT_SERVER,
       mount: [{ ...DEFAULT_FILES, options: { ...DEFAULT_FILES_OPTIONS, negotiation } }],
     },
   ],
-  mime: [],
 });

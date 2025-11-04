@@ -1,7 +1,8 @@
-import { brotliCompressSync, deflateSync, gzipSync, zstdCompressSync } from 'node:zlib';
+import zlib from 'node:zlib';
 import { pipeline } from 'node:stream/promises';
 import type { ReadableStream } from 'node:stream/web';
 import { buffer } from 'node:stream/consumers';
+import { versionIsGreaterOrEqual } from '../../test-helpers/versionIsGreaterOrEqual.mts';
 import { inRequestHandler, withServer } from '../../test-helpers/withServer.mts';
 import { makeStreamSearch } from '../../test-helpers/streamSearch.mts';
 import { rawRequest, rawRequestStream } from '../../test-helpers/rawRequest.mts';
@@ -130,27 +131,22 @@ describe('getBodyStream', () => {
       parameters: [
         {
           name: 'gzip',
-          body: gzipSync('this is my content'),
+          body: zlib.gzipSync('this is my content'),
           expected: Buffer.from('this is my content', 'utf-8'),
         },
         {
           name: 'x-gzip',
-          body: gzipSync('this is my content'),
+          body: zlib.gzipSync('this is my content'),
           expected: Buffer.from('this is my content', 'utf-8'),
         },
         {
           name: 'deflate',
-          body: deflateSync('this is my content'),
+          body: zlib.deflateSync('this is my content'),
           expected: Buffer.from('this is my content', 'utf-8'),
         },
         {
           name: 'br',
-          body: brotliCompressSync('this is my content'),
-          expected: Buffer.from('this is my content', 'utf-8'),
-        },
-        {
-          name: 'zstd',
-          body: zstdCompressSync('this is my content'),
+          body: zlib.brotliCompressSync('this is my content'),
           expected: Buffer.from('this is my content', 'utf-8'),
         },
       ],
@@ -165,6 +161,22 @@ describe('getBodyStream', () => {
       ),
   );
 
+  it('supports zstd encoding', { timeout: 3000 }, () => {
+    assume(process.version, versionIsGreaterOrEqual('22.15'));
+
+    return inRequestHandler(
+      async (req) => {
+        const content = await buffer(getBodyStream(req));
+        expect(content).equals(Buffer.from('this is my content', 'utf-8'));
+      },
+      {
+        method: 'POST',
+        headers: { 'content-encoding': 'zstd' },
+        body: zlib.zstdCompressSync('this is my content'),
+      },
+    );
+  });
+
   it('can apply multiple decoding steps if configured', { timeout: 3000 }, () =>
     inRequestHandler(
       async (req) => {
@@ -174,7 +186,7 @@ describe('getBodyStream', () => {
       {
         method: 'POST',
         headers: { 'content-encoding': 'gzip, br' },
-        body: brotliCompressSync(gzipSync('this is my content')),
+        body: zlib.brotliCompressSync(zlib.gzipSync('this is my content')),
       },
     ),
   );
@@ -225,7 +237,7 @@ describe('getBodyStream', () => {
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'content-encoding': 'gzip' },
-        body: gzipSync('content which compresses well' + '.'.repeat(1000)),
+        body: zlib.gzipSync('content which compresses well' + '.'.repeat(1000)),
       });
       expect(res.status).equals(413);
       expect(await res.text()).equals('decoded content too large');

@@ -4,6 +4,7 @@ import type { ConfigServer, ConfigServerOptions } from './config/shape.mts';
 import { buildRouter } from './buildRouter.mts';
 
 export class ServerManager {
+  private _started: boolean;
   private _building: boolean;
   private _stopping: boolean;
   private readonly _log: (message: string) => void;
@@ -11,6 +12,7 @@ export class ServerManager {
   private readonly _servers: Map<number, ServerState>;
 
   constructor(log: (message: string) => void, colour: (id: string, message: string) => string) {
+    this._started = false;
     this._building = false;
     this._stopping = false;
     this._log = log;
@@ -47,6 +49,7 @@ export class ServerManager {
           }
         });
       }
+      this._started ||= tasks.length > 0;
       for (const [port, state] of this._servers) {
         if (!ports.has(port)) {
           tasks.push(state.close);
@@ -146,7 +149,9 @@ export class ServerManager {
       this._log(this._colour('2', 'shutting down'));
       await Promise.all([...this._servers.values()].map((state) => state.close()));
     }
-    this._log('shutdown complete');
+    if (this._started) {
+      this._log('shutdown complete');
+    }
   }
 
   shutdown() {

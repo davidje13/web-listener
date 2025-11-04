@@ -6,7 +6,7 @@ import {
   type ReadableStream,
   type TextDecoderOptions,
 } from 'node:stream/web';
-import { createBrotliDecompress, createZstdDecompress } from 'node:zlib';
+import zlib from 'node:zlib';
 import { HTTPError } from '../../core/HTTPError.mts';
 import { ByteLimitStream } from '../../util/ByteLimitStream.mts';
 import { internalDecodeUnicode, internalTextDecoderStream } from '../registries/charset.mts';
@@ -103,10 +103,14 @@ function internalGetDecoder(id: string): TransformStream<Uint8Array, Uint8Array>
       try {
         return new DecompressionStream('brotli' as any); // Node 24+
       } catch {
-        return Duplex.toWeb(createBrotliDecompress());
+        return Duplex.toWeb(zlib.createBrotliDecompress());
       }
     case 'zstd':
-      return Duplex.toWeb(createZstdDecompress());
+      try {
+        return Duplex.toWeb(zlib.createZstdDecompress()); // Node 22.15+
+      } catch {
+        throw new HTTPError(415, { body: 'unsupported content encoding' });
+      }
     default:
       throw new HTTPError(415, { body: 'unknown content encoding' });
   }
