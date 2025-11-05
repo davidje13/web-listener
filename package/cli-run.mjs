@@ -29,7 +29,7 @@ async function runTest() {
 
     const res = await fetch(`http://localhost:${port}/hello`);
     if (res.status !== 200) {
-      throw new Error(`unexpected response status for /hello: ${body}`);
+      throw new Error(`unexpected response status for /hello: ${res.status}`);
     }
     const body = await res.text();
     if (body !== 'Hi') {
@@ -73,7 +73,9 @@ async function awaitLine(readable, expected) {
   for await (const line of lines) {
     process.stderr.write(line + '\n');
     if (line === expected) {
-      lines.resume(); // ignore all remaining output
+      // pipe all remaining output to stderr
+      lines.close();
+      readable.pipe(process.stderr);
       return true;
     }
   }

@@ -1,0 +1,258 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "title": "Configuration for running one or more servers via the web-listener CLI",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["servers"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "servers": { "type": "array", "items": { "$ref": "#/$defs/server" } },
+    "mime": {
+      "anyOf": [
+        { "type": "array", "items": { "$ref": "#/$defs/mime" } },
+        { "$ref": "#/$defs/mime" }
+      ],
+      "default": []
+    },
+    "writeCompressed": {
+      "title": "Generate and save zstd, brotli, gzip, or deflate files for each served file before starting",
+      "type": "boolean",
+      "default": false
+    },
+    "minCompress": {
+      "title": "The minimum number of bytes that compression must save, otherwise the file is not written",
+      "type": "integer",
+      "default": 300
+    },
+    "noServe": {
+      "title": "Stop after validating the configuration and optionally writing any compressed files",
+      "type": "boolean",
+      "default": false
+    }
+  },
+
+  "$defs": {
+    "server": {
+      "title": "Configuration for one server",
+      "type": "object",
+      "additionalProperties": false,
+      "defaultSnippets": [
+        {
+          "label": "server",
+          "description": "Defines a server on a given port",
+          "body": { "port": "^${1:80}", "mount": [] }
+        }
+      ],
+      "required": ["port", "mount"],
+      "properties": {
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "host": { "type": "string", "default": "localhost" },
+        "options": {
+          "type": "object",
+          "default": {},
+          "additionalProperties": false,
+          "properties": {
+            "requestTimeout": { "type": "integer" },
+            "keepAliveTimeout": { "type": "integer" },
+            "keepAliveTimeoutBuffer": { "type": "integer" },
+            "connectionsCheckingInterval": { "type": "integer" },
+            "headersTimeout": { "type": "integer" },
+            "highWaterMark": { "type": "integer" },
+            "maxHeaderSize": { "type": "integer" },
+            "noDelay": { "type": "boolean" },
+            "requireHostHeader": { "type": "boolean" },
+            "keepAlive": { "type": "boolean" },
+            "keepAliveInitialDelay": { "type": "integer" },
+            "uniqueHeaders": { "type": "array", "items": { "type": "string" } },
+            "backlog": { "type": "integer", "default": 511 },
+            "socketTimeout": { "type": "integer" },
+            "rejectNonStandardExpect": { "type": "boolean", "default": false },
+            "autoContinue": { "type": "boolean", "default": false },
+            "logRequests": { "type": "boolean", "default": true },
+            "restartTimeout": { "type": "integer", "default": 2000 },
+            "shutdownTimeout": { "type": "integer", "default": 500 }
+          }
+        },
+        "mount": {
+          "type": "array",
+          "items": {
+            "title": "Service to mount on the server",
+            "defaultSnippets": [
+              { "label": "files", "body": { "type": "files", "path": "${1:/}", "dir": "${2:.}" } },
+              {
+                "label": "proxy",
+                "body": {
+                  "type": "proxy",
+                  "path": "${1:/}",
+                  "target": "${2:http://localhost:8080}"
+                }
+              },
+              {
+                "label": "fixture",
+                "body": {
+                  "type": "fixture",
+                  "method": "${1:GET}",
+                  "path": "${2:/}",
+                  "status": "^${3:200}",
+                  "body": "$4"
+                }
+              }
+            ],
+            "anyOf": [
+              { "$ref": "#/$defs/mount-files" },
+              { "$ref": "#/$defs/mount-proxy" },
+              { "$ref": "#/$defs/mount-fixture" }
+            ]
+          }
+        }
+      }
+    },
+    "mount-files": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": { "const": "files" },
+        "path": { "type": "string", "default": "/" },
+        "dir": { "type": "string", "default": ".", "format": "uri-reference" },
+        "options": {
+          "type": "object",
+          "default": {},
+          "additionalProperties": false,
+          "properties": {
+            "mode": { "enum": ["dynamic", "static-paths"], "default": "dynamic" },
+            "fallback": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["filePath"],
+              "properties": {
+                "statusCode": {
+                  "type": "integer",
+                  "default": 200,
+                  "minimum": 200,
+                  "maximum": 599
+                },
+                "filePath": { "type": "string" }
+              }
+            },
+            "subDirectories": {
+              "anyOf": [{ "type": "boolean" }, { "type": "integer" }],
+              "default": true
+            },
+            "caseSensitive": {
+              "enum": ["exact", "filesystem", "force-lowercase"],
+              "default": "exact"
+            },
+            "allowAllDotfiles": { "type": "boolean", "default": false },
+            "allowAllTildefiles": { "type": "boolean", "default": false },
+            "allowDirectIndexAccess": { "type": "boolean", "default": false },
+            "hide": { "type": "array", "default": [], "items": { "type": "string" } },
+            "allow": {
+              "type": "array",
+              "items": { "type": "string" },
+              "default": [".well-known"]
+            },
+            "indexFiles": {
+              "type": "array",
+              "items": { "type": "string" },
+              "default": ["index.htm", "index.html"]
+            },
+            "negotiation": {
+              "type": "array",
+              "default": [],
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "type": { "enum": ["mime", "language", "encoding"] },
+                  "options": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["match", "file"],
+                      "properties": {
+                        "match": { "type": "string" },
+                        "file": { "type": "string" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "mount-proxy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "target"],
+      "properties": {
+        "type": { "const": "proxy" },
+        "path": { "type": "string", "default": "/" },
+        "target": { "type": "string" },
+        "options": {
+          "type": "object",
+          "default": {},
+          "additionalProperties": false,
+          "properties": {
+            "noDelay": { "type": "boolean" },
+            "keepAlive": { "type": "boolean" },
+            "keepAliveInitialDelay": { "type": "integer" },
+            "keepAliveMsecs": { "type": "integer" },
+            "agentKeepAliveTimeoutBuffer": { "type": "integer" },
+            "maxSockets": { "type": "integer" },
+            "maxFreeSockets": { "type": "integer" },
+            "timeout": { "type": "integer" },
+            "blockRequestHeaders": { "type": "array", "items": { "type": "string" } },
+            "blockResponseHeaders": { "type": "array", "items": { "type": "string" } },
+
+            "servername": { "type": "string" },
+            "ca": { "type": "string" },
+            "cert": { "type": "string" },
+            "sigalgs": { "type": "string" },
+            "ciphers": { "type": "string" },
+            "crl": { "type": "string" },
+            "ecdhCurve": { "type": "string" },
+            "key": { "type": "string" },
+            "passphrase": { "type": "string" },
+            "pfx": { "type": "string" },
+            "sessionTimeout": { "type": "integer" },
+            "maxCachedSessions": { "type": "integer" }
+          }
+        }
+      }
+    },
+    "mount-fixture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "path", "body"],
+      "properties": {
+        "type": { "const": "fixture" },
+        "path": { "type": "string" },
+        "method": { "type": "string", "default": "GET" },
+        "status": { "type": "integer", "default": 200, "minimum": 200, "maximum": 599 },
+        "headers": {
+          "type": "object",
+          "default": {},
+          "additionalProperties": {
+            "anyOf": [
+              { "type": "string" },
+              { "type": "number" },
+              { "type": "array", "items": { "type": "string" } }
+            ]
+          }
+        },
+        "body": { "type": "string" }
+      }
+    },
+    "mime": {
+      "anyOf": [
+        { "type": "string", "pattern": "^file://", "format": "uri-reference" },
+        { "type": "string", "pattern": "^([^=;]+=[^/;]+/[^;]+(;|$))+$" },
+        { "type": "object", "additionalProperties": { "type": "string", "pattern": "/" } }
+      ]
+    }
+  }
+}

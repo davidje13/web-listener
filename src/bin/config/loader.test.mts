@@ -1,5 +1,7 @@
-import 'lean-test';
+import { loadSchema, makeSchemaParser } from './schema.mts';
+import type { Config } from './types.mts';
 import { loadConfig, readArgs } from './loader.mts';
+import 'lean-test';
 
 describe('readArgs', () => {
   it('loads known arguments', () => {
@@ -47,7 +49,8 @@ describe('loadConfig', () => {
   it(
     'converts arguments into configuration',
     async ({ args, expected }: any) => {
-      const config = await loadConfig(readArgs(args));
+      const parser = makeSchemaParser<Config>(await loadSchema());
+      const config = await loadConfig(parser, readArgs(args));
       expect(config).equals(expected);
     },
     {

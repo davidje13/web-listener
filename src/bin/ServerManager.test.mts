@@ -1,5 +1,5 @@
 import { findAvailablePorts } from '../test-helpers/findAvailablePorts.mts';
-import type { ConfigServer } from './config/shape.mts';
+import type { ConfigServer } from './config/types.mts';
 import { ServerManager } from './ServerManager.mts';
 import 'lean-test';
 

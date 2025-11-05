@@ -6,7 +6,7 @@
   },
   "devDependencies": {
     "@types/ws": "8.x",
-    "web-listener": "file:web-listener.tgz",
-    "typescript": "5.9.x"
+    "typescript": "5.9.x",
+    "web-listener": "file:web-listener.tgz"
   }
 }

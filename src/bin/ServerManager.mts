@@ -1,6 +1,6 @@
 import { createServer, type Server, type ServerOptions } from 'node:http';
 import { WebListener, type ListenOptions } from '../index.mts';
-import type { ConfigServer, ConfigServerOptions } from './config/shape.mts';
+import type { ConfigServer, ConfigServerOptions } from './config/types.mts';
 import { buildRouter } from './buildRouter.mts';
 
 export class ServerManager {

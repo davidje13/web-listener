@@ -1,5 +1,5 @@
 import { compressFilesInDir, type CompressionInfo } from '../index.mts';
-import type { ConfigServer } from './config/shape.mts';
+import type { ConfigServer } from './config/types.mts';
 
 export async function runCompression(
   servers: ConfigServer[],
@@ -11,7 +11,7 @@ export async function runCompression(
   for (const server of servers) {
     for (const mount of server.mount) {
       if (mount.type === 'files') {
-        const options = mount.options.negotiation.find((n) => n.type === 'encoding')?.options;
+        const options = mount.options.negotiation?.find((n) => n.type === 'encoding')?.options;
         if (!options?.length) {
           log(`skipping ${mount.dir} because no compression is configured`);
           continue;

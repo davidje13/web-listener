@@ -1,9 +1,10 @@
 import { readFile } from 'node:fs/promises';
 import { decompressMime, readMimeTypes, registerMime, resetMime } from '../index.mts';
+import type { ConfigMime } from './config/types.mts';
 
-export async function loadMime(mime: (string | Record<string, string>)[]) {
+export async function loadMime(mime: ConfigMime | ConfigMime[]) {
   const newMimes: Map<string, string>[] = [];
-  for (const item of mime) {
+  for (const item of Array.isArray(mime) ? mime : [mime]) {
     if (typeof item !== 'string') {
       newMimes.push(new Map(Object.entries(item)));
     } else if (item.startsWith('file://')) {

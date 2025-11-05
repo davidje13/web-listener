@@ -11,7 +11,7 @@ describe('buildRouter', () => {
 
     it('adds file server middleware', { timeout: 3000 }, async ({ getTyped }) => {
       const router = await buildRouter([
-        { type: 'files', dir: getTyped(TEST_DIR), path: '/', options: {} as any },
+        { type: 'files', dir: getTyped(TEST_DIR), path: '/', options: {} },
       ]);
       return withServer(router, async (url) => {
         await expect(fetch(url + '/file.txt'), responds({ body: 'Content' }));
@@ -27,7 +27,7 @@ describe('buildRouter', () => {
 
       return withServer(upstream, async (upstreamUrl) => {
         const router = await buildRouter([
-          { type: 'proxy', target: upstreamUrl, path: '/', options: {} as any },
+          { type: 'proxy', target: upstreamUrl, path: '/', options: {} },
         ]);
         return withServer(router, async (url) => {
           await expect(fetch(url), responds({ body: 'upstream handling GET /' }));

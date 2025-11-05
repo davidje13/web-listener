@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { addTeardown, CONTINUE, fileServer, proxy, requestHandler, Router } from '../index.mts';
-import type { ConfigMount } from './config/shape.mts';
+import type { ConfigMount } from './config/types.mts';
 
 export interface LogInfo {
   method: string;

@@ -40,13 +40,14 @@
     "@types/busboy": "1.x",
     "@types/node": "24.x",
     "@types/ws": "8.x",
+    "ajv": "8.x",
+    "ajv-formats": "3.x",
     "busboy": "1.6.0",
-    "eventsource": "^4.0.0",
+    "eventsource": "4.x",
     "lean-test": "2.x",
     "prettier": "3.6.2",
     "rollup": "4.x",
     "rollup-plugin-dts": "6.x",
-    "streamsearch": "1.1.0",
     "typescript": "5.9.x",
     "ws": "8.x"
   }

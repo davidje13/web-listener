@@ -3,6 +3,8 @@ import { readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { helpText } from './config/help.mts';
 import { loadConfig, readArgs } from './config/loader.mts';
+import type { Config } from './config/types.mts';
+import { loadSchema, makeSchemaParser } from './config/schema.mts';
 import { ServerManager } from './ServerManager.mts';
 import { runCompression } from './compression.mts';
 import { loadMime } from './mime.mts';
@@ -43,6 +45,7 @@ async function run() {
   const manager = new ServerManager(log, addColour);
   process.on('unhandledRejection', () => manager.shutdown());
   process.on('uncaughtException', () => manager.shutdown());
+  const parser = makeSchemaParser<Config>(await loadSchema());
 
   function stop() {
     process.stdin.destroy();
@@ -50,7 +53,7 @@ async function run() {
   }
 
   async function load() {
-    const config = await loadConfig(args);
+    const config = await loadConfig(parser, args);
     await loadMime(config.mime);
     if (config.writeCompressed) {
       await runCompression(config.servers, config.minCompress, log);

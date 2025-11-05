@@ -1,0 +1,24 @@
+{
+  "$schema": "node_modules/web-listener/schema.json",
+  "servers": [
+    {
+      "port": 8080,
+      "mount": [
+        {
+          "type": "fixture",
+          "method": "GET",
+          "path": "/config.json",
+          "status": 200,
+          "body": "{\"env\":\"local\"}"
+        },
+        { "type": "proxy", "path": "/api", "target": "http://localhost:8090" },
+        { "type": "files", "path": "/", "dir": "web" }
+      ]
+    }
+  ],
+  "mime": [
+    "ext=text/foo;one,two=text/more",
+    "file://apache.types",
+    { "thing": "application/x-thing" }
+  ]
+}

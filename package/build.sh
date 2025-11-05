@@ -16,8 +16,12 @@ rm -rf "$BASE_DIR/build/types";
 cp "$BASE_DIR/README.md" "$BASE_DIR/LICENSE" "$BASE_DIR/build";
 node \
   -e 'const j=JSON.parse(process.argv[1]);for(const k of ["private","devDependencies","scripts"])delete j[k];process.stdout.write(JSON.stringify(j,null,"\t")+"\n");' \
-  "$(cat $BASE_DIR/package.json)" \
+  "$(cat "$BASE_DIR/package.json")" \
   > "$BASE_DIR/build/package.json";
+node \
+  -e 'process.stdout.write(JSON.stringify(JSON.parse(process.argv[1]))+"\n");' \
+  "$(cat "$BASE_DIR/src/bin/config/schema.json")" \
+  > "$BASE_DIR/build/schema.json";
 
 cd "$BASE_DIR/build";
 npm pack;

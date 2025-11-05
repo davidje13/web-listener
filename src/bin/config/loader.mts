@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
-import { config, type Config } from './shape.mts';
 import type { FileNegotiationOption } from '../../index.mts';
+import type { Mapper } from './schema.mts';
+import type { Config } from './types.mts';
 
 const shorthands = new Map<string, string>([
   ['', 'dir'],
@@ -119,7 +120,10 @@ export function readArgs(argv: string[]) {
   return lookup;
 }
 
-export async function loadConfig(args: Map<string, unknown>): Promise<Config> {
+export async function loadConfig(
+  parser: Mapper<Config>,
+  args: Map<string, unknown>,
+): Promise<Config> {
   const stringListParam = (name: string) => (args.get(name) ?? []) as string[];
   const stringParam = (name: string) => args.get(name) as string | undefined;
   const numberParam = (name: string) => args.get(name) as number | undefined;
@@ -140,11 +144,11 @@ export async function loadConfig(args: Map<string, unknown>): Promise<Config> {
     throw new Error('multiple config files are not supported');
   }
 
-  let c: unknown;
+  let config: Config;
   if (file) {
-    c = JSON.parse(await readFile(file, 'utf-8'));
+    config = parser(JSON.parse(await readFile(file, 'utf-8')), { file, path: '' });
   } else if (json) {
-    c = JSON.parse(json);
+    config = parser(JSON.parse(json), { file: '', path: '' });
   } else {
     let fallback: unknown;
     if (spa) {
@@ -153,14 +157,13 @@ export async function loadConfig(args: Map<string, unknown>): Promise<Config> {
       fallback = { statusCode: 404, filePath: err404 };
     }
     const mount: unknown[] = [{ type: 'files', dir: dir, options: { fallback } }];
-    c = { servers: [{ port: 8080, mount }] };
     if (proxy) {
       mount.push({ type: 'proxy', target: proxy });
     }
+    config = parser({ servers: [{ port: 8080, mount }] }, { file: '', path: '' });
   }
 
-  const sanitised = config(c);
-  const singleServer = sanitised.servers.length === 1 ? sanitised.servers[0] : undefined;
+  const singleServer = config.servers.length === 1 ? config.servers[0] : undefined;
   if (port !== undefined) {
     if ((port | 0) !== port) {
       throw new Error('port must be an integer');
@@ -172,7 +175,7 @@ export async function loadConfig(args: Map<string, unknown>): Promise<Config> {
     }
   }
   if (host !== undefined) {
-    for (const server of sanitised.servers) {
+    for (const server of config.servers) {
       server.host = host;
     }
   }
@@ -180,9 +183,10 @@ export async function loadConfig(args: Map<string, unknown>): Promise<Config> {
     type: 'mime' | 'language' | 'encoding',
     encoding: FileNegotiationOption,
   ) => {
-    for (const server of sanitised.servers) {
+    for (const server of config.servers) {
       for (const mount of server.mount) {
         if (mount.type === 'files') {
+          mount.options.negotiation ??= [];
           let enc = mount.options.negotiation.find((n) => n.type === type);
           if (!enc) {
             enc = { type, options: [] };
@@ -201,26 +205,26 @@ export async function loadConfig(args: Map<string, unknown>): Promise<Config> {
     }
   }
   if (mime.length || mimeTypes.length) {
-    if (!Array.isArray(sanitised.mime)) {
-      if (sanitised.mime) {
-        sanitised.mime = [sanitised.mime];
+    if (!Array.isArray(config.mime)) {
+      if (config.mime) {
+        config.mime = [config.mime];
       } else {
-        sanitised.mime = [];
+        config.mime = [];
       }
     }
-    sanitised.mime.push(...mime);
-    sanitised.mime.push(...mimeTypes.map((path) => `file://${path}`));
+    config.mime.push(...mime);
+    config.mime.push(...mimeTypes.map((path) => `file://${path}`));
   }
   if (args.get('write-compressed')) {
-    sanitised.writeCompressed = true;
+    config.writeCompressed = true;
   }
   if (minCompress !== undefined) {
-    sanitised.minCompress = minCompress;
+    config.minCompress = minCompress;
   }
   if (args.get('no-serve')) {
-    sanitised.noServe = true;
+    config.noServe = true;
   }
-  return sanitised;
+  return config;
 }
 
 const ENCODINGS = new Map<string, FileNegotiationOption>([
