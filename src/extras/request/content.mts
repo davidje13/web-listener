@@ -93,6 +93,12 @@ export async function getBodyJson(
 
 function internalGetDecoder(id: string): TransformStream<Uint8Array, Uint8Array> {
   // https://www.iana.org/assignments/http-parameters/http-parameters.xml
+
+  // Note: once upon a time, using zlib without limiting the concurrency led to memory
+  // fragmentation issues in Node.js.
+  // Testing in 2025 shows that this is no longer the case, and it is safe to create as
+  // many of these as we need to meet demand.
+  // See https://github.com/nodejs/node/issues/8871#issuecomment-3493763033
   switch (id.toLowerCase()) {
     case 'gzip':
     case 'x-gzip':
