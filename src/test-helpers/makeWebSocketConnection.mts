@@ -1,14 +1,16 @@
+import { WebSocket } from 'ws';
 import { BlockingQueue } from '../util/BlockingQueue.mts';
 
 export function makeWebSocketConnection(url: string) {
   const received = new BlockingQueue<string>();
-  const ws = new WebSocket(url);
+  const ws = new WebSocket(url); // for now we use 'ws' for this, but in Node.js 21.0+ we can use the native WebSocket
   ws.addEventListener('open', () => received.push('OPEN'));
   ws.addEventListener('message', (ev) => received.push(`MESSAGE: ${ev.data}`));
   ws.addEventListener('close', (ev) => {
     received.push(`CLOSED: ${ev.code} ${ev.reason}`);
     received.close(`connection closed ${ev.code} ${ev.reason}`);
   });
+  ws.addEventListener('error', () => received.push('ERROR'));
   return {
     ws,
     next: () => received.shift(500),

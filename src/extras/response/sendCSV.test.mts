@@ -3,6 +3,7 @@ import { text } from 'node:stream/consumers';
 import { Duplex } from 'node:stream';
 import { withServer } from '../../test-helpers/withServer.mts';
 import { rawRequest } from '../../test-helpers/rawRequest.mts';
+import { versionIsGreaterOrEqual } from '../../test-helpers/versionIsGreaterOrEqual.mts';
 import { requestHandler } from '../../core/handler.mts';
 import { sendCSVStream } from './sendCSV.mts';
 import 'lean-test';
@@ -98,6 +99,8 @@ describe('sendCSVStream', () => {
   });
 
   it('sends data on the wire efficiently', { timeout: 3000 }, async () => {
+    assume(process.version, versionIsGreaterOrEqual('21.0')); // response corking is not supported in earlier versions
+
     const handler = requestHandler(async (_, res) => {
       await sendCSVStream(res, [
         ['A1', 'B1'],
@@ -123,6 +126,8 @@ describe('sendCSVStream', () => {
   });
 
   it('flushes to the wire if a large value is written', { timeout: 3000 }, async () => {
+    assume(process.version, versionIsGreaterOrEqual('21.0')); // response corking is not supported in earlier versions
+
     const large = 'x'.repeat(100000);
     const handler = requestHandler(async (_, res) => {
       await sendCSVStream(res, [['before', large, 'after1', 'after2']]);
