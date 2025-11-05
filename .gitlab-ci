@@ -1,0 +1,24 @@
+variables:
+  # Setting a depth of 1 can result in jobs failing if they are not the latest commit when they begin executing.
+  # See https://docs.gitlab.com/ee/ci/runners/configure_runners.html#shallow-cloning
+  GIT_DEPTH: '3'
+
+.build_and_test: &build_and_test
+  script:
+    - npm install-test
+
+node:20:
+  <<: *build_and_test
+  image: node:20
+
+node:22:
+  <<: *build_and_test
+  image: node:22
+
+node:24:
+  <<: *build_and_test
+  image: node:24
+
+node:25:
+  <<: *build_and_test
+  image: node:25
