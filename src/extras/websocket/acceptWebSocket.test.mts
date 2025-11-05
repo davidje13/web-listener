@@ -1,6 +1,7 @@
 import { WebSocketServer } from 'ws';
 import { withServer } from '../../test-helpers/withServer.mts';
 import { makeWebSocketConnection } from '../../test-helpers/makeWebSocketConnection.mts';
+import { versionIsGreaterOrEqual } from '../../test-helpers/versionIsGreaterOrEqual.mts';
 import { requestHandler, upgradeHandler } from '../../core/handler.mts';
 import { HTTPError } from '../../core/HTTPError.mts';
 import { WebSocketError } from './WebSocketError.mts';
@@ -118,6 +119,8 @@ describe('acceptWebSocket', () => {
   });
 
   it('fails if called from a request handler', { timeout: 3000 }, () => {
+    assume(process.version, versionIsGreaterOrEqual('24.9'));
+
     const acceptWebSocket = makeAcceptWebSocket(WebSocketServer);
 
     const handler = requestHandler(async (req) => {

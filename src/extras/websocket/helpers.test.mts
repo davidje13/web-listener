@@ -2,6 +2,7 @@ import { WebSocket, WebSocketServer } from 'ws';
 import { withServer } from '../../test-helpers/withServer.mts';
 import { rawRequest } from '../../test-helpers/rawRequest.mts';
 import { makeWebSocketConnection } from '../../test-helpers/makeWebSocketConnection.mts';
+import { versionIsGreaterOrEqual } from '../../test-helpers/versionIsGreaterOrEqual.mts';
 import { anyHandler, requestHandler } from '../../core/handler.mts';
 import { Router } from '../../core/Router.mts';
 import { getAuthData, requireBearerAuth } from '../auth/bearer.mts';
@@ -61,6 +62,8 @@ describe('isWebSocketRequest', () => {
   });
 
   it('returns false for upgrades handled as requests', { timeout: 3000 }, () => {
+    assume(process.version, versionIsGreaterOrEqual('24.9'));
+
     let result: unknown;
     const handler = requestHandler((req, res) => {
       result = isWebSocketRequest(req);

@@ -18,6 +18,29 @@ export async function rawRequest(
   return await text(socket);
 }
 
+export function unchunk(response: string): string {
+  // This function normalises chunked output for tests in Node 20 (which does not support
+  // ServerResponse corking). Once Node 20 is end-of-life, we can remove it.
+  if (Number(process.versions.node.split('.')[0]) >= 20) {
+    return response;
+  }
+  let chunks = [];
+  let p = response.indexOf('\r\n\r\n') + 4;
+  while (true) {
+    const sep = response.indexOf('\r\n', p);
+    if (sep === -1) {
+      throw new Error('malformed response: ' + response);
+    }
+    const size = Number.parseInt(response.substring(p, sep), 16);
+    chunks.push(response.substring(sep + 2, sep + 2 + size));
+    if (size === 0) {
+      break;
+    }
+    p = sep + 2 + size + 2;
+  }
+  return chunks.join('');
+}
+
 export async function rawRequestStream(
   target: string,
   init: Pick<RequestInit, 'method' | 'body' | 'headers'> = {},
