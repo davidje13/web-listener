@@ -15,7 +15,7 @@ describe('makeTempFileStorage', () => {
       expect(storage.dir).startsWith(join(tmpdir(), 'upload'));
       const s = await stat(storage.dir);
       expect(s.isDirectory()).isTrue();
-      expect(s.ctimeMs).isGreaterThan(begin);
+      expect(Math.ceil(s.ctimeMs)).isGreaterThanOrEqual(begin); // ctimeMs can have higher precision
 
       await teardown();
       // directory is deleted once the request ends

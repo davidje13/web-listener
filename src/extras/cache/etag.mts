@@ -7,7 +7,7 @@ export function generateWeakETag(
   contentEncoding: string | number | string[] | undefined,
   stats: Pick<Stats, 'mtimeMs' | 'size'>,
 ) {
-  const token = `${stats.mtimeMs} ${stats.size} ${contentEncoding ?? ''}`;
+  const token = `${stats.mtimeMs | 0} ${stats.size} ${contentEncoding ?? ''}`;
   const hash = createHash('sha256').update(token).digest('base64').substring(0, 12);
   return `W/"${hash}"`;
 }
