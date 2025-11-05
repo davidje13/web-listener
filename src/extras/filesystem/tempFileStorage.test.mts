@@ -15,7 +15,9 @@ describe('makeTempFileStorage', () => {
       expect(storage.dir).startsWith(join(tmpdir(), 'upload'));
       const s = await stat(storage.dir);
       expect(s.isDirectory()).isTrue();
-      expect(Math.ceil(s.ctimeMs)).isGreaterThanOrEqual(begin); // ctimeMs can have higher precision
+      // check directory is not something that already existed
+      // (we allow some clock skew between process time and filesystem time - we just need to know it was recently created)
+      expect(s.ctimeMs).isGreaterThan(begin - 100);
 
       await teardown();
       // directory is deleted once the request ends

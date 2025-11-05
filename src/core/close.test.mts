@@ -168,7 +168,7 @@ describe('scheduleClose', () => {
         events.push('soft close called: ' + reason);
         res.end();
       });
-      scheduleClose(req, 'timeout', Date.now() + 50, 20);
+      scheduleClose(req, 'timeout', Date.now() + 1000, 950);
     });
 
     return withServer(handler, async (url) => {

@@ -21,7 +21,7 @@ export async function rawRequest(
 export function unchunk(response: string): string {
   // This function normalises chunked output for tests in Node 20 (which does not support
   // ServerResponse corking). Once Node 20 is end-of-life, we can remove it.
-  if (Number(process.versions.node.split('.')[0]) >= 20) {
+  if (Number(process.versions.node.split('.')[0]) >= 21) {
     return response;
   }
   let chunks = [];

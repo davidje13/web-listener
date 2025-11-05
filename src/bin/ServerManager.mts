@@ -119,6 +119,8 @@ export class ServerManager {
     const detach = weblistener.attach(server, options);
     if (launch) {
       await launch;
+      // wait an extra tick before confirming we are ready (required on Linux)
+      await new Promise((resolve) => setTimeout(resolve, 0));
       this._log(`${name} ready`);
     }
     return {

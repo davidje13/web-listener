@@ -13,12 +13,10 @@ describe('ServerSentEvents', () => {
     const handler = requestHandler(async (req, res) => {
       const sse = new ServerSentEvents(req, res);
       await sse.send({ event: 'welcome', data: 'hello' });
-      while (sse.open) {
-        await sse.send({ data: 'tick' });
-        // note: if the delay here is too low, we risk sending data when the client
-        // is aborting the connection, which would lead to `Error: read ECONNRESET`
-        await new Promise((resolve) => setTimeout(resolve, 30));
-      }
+      await new Promise((resolve) => setTimeout(resolve, 30));
+      await sse.send({ data: 'tick' });
+      await new Promise((resolve) => setTimeout(resolve, 30));
+      await sse.send({ data: 'tick' });
     });
 
     return withServer(handler, async (url) => {

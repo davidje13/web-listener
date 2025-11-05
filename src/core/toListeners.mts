@@ -162,6 +162,7 @@ export function toListeners(
 
       // `Error: read ECONNRESET at TCP.onStreamRead` usually means the client aborted
       // the connection while the server was sending data (and wanted an ACK).
+      // Same observed as `EPIPE Error: write EPIPE` on Linux.
 
       if (code === 'HPE_INVALID_EOF_STATE') {
         // Client aborted before uploading the entire body
