@@ -174,7 +174,7 @@ describe('getFormFields', () => {
             const nextField = stepper(
               getFormFields(req, {
                 limits: { fieldNameSize: 5 },
-                closeAfterErrorDelay: 20,
+                closeAfterErrorDelay: 50,
               }),
             );
             await expect(nextField).throws('field name "longn"... too long');
@@ -204,7 +204,7 @@ describe('getFormFields', () => {
             const nextField = stepper(
               getFormFields(req, {
                 limits: { fieldNameSize: 5 },
-                closeAfterErrorDelay: 20,
+                closeAfterErrorDelay: 50,
               }),
             );
             await expect(nextField).throws('field name "longn"... too long');

@@ -202,7 +202,7 @@ describe('scheduleClose', () => {
       setSoftCloseHandler(req, () => {
         throw 'oops';
       });
-      scheduleClose(req, 'timeout', Date.now() + 50, 20, (error, action) => {
+      scheduleClose(req, 'timeout', Date.now() + 100, 50, (error, action) => {
         capturedErrors.push({ error, action });
       });
     });
