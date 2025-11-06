@@ -11,7 +11,6 @@ import type {
 } from '../polyfill/serverTypes.mts';
 import { VOID_BUFFER } from '../util/voidBuffer.mts';
 import { ErrorAccumulator } from '../util/ErrorAccumulator.mts';
-import type { WithoutPathParameters } from './pathParameters.mts';
 import { internalCheckShouldUpgrade, internalRunHandler } from './Router.mts';
 import type { Handler } from './handler.mts';
 import { internalBeginRequest, internalBeginResponse, type MessageProps } from './messages.mts';
@@ -42,7 +41,7 @@ export interface NativeListeners {
 }
 
 export function toListeners(
-  handler: Handler<WithoutPathParameters>,
+  handler: Handler,
   { onError = internalLogError, socketCloseTimeout = 500 }: NativeListenersOptions = {},
 ): NativeListeners {
   const allClosedCallbacks: (() => void)[] = [];

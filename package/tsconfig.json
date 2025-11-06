@@ -1,8 +1,5 @@
 {
-  "compilerOptions": {
-    "strict": true,
-    "noImplicitAny": true
-  },
+  "compilerOptions": { "strict": true },
   "include": ["typescript.ts"],
   "exclude": ["node_modules"]
 }

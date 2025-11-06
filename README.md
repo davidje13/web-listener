@@ -163,6 +163,11 @@ weblistener.attach(server);
 server.listen(8080, 'localhost');
 ```
 
+## TypeScript
+
+Types are included in the library. Note that for full type safety (particularly path parameters),
+you must set `"strict": true` (or at least `"strictFunctionTypes": true`) in your `tsconfig.json`.
+
 ## API Documentation
 
 TODO: write API documentation

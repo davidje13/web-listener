@@ -2,8 +2,9 @@ import type { IncomingMessage } from 'node:http';
 import { internalGetProps, type MessageProps } from './messages.mts';
 
 const PATH_PARAMETERS = Symbol();
-export type WithPathParameters<PathParameters> = { [PATH_PARAMETERS]: PathParameters };
-export type WithoutPathParameters = { [PATH_PARAMETERS]?: { [k in PropertyKey]?: never } };
+export type WithPathParameters<PathParameters> = {} extends PathParameters
+  ? { [PATH_PARAMETERS]?: PathParameters }
+  : { [PATH_PARAMETERS]: PathParameters };
 
 const EMPTY = Object.freeze({});
 

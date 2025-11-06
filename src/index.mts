@@ -43,7 +43,6 @@ export {
   getAbsolutePath,
   restoreAbsolutePath,
   type WithPathParameters,
-  type WithoutPathParameters,
 } from './core/pathParameters.mts';
 export { getSearch, getSearchParams, getQuery } from './core/queryParameters.mts';
 export { Router, type CommonMethod, type CommonUpgrade } from './core/Router.mts';

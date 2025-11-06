@@ -1,7 +1,6 @@
 import { createServer, type IncomingMessage, type Server, type ServerOptions } from 'node:http';
 import type { TypedEventTarget } from '../polyfill/TypedEventTarget.mts';
 import { toListeners, type NativeListenersOptions } from './toListeners.mts';
-import type { WithoutPathParameters } from './pathParameters.mts';
 import type { Handler } from './handler.mts';
 import { internalLogError } from './errorHandler.mts';
 
@@ -56,7 +55,7 @@ export class WebListener extends (EventTarget as TypedEventTarget<
 >) {
   /** @internal */ private readonly _handler: Handler;
 
-  constructor(handler: Handler<WithoutPathParameters>) {
+  constructor(handler: Handler) {
     super();
     this._handler = handler;
   }

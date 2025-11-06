@@ -93,9 +93,27 @@ subRouter.within('/:a', (sub) =>
   }),
 );
 r.mount('/:foo', subRouter);
+r.mount('/:foo/:extra', subRouter);
 
 // @ts-expect-error
 r.mount('/:foo2', subRouter);
+
+// @ts-expect-error
+r.mount('/*foo', subRouter);
+
+// @ts-expect-error
+r.mount('/no-params', subRouter);
+
+// @ts-expect-error
+r.mount('/:foo', new Router<WithPathParameters<{ foo: string; bar: string }>>());
+
+const subRouterNoParams = new Router();
+subRouterNoParams.get('/:p', (req) => {
+  assertType(getPathParameters(req))<Readonly<{ p: string }>>();
+});
+
+r.mount('/nothing', subRouterNoParams);
+r.mount('/:anything', subRouterNoParams);
 
 r.on('GET /:id/:2', async (req, res) => {
   const sse = new ServerSentEvents(req, res);
