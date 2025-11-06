@@ -81,8 +81,11 @@ function internalReadMap<T extends string>(
 }
 
 export interface NegotiationOutputInfo {
+  /** The negotiated mime type for the resolved file */
   mime?: string | undefined;
+  /** The negotiated language for the resolved file */
   language?: string | undefined;
+  /** The negotiated encoding for the resolved file */
   encoding?: string | undefined;
 }
 

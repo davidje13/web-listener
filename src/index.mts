@@ -102,8 +102,8 @@ export { acceptBody } from './extras/request/continue.mts';
 export {
   getFormData,
   getFormFields,
-  type GetFormDataConfig,
-  type GetFormFieldsConfig,
+  type GetFormDataOptions,
+  type GetFormFieldsOptions,
   type PreCheckFile,
   type PreCheckFileInfo,
   type PostCheckFile,

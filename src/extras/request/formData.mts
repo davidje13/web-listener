@@ -14,7 +14,7 @@ import { acceptBody } from './continue.mts';
 
 export function getFormFields(
   req: IncomingMessage,
-  { allowMultipart = false, closeAfterErrorDelay = 500, limits = {} }: GetFormFieldsConfig = {},
+  { allowMultipart = false, closeAfterErrorDelay = 500, limits = {} }: GetFormFieldsOptions = {},
 ): AsyncIterable<FormField, unknown, undefined> {
   const type = req.headers['content-type'] ?? '';
   const supported =
@@ -108,7 +108,7 @@ export function getFormFields(
 
 export async function getFormData(
   req: IncomingMessage,
-  config: GetFormDataConfig = {},
+  config: GetFormDataOptions = {},
 ): Promise<AugmentedFormData> {
   const data = new FormData();
   const pathLookup = new Map<Blob, string>();
@@ -160,16 +160,43 @@ export async function getFormData(
       const value = data.get(name);
       return value === null ? null : value === 'true' || value === 'on';
     },
+
+    getString(name: string) {
+      const value = data.get(name);
+      return typeof value === 'string' ? value : null;
+    },
+
+    getAllStrings(name: string) {
+      return data.getAll(name).filter((v) => typeof v === 'string');
+    },
+
+    getFile(name: string) {
+      const value = data.get(name);
+      return typeof value === 'string' ? null : value;
+    },
+
+    getAllFiles(name: string) {
+      return data.getAll(name).filter((v) => typeof v !== 'string');
+    },
   });
 }
 
-export interface GetFormFieldsConfig {
+export interface GetFormFieldsOptions {
+  /**
+   * True to allow `multipart/form-data` (including file uploads). Otherwise only `application/x-www-form-urlencoded` is supported.
+   * @default false
+   */
   allowMultipart?: boolean;
+  /**
+   * Delay (in milliseconds) before forcibly closing the request if an error occurs (e.g. a limit is exceeded).
+   * This can be used to prevent clients uploading large files when the request has already been rejected.
+   * @default 500
+   */
   closeAfterErrorDelay?: number;
   limits?: Limits;
 }
 
-export interface GetFormDataConfig extends GetFormFieldsConfig {
+export interface GetFormDataOptions extends GetFormFieldsOptions {
   /** true to apply .trim() to all field values */
   trimAllValues?: boolean;
 
@@ -200,8 +227,11 @@ export type FormField = { name: string; mimeType: string; encoding: string } & (
 
 export interface AugmentedFormData extends FormData {
   getTempFilePath(file: Blob): string;
-
   getBoolean(name: string): boolean | null;
+  getString(name: string): string | null;
+  getAllStrings(name: string): string[];
+  getFile(name: string): File | null;
+  getAllFiles(name: string): File[];
 }
 
 // Limits interface comes from busboy (duplicated here to avoid runtime dependency on @types/busboy)

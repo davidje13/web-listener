@@ -46,6 +46,10 @@ type RelaxedRequestHandler<Req = {}> =
   | RequestHandler<Req>
   | ErrorHandler<Req>;
 
+type RelaxedRequestHandlerOrExplicitUpgrade<Req = {}> =
+  | RelaxedRequestHandler<Req>
+  | UpgradeHandler<Req>;
+
 type RelaxedUpgradeHandler<Req = {}> =
   | UpgradeHandlerFn<Req>
   | UpgradeHandler<Req>
@@ -104,8 +108,8 @@ export class Router<Req = {}> implements Required<Handler<Req>> {
   /**
    * Register handlers or routers for all requests, upgrades, and errors, on all methods and paths.
    */
-  use(...handlers: Handler<Req>[]): this {
-    return this._add(null, null, null, true, handlers);
+  use(...handlers: RelaxedRequestHandlerOrExplicitUpgrade<Req>[]): this {
+    return this._add(null, null, null, true, handlers.map(wrapHandlerRequest));
   }
 
   /**
@@ -116,9 +120,11 @@ export class Router<Req = {}> implements Required<Handler<Req>> {
    */
   mount<Path extends string>(
     path: Path,
-    ...handlers: Handler<Req & WithPathParameters<ParametersFromPath<Path>>>[]
+    ...handlers: RelaxedRequestHandlerOrExplicitUpgrade<
+      Req & WithPathParameters<ParametersFromPath<Path>>
+    >[]
   ): this {
-    return this._add(null, null, path, true, handlers);
+    return this._add(null, null, path, true, handlers.map(wrapHandlerRequest));
   }
 
   /**
@@ -141,9 +147,11 @@ export class Router<Req = {}> implements Required<Handler<Req>> {
    */
   at<Path extends string>(
     path: Path,
-    ...handlers: Handler<Req & WithPathParameters<ParametersFromPath<Path>>>[]
+    ...handlers: RelaxedRequestHandlerOrExplicitUpgrade<
+      Req & WithPathParameters<ParametersFromPath<Path>>
+    >[]
   ): this {
-    return this._add(null, null, path, false, handlers);
+    return this._add(null, null, path, false, handlers.map(wrapHandlerRequest));
   }
 
   /**

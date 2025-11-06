@@ -413,9 +413,13 @@ export class FileFinder implements FileFinderCore {
 }
 
 export interface ResolvedFileInfo extends NegotiationOutputInfo {
+  /** An active filehandle for the resolved file. Note that this MUST be closed by the caller. */
   handle: FileHandle;
+  /** The full path of the requested file (after adding implicit extensions and index files) */
   canonicalPath: string;
+  /** The full path of the resolved file (which may differ from canonicalPath by including e.g. `.gz` if gzip encoding was negotiated) */
   negotiatedPath: string;
+  /** Filesystem stats about the resolved file */
   stats: Stats;
 }
 

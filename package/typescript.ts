@@ -1,4 +1,5 @@
-import type { IncomingMessage } from 'node:http';
+import type { IncomingMessage, ServerResponse } from 'node:http';
+import type { Duplex } from 'node:stream';
 import { WebSocket, WebSocketServer } from 'ws';
 import {
   WebListener,
@@ -14,6 +15,7 @@ import {
   type WebSocketMessage,
   type WithPathParameters,
   ServerSentEvents,
+  upgradeHandler,
 } from 'web-listener';
 
 // this file just checks types; the code is not executed
@@ -90,6 +92,21 @@ r.use(
   }),
   requireAuthScope('foo'),
 );
+
+r.use((req, res) => {
+  assertType(req)<IncomingMessage>();
+  assertType(res)<ServerResponse>();
+});
+
+r.use(
+  upgradeHandler((req, socket) => {
+    assertType(req)<IncomingMessage>();
+    assertType(socket)<Duplex>();
+  }),
+);
+
+// @ts-expect-error
+r.use(0);
 
 const subRouter = new Router<WithPathParameters<{ foo: string }>>();
 subRouter.within('/:a', (sub) =>

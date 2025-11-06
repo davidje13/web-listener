@@ -8,7 +8,7 @@ import {
   getFormData,
   getFormFields,
   type FormField,
-  type GetFormFieldsConfig,
+  type GetFormFieldsOptions,
 } from './formData.mts';
 import '../../polyfill/fetch.mts';
 import 'lean-test';
@@ -611,6 +611,32 @@ describe('getFormData', () => {
     ),
   );
 
+  it('adds convenience methods for reading string and file values', { timeout: 3000 }, () =>
+    inRequestHandler(
+      async (req) => {
+        const data = await getFormData(req, { allowMultipart: true });
+        expect(data.getString('field')).equals('value');
+        expect(data.getString('upload')).isNull();
+
+        expect(data.getAllStrings('field')).equals(['value']);
+        expect(data.getAllStrings('upload')).equals([]);
+
+        expect(data.getFile('field')).isNull();
+        expect(data.getFile('upload')).isTruthy();
+
+        expect(data.getAllFiles('field')).equals([]);
+        expect(data.getAllFiles('upload')).hasLength(1);
+      },
+      {
+        method: 'POST',
+        body: makeFormData([
+          ['field', 'value'],
+          ['upload', new File(['file content'], 'dir/filename.txt', { type: 'foo/bar' })],
+        ]),
+      },
+    ),
+  );
+
   it('runs pre-checks on uploaded files', { timeout: 3000 }, () =>
     withServer(
       requestHandler(async (req) => {
@@ -654,7 +680,7 @@ describe('getFormData', () => {
   });
 });
 
-const consumeFormFields = (config: GetFormFieldsConfig) =>
+const consumeFormFields = (config: GetFormFieldsOptions) =>
   requestHandler(async (req, res) => {
     for await (const field of getFormFields(req, config)) {
       if (field.type === 'file') {
