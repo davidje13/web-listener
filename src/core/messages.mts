@@ -142,7 +142,7 @@ function internalReadUpgradeProtocols(req: IncomingMessage) {
 }
 
 // These two methods are the only internals needed by the extras
-// (external things can use makeProperty / makeMemo instead, but this direct access is fractionally faster)
+// (external things can use Property / makeMemo instead, but this direct access is fractionally faster)
 
 export const internalGetProps = <T = {},>(req: IncomingMessage) =>
   REQUESTS.get(req) as (MessageProps & Partial<T>) | undefined;

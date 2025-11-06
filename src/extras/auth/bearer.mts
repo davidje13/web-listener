@@ -6,7 +6,7 @@ import { anyHandler, type RequestHandler, type UpgradeHandler } from '../../core
 import { HTTPError } from '../../core/HTTPError.mts';
 import type { ServerErrorCallback } from '../../core/errorHandler.mts';
 import { getAuthorization } from '../request/headers.mts';
-import { makeProperty, internalAsFactory } from '../properties.mts';
+import { Property, internalAsFactory } from '../properties.mts';
 
 interface BearerAuthOptions<Req, Token> {
   realm: string | ((req: IncomingMessage & Req) => MaybePromise<string>);
@@ -92,7 +92,7 @@ export const requireAuthScope = (scope: string): RequestHandler & UpgradeHandler
     return CONTINUE;
   });
 
-const AUTH = /*@__PURE__*/ makeProperty({
+const AUTH = /*@__PURE__*/ new Property({
   realm: '',
   data: null as unknown,
   scopes: new Set<string>(),

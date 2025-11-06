@@ -3,12 +3,12 @@ import { responds } from '../test-helpers/responds.mts';
 import { Router } from '../core/Router.mts';
 import { requestHandler } from '../core/handler.mts';
 import { CONTINUE } from '../core/RoutingInstruction.mts';
-import { makeMemo, makeProperty } from './properties.mts';
+import { makeMemo, Property } from './properties.mts';
 import 'lean-test';
 
-describe('makeProperty', () => {
+describe('Property', () => {
   it('creates an arbitrary property to share between handlers', { timeout: 3000 }, () => {
-    const myProp = makeProperty(() => 0);
+    const myProp = new Property(() => 0);
     const router = new Router();
     router.get('/', (req) => {
       myProp.set(req, 10);
@@ -24,7 +24,7 @@ describe('makeProperty', () => {
   });
 
   it('uses the given factory if the property has not been set', { timeout: 3000 }, () => {
-    const myProp = makeProperty(() => 5);
+    const myProp = new Property(() => 5);
     const handler = requestHandler((req, res) => {
       res.end(JSON.stringify(myProp.get(req)));
     });
@@ -35,7 +35,7 @@ describe('makeProperty', () => {
   });
 
   it('throws by default if the property has not been set', { timeout: 3000 }, () => {
-    const myProp = makeProperty<number>();
+    const myProp = new Property<number>();
     const handler = requestHandler((req) => {
       myProp.get(req);
     });
@@ -47,7 +47,7 @@ describe('makeProperty', () => {
   });
 
   it('provides convenience middleware for setting a constant value', { timeout: 3000 }, () => {
-    const myProp = makeProperty<number>();
+    const myProp = new Property<number>();
     const router = new Router();
     router.use(myProp.withValue(7));
     router.get('/', (req, res) => res.end(JSON.stringify(myProp.get(req))));
@@ -58,7 +58,7 @@ describe('makeProperty', () => {
   });
 
   it('is not shared between requests', { timeout: 3000 }, () => {
-    const myProp = makeProperty(() => 5);
+    const myProp = new Property(() => 5);
     const router = new Router();
     router.get('/one', (req, res) => {
       myProp.set(req, 10);
@@ -76,7 +76,7 @@ describe('makeProperty', () => {
 
   it('is only calculated once per request', { timeout: 3000 }, () => {
     let factoryCount = 0;
-    const myProp = makeProperty(() => {
+    const myProp = new Property(() => {
       factoryCount++;
       return 5;
     });
@@ -97,7 +97,7 @@ describe('makeProperty', () => {
 
   it('is reset by clear', { timeout: 3000 }, () => {
     let factoryCount = 0;
-    const myProp = makeProperty(() => {
+    const myProp = new Property(() => {
       factoryCount++;
       return 5;
     });

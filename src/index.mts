@@ -168,12 +168,11 @@ export {
 } from './extras/websocket/WebSocketMessages.mts';
 
 export {
-  makeProperty,
+  Property,
   setProperty,
   getProperty,
   clearProperty,
   makeMemo,
-  type Property,
 } from './extras/properties.mts';
 export {
   simplifyRange,
