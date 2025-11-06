@@ -1,6 +1,6 @@
 {
   "name": "web-listener",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "description": "a small server abstraction for creating API and resource endpoints with middleware",
   "author": "David Evans",
