@@ -49,6 +49,16 @@ export async function buildRouter(mount: ConfigMount[], log: (info: LogInfo) => 
         }
         router.onRequest(item.method, item.path, handler);
         break;
+      case 'redirect':
+        router.at(
+          item.path,
+          requestHandler((_, res) => {
+            res.setHeader('location', item.target);
+            res.statusCode = item.status;
+            res.end();
+          }),
+        );
+        break;
     }
   }
   return router;

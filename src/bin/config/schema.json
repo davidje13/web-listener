@@ -106,7 +106,8 @@
             "anyOf": [
               { "$ref": "#/$defs/mount-files" },
               { "$ref": "#/$defs/mount-proxy" },
-              { "$ref": "#/$defs/mount-fixture" }
+              { "$ref": "#/$defs/mount-fixture" },
+              { "$ref": "#/$defs/mount-redirect" }
             ]
           }
         }
@@ -131,12 +132,7 @@
               "additionalProperties": false,
               "required": ["filePath"],
               "properties": {
-                "statusCode": {
-                  "type": "integer",
-                  "default": 200,
-                  "minimum": 200,
-                  "maximum": 599
-                },
+                "statusCode": { "$ref": "#/$defs/status", "default": 200 },
                 "filePath": { "type": "string" }
               }
             },
@@ -237,7 +233,7 @@
         "type": { "const": "fixture" },
         "path": { "type": "string" },
         "method": { "type": "string", "default": "GET" },
-        "status": { "type": "integer", "default": 200, "minimum": 200, "maximum": 599 },
+        "status": { "$ref": "#/$defs/status", "default": 200 },
         "headers": {
           "type": "object",
           "default": {},
@@ -252,12 +248,24 @@
         "body": { "type": "string" }
       }
     },
+    "mount-redirect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "path", "target"],
+      "properties": {
+        "type": { "const": "redirect" },
+        "path": { "type": "string" },
+        "status": { "$ref": "#/$defs/status", "default": 307 },
+        "target": { "type": "string" }
+      }
+    },
     "mime": {
       "anyOf": [
         { "type": "string", "pattern": "^file://", "format": "uri-reference" },
         { "type": "string", "pattern": "^([^=;]+=[^/;]+/[^;]+(;|$))+$" },
         { "type": "object", "additionalProperties": { "type": "string", "pattern": "/" } }
       ]
-    }
+    },
+    "status": { "type": "integer", "minimum": 200, "maximum": 599 }
   }
 }

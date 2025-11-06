@@ -66,6 +66,41 @@ describe('buildRouter', () => {
     });
   });
 
+  describe('redirect', () => {
+    it('adds redirects', { timeout: 3000 }, async () => {
+      const router = await buildRouter([
+        {
+          type: 'redirect',
+          path: '/attempt',
+          status: 307,
+          target: '/other',
+        },
+        {
+          type: 'fixture',
+          method: 'GET',
+          path: '/other',
+          status: 200,
+          headers: {},
+          body: 'Redirected content',
+        },
+      ]);
+      return withServer(router, async (url) => {
+        await expect(
+          fetch(url + '/attempt', { redirect: 'manual' }),
+          responds({ status: 307, headers: { location: '/other' }, body: '' }),
+        );
+        await expect(
+          fetch(url + '/attempt'),
+          responds({ status: 200, headers: {}, body: 'Redirected content' }),
+        );
+        await expect(
+          fetch(url + '/attempt', { method: 'POST', redirect: 'manual' }),
+          responds({ status: 307, headers: { location: '/other' }, body: '' }),
+        );
+      });
+    });
+  });
+
   it('logs requests', { timeout: 3000 }, async () => {
     const events: LogInfo[] = [];
     const router = await buildRouter(

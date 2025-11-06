@@ -24,7 +24,18 @@ interface ConfigMountFixture {
   body: string;
 }
 
-export type ConfigMount = ConfigMountFiles | ConfigMountProxy | ConfigMountFixture;
+interface ConfigMountRedirect {
+  type: 'redirect';
+  path: string;
+  status: number;
+  target: string;
+}
+
+export type ConfigMount =
+  | ConfigMountFiles
+  | ConfigMountProxy
+  | ConfigMountFixture
+  | ConfigMountRedirect;
 
 export interface ConfigServerOptions extends CombinedServerOptions {
   logRequests: boolean;
