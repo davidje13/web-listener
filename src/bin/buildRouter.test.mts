@@ -64,6 +64,29 @@ describe('buildRouter', () => {
         );
       });
     });
+
+    it('supports basic templating', { timeout: 3000 }, async () => {
+      const router = await buildRouter([
+        {
+          type: 'fixture',
+          method: 'GET',
+          path: '/:p1/*p2',
+          status: 200,
+          headers: { foo: 'pre-${p1}-post' },
+          body: 'Got ${p1:-blank} ${p2:-blank} ${p3:-blank} ${?q1:-blank}',
+        },
+      ]);
+      return withServer(router, async (url) => {
+        await expect(
+          fetch(url + '/foo/bar'),
+          responds({ headers: { foo: 'pre-foo-post' }, body: 'Got foo bar blank blank' }),
+        );
+        await expect(
+          fetch(url + '/foo/bar/baz?q1=zig'),
+          responds({ body: 'Got foo bar/baz blank zig' }),
+        );
+      });
+    });
   });
 
   describe('redirect', () => {
@@ -96,6 +119,31 @@ describe('buildRouter', () => {
         await expect(
           fetch(url + '/attempt', { method: 'POST', redirect: 'manual' }),
           responds({ status: 307, headers: { location: '/other' }, body: '' }),
+        );
+      });
+    });
+
+    it('supports basic templating', { timeout: 3000 }, async () => {
+      const router = await buildRouter([
+        {
+          type: 'redirect',
+          path: '/*route.html',
+          status: 301,
+          target: '/${route}.htm${?}',
+        },
+      ]);
+      return withServer(router, async (url) => {
+        await expect(
+          fetch(url + '/file.html', { redirect: 'manual' }),
+          responds({ status: 301, headers: { location: '/file.htm' } }),
+        );
+        await expect(
+          fetch(url + '/nested/file.html', { redirect: 'manual' }),
+          responds({ status: 301, headers: { location: '/nested/file.htm' } }),
+        );
+        await expect(
+          fetch(url + '/file.html?query=string', { redirect: 'manual' }),
+          responds({ status: 301, headers: { location: '/file.htm?query=string' } }),
         );
       });
     });

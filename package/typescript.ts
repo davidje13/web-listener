@@ -31,10 +31,17 @@ r.onRequest('GET', '/:foo{/:bar}/*baz', (req, res) => {
   assertType(getPathParameter(req, 'foo'))<string>();
   assertType(getPathParameter(req, 'bar'))<string | undefined>();
   assertType(getPathParameter(req, 'baz'))<string[]>();
-  // @ts-expect-error
-  getPathParameter(req, 'nope');
+  assertType(getPathParameter(req, 'nope'))<undefined>();
+
+  let dynamicKey = 'foo';
+  assertType(getPathParameter(req, dynamicKey))<string | string[] | undefined>();
+
   res.writeHead(200);
 });
+
+function dynamicRequestType(req: IncomingMessage) {
+  assertType(getPathParameter(req, 'foo'))<string | string[] | undefined>();
+}
 
 const acceptWebSocket = makeAcceptWebSocket(WebSocketServer);
 r.ws('/ws1', async (req) => {

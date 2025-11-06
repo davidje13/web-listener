@@ -1,5 +1,15 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { addTeardown, CONTINUE, fileServer, proxy, requestHandler, Router } from '../index.mts';
+import {
+  addTeardown,
+  CONTINUE,
+  fileServer,
+  getPathParameter,
+  getQuery,
+  getSearch,
+  proxy,
+  requestHandler,
+  Router,
+} from '../index.mts';
 import type { ConfigMount } from './config/types.mts';
 
 export interface LogInfo {
@@ -37,12 +47,21 @@ export async function buildRouter(mount: ConfigMount[], log: (info: LogInfo) => 
         router.mount(item.path, proxy(item.target, item.options));
         break;
       case 'fixture':
-        const handler = (_: IncomingMessage, res: ServerResponse) => {
+        const handler = (req: IncomingMessage, res: ServerResponse) => {
           for (const [key, value] of Object.entries(item.headers)) {
-            res.setHeader(key, value);
+            if (typeof value === 'string') {
+              res.setHeader(key, populate(req, value));
+            } else if (typeof value === 'number') {
+              res.setHeader(key, value);
+            } else {
+              res.setHeader(
+                key,
+                value.map((v) => populate(req, v)),
+              );
+            }
           }
           res.statusCode = item.status;
-          res.end(item.body);
+          res.end(populate(req, item.body));
         };
         if (item.method === 'GET') {
           router.onRequest('HEAD', item.path, handler);
@@ -52,8 +71,8 @@ export async function buildRouter(mount: ConfigMount[], log: (info: LogInfo) => 
       case 'redirect':
         router.at(
           item.path,
-          requestHandler((_, res) => {
-            res.setHeader('location', item.target);
+          requestHandler((req, res) => {
+            res.setHeader('location', populate(req, item.target));
             res.statusCode = item.status;
             res.end();
           }),
@@ -62,4 +81,27 @@ export async function buildRouter(mount: ConfigMount[], log: (info: LogInfo) => 
     }
   }
   return router;
+}
+
+function populate(req: IncomingMessage, template: string): string {
+  return template.replaceAll(
+    /\$\{([^${}:]+)(?::-(([^}\\]|\\.)*))?\}/g,
+    (_, key: string, def?: string) => {
+      let p: unknown;
+      if (key === '?') {
+        p = getSearch(req);
+      } else if (key[0] === '?') {
+        p = getQuery(req, key.substring(1));
+      } else {
+        p = getPathParameter(req, key);
+      }
+      if (typeof p === 'string') {
+        return p;
+      } else if (Array.isArray(p)) {
+        return p.join('/');
+      } else {
+        return def ?? '';
+      }
+    },
+  );
 }

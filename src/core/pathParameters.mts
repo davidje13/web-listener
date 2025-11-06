@@ -45,10 +45,22 @@ export function getPathParameters<PathParameters extends {}>(
     EMPTY) as Readonly<PathParameters>;
 }
 
-export const getPathParameter = <PathParameters extends {}, ID extends keyof PathParameters>(
+export function getPathParameter<PathParameters extends {}, ID extends keyof PathParameters>(
   req: IncomingMessage & WithPathParameters<PathParameters>,
   id: ID,
-) => getPathParameters(req)[id];
+): PathParameters[ID];
+
+export function getPathParameter<PathParameters, ID extends string>(
+  req: IncomingMessage & WithPathParameters<PathParameters>,
+  id: ID,
+): keyof PathParameters extends ID ? string | string[] | undefined : undefined;
+
+export function getPathParameter<PathParameters extends {}, ID extends keyof PathParameters>(
+  req: IncomingMessage & WithPathParameters<PathParameters>,
+  id: ID,
+) {
+  return getPathParameters(req)[id];
+}
 
 export function getAbsolutePath(req: IncomingMessage) {
   const props = internalGetProps(req);
