@@ -6,7 +6,7 @@ import { responds } from '../../test-helpers/responds.mts';
 import { makeStreamSearch } from '../../test-helpers/streamSearch.mts';
 import { rawRequest, rawRequestStream } from '../../test-helpers/rawRequest.mts';
 import { generateTLSConfig } from '../../test-helpers/generateTLSConfig.mts';
-import { getAddressURL } from '../../util/getAddressURL.mjs';
+import { getAddressURL } from '../../util/getAddressURL.mts';
 import { requestHandler } from '../../core/handler.mts';
 import { getAbortSignal } from '../../core/close.mts';
 import { proxy } from './proxy.mts';

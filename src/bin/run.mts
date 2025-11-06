@@ -8,24 +8,28 @@ import { loadSchema, makeSchemaParser } from './config/schema.mts';
 import { ServerManager } from './ServerManager.mts';
 import { runCompression } from './compression.mts';
 import { loadMime } from './mime.mts';
+import { logLevels, type Logger, type AddColour } from './log.mts';
 
 // https://nodejs.org/en/learn/getting-started/security-best-practices#dns-rebinding-cwe-346
 process.on('SIGUSR1', () => {
   // ignore (disable default behaviour of opening inspector port)
 });
 
+let logLevel = 2;
+const log: Logger = (level, message) => level <= logLevel && process.stderr.write(message + '\n');
+
 function handleError(error: unknown) {
   process.stdin.destroy();
-  process.stderr.write(`${error instanceof Error ? error.message : error}\n`);
+  log(0, error instanceof Error ? error.message : String(error));
 }
 
 process.on('unhandledRejection', handleError);
 process.on('uncaughtException', handleError);
 
-const addColour =
+const addColour: AddColour =
   process.stderr.isTTY && !process.env['NO_COLOR']
-    ? (id: string, message: string) => (id ? `\x1b[${id}m${message}\x1b[0m` : message)
-    : (_: string, message: string) => message;
+    ? (id, message) => (id ? `\x1b[${id}m${message}\x1b[0m` : message)
+    : (_, message) => message;
 
 const args = readArgs(process.argv.slice(2));
 
@@ -41,7 +45,6 @@ if (args.get('version') || args.get('help')) {
 }
 
 async function run() {
-  const log = (message: string) => process.stderr.write(message + '\n');
   const manager = new ServerManager(log, addColour);
   process.on('unhandledRejection', () => manager.shutdown());
   process.on('uncaughtException', () => manager.shutdown());
@@ -54,6 +57,7 @@ async function run() {
 
   async function load() {
     const config = await loadConfig(parser, args);
+    logLevel = logLevels.indexOf(config.log);
     await loadMime(config.mime);
     if (config.writeCompressed) {
       await runCompression(config.servers, config.minCompress, log);
@@ -66,7 +70,7 @@ async function run() {
   }
 
   function update() {
-    process.stderr.write('refreshing config\n');
+    log(2, 'refreshing config');
     return load();
   }
 
@@ -78,7 +82,7 @@ async function run() {
     }
   });
   process.on('SIGINT', () => {
-    process.stderr.write('\n');
+    log(2, '');
     stop();
   });
 }

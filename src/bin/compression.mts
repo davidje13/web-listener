@@ -1,11 +1,8 @@
 import { compressFilesInDir, type CompressionInfo } from '../index.mts';
 import type { ConfigServer } from './config/types.mts';
+import type { Logger } from './log.mts';
 
-export async function runCompression(
-  servers: ConfigServer[],
-  minCompress: number,
-  log: (message: string) => void,
-) {
+export async function runCompression(servers: ConfigServer[], minCompress: number, log: Logger) {
   let created = 0;
 
   for (const server of servers) {
@@ -13,21 +10,21 @@ export async function runCompression(
       if (mount.type === 'files') {
         const options = mount.options.negotiation?.find((n) => n.type === 'encoding')?.options;
         if (!options?.length) {
-          log(`skipping ${mount.dir} because no compression is configured`);
+          log(2, `skipping ${mount.dir} because no compression is configured`);
           continue;
         }
-        log(`compressing files in ${mount.dir} using ${options.map((o) => o.match).join(', ')}`);
+        log(2, `compressing files in ${mount.dir} using ${options.map((o) => o.match).join(', ')}`);
         const processed = await compressFilesInDir(mount.dir, options, minCompress);
         const textTotals = sumTotals(processed.filter(({ mime }) => mime.startsWith('text/')));
         const miscTotals = sumTotals(processed.filter(({ mime }) => !mime.startsWith('text/')));
-        log(`text files:  ${bytes(textTotals.rawSize)} / ${bytes(textTotals.bestSize)} compressed`);
-        log(`other files: ${bytes(miscTotals.rawSize)} / ${bytes(miscTotals.bestSize)} compressed`);
+        log(2, `text:  ${bytes(textTotals.rawSize)} / ${bytes(textTotals.bestSize)} compressed`);
+        log(2, `other: ${bytes(miscTotals.rawSize)} / ${bytes(miscTotals.bestSize)} compressed`);
         created += textTotals.created + miscTotals.created;
       }
     }
   }
 
-  log(`${quantity(created, 'compressed file')} written`);
+  log(2, `${quantity(created, 'compressed file')} written`);
 }
 
 function sumTotals(items: CompressionInfo[]) {

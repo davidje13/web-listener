@@ -37,6 +37,7 @@ const params = new Map<string, { type: 'string' | 'number' | 'boolean'; multi?: 
   ['write-compressed', { type: 'boolean' }],
   ['min-compress', { type: 'number' }],
   ['no-serve', { type: 'boolean' }],
+  ['log', { type: 'string' }],
   ['help', { type: 'boolean' }],
   ['version', { type: 'boolean' }],
 ]);
@@ -139,6 +140,7 @@ export async function loadConfig(
   const minCompress = numberParam('min-compress');
   const mime = stringListParam('mime');
   const mimeTypes = stringListParam('mime-types');
+  const log = stringParam('log');
 
   if (Number(Boolean(file)) + Number(Boolean(json)) + Number(Boolean(proxy)) > 1) {
     throw new Error('multiple config files are not supported');
@@ -223,6 +225,19 @@ export async function loadConfig(
   }
   if (args.get('no-serve')) {
     config.noServe = true;
+  }
+  switch (log) {
+    case 'none':
+    case 'ready':
+    case 'progress':
+      config.log = log;
+      for (const server of config.servers) {
+        server.options.logRequests = false;
+      }
+      break;
+    case 'full':
+      config.log = 'progress';
+      break;
   }
   return config;
 }

@@ -2,16 +2,17 @@ import { createServer, type Server, type ServerOptions } from 'node:http';
 import { WebListener, type ListenOptions } from '../index.mts';
 import type { ConfigServer, ConfigServerOptions } from './config/types.mts';
 import { buildRouter } from './buildRouter.mts';
+import type { Logger, AddColour } from './log.mts';
 
 export class ServerManager {
   private _started: boolean;
   private _building: boolean;
   private _stopping: boolean;
-  private readonly _log: (message: string) => void;
-  private readonly _colour: (id: string, message: string) => string;
+  private readonly _log: Logger;
+  private readonly _colour: AddColour;
   private readonly _servers: Map<number, ServerState>;
 
-  constructor(log: (message: string) => void, colour: (id: string, message: string) => string) {
+  constructor(log: Logger, colour: AddColour) {
     this._started = false;
     this._building = false;
     this._stopping = false;
@@ -32,11 +33,11 @@ export class ServerManager {
         const serverConfig = servers[i]!;
         const port = serverConfig.port;
         if (port <= 0 || port > 65535) {
-          this._log(`servers[${i}] must have a specific port from 1 to 65535`);
+          this._log(0, `servers[${i}] must have a specific port from 1 to 65535`);
           continue;
         }
         if (ports.has(port)) {
-          this._log(`skipping servers[${i}] because port ${port} has already been defined`);
+          this._log(0, `skipping servers[${i}] because port ${port} has already been defined`);
           continue;
         }
         ports.add(port);
@@ -60,9 +61,9 @@ export class ServerManager {
       if (this._stopping) {
         this._shutdown();
       } else if (this._servers.size) {
-        this._log('all servers ready');
+        this._log(1, 'all servers ready');
       } else {
-        this._log('no servers configured');
+        this._log(1, 'no servers configured');
       }
     } finally {
       this._building = false;
@@ -85,28 +86,28 @@ export class ServerManager {
               String(info.status),
             );
             const duration = this._colour('2', `(${info.duration}ms)`);
-            this._log(`${name} ${method} ${path} ${status} ${duration}`);
+            this._log(0, `${name} ${method} ${path} ${status} ${duration}`);
           }
         : () => {},
     );
     const weblistener = new WebListener(router);
     weblistener.addEventListener('error', ({ detail: { action, error, request } }) => {
-      this._log(`${name} ${this._colour('91', 'error')}: ${action} ${request?.url} ${error}`);
+      this._log(0, `${name} ${this._colour('91', 'error')}: ${action} ${request?.url} ${error}`);
     });
 
     let server: Server;
     let launch: Promise<void> | undefined;
     if (existing && host === existing.host && serverOptionsCompatible(options, existing.options)) {
       server = existing.server;
-      this._log(`${name} updated`);
+      this._log(2, `${name} updated`);
       existing.detach();
     } else {
       if (existing) {
-        this._log(`${name} ${this._colour('2', 'restarting (step 1: shutdown)')}`);
+        this._log(2, `${name} ${this._colour('2', 'restarting (step 1: shutdown)')}`);
         await existing.close();
-        this._log(`${name} ${this._colour('2', 'restarting (step 2: start)')}`);
+        this._log(2, `${name} ${this._colour('2', 'restarting (step 2: start)')}`);
       } else {
-        this._log(`${name} ${this._colour('2', 'starting')}`);
+        this._log(2, `${name} ${this._colour('2', 'starting')}`);
       }
       if (this._stopping) {
         return undefined;
@@ -121,7 +122,7 @@ export class ServerManager {
       await launch;
       // wait an extra tick before confirming we are ready (required on Linux)
       await new Promise((resolve) => setTimeout(resolve, 0));
-      this._log(`${name} ready`);
+      this._log(2, `${name} ready`);
     }
     return {
       host,
@@ -132,13 +133,14 @@ export class ServerManager {
         new Promise<void>((resolve) => {
           server.close(() => {
             // ignore any error (happens if server is already closed)
-            this._log(`${name} closed`);
+            this._log(2, `${name} closed`);
             resolve();
           });
           const listeners = detach('shutdown', options.shutdownTimeout, true);
           const connections = listeners.countConnections();
           if (connections > 0) {
             this._log(
+              2,
               `${name} ${this._colour('2', `closing (remaining connections: ${connections})`)}`,
             );
           }
@@ -148,11 +150,11 @@ export class ServerManager {
 
   private async _shutdown() {
     if (this._servers.size) {
-      this._log(this._colour('2', 'shutting down'));
+      this._log(2, this._colour('2', 'shutting down'));
       await Promise.all([...this._servers.values()].map((state) => state.close()));
     }
     if (this._started) {
-      this._log('shutdown complete');
+      this._log(2, 'shutdown complete');
     }
   }
 

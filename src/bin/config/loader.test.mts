@@ -204,6 +204,44 @@ describe('loadConfig', () => {
           args: ['--no-serve'],
           expected: { ...DEFAULT_CONFIG, noServe: true },
         },
+        {
+          name: 'log=none',
+          args: ['--log', 'none'],
+          expected: {
+            ...DEFAULT_CONFIG,
+            servers: [
+              { ...DEFAULT_SERVER, options: { ...DEFAULT_SERVER_OPTIONS, logRequests: false } },
+            ],
+            log: 'none',
+          },
+        },
+        {
+          name: 'log=ready',
+          args: ['--log', 'ready'],
+          expected: {
+            ...DEFAULT_CONFIG,
+            servers: [
+              { ...DEFAULT_SERVER, options: { ...DEFAULT_SERVER_OPTIONS, logRequests: false } },
+            ],
+            log: 'ready',
+          },
+        },
+        {
+          name: 'log=progress',
+          args: ['--log', 'progress'],
+          expected: {
+            ...DEFAULT_CONFIG,
+            servers: [
+              { ...DEFAULT_SERVER, options: { ...DEFAULT_SERVER_OPTIONS, logRequests: false } },
+            ],
+            log: 'progress',
+          },
+        },
+        {
+          name: 'log=full',
+          args: ['--log', 'full'],
+          expected: { ...DEFAULT_CONFIG, log: 'progress' },
+        },
       ],
     },
   );
@@ -251,6 +289,7 @@ const DEFAULT_CONFIG = {
   writeCompressed: false,
   minCompress: 300,
   noServe: false,
+  log: 'progress',
 };
 
 const withNegotiation = (negotiation: unknown[]) => ({

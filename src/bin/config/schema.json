@@ -28,6 +28,11 @@
       "title": "Stop after validating the configuration and optionally writing any compressed files",
       "type": "boolean",
       "default": false
+    },
+    "log": {
+      "title": "Set the logging level. \"ready\" prints only the \"all servers ready\" line, \"progress\" prints server startup and shutdown progress.",
+      "enum": ["none", "ready", "progress"],
+      "default": "progress"
     }
   },
 

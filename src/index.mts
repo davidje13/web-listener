@@ -62,7 +62,7 @@ export {
   compressFileOffline,
   compressFilesInDir,
   type CompressionInfo,
-} from './extras/compress/offline.mjs';
+} from './extras/compress/offline.mts';
 
 export {
   FileFinder,

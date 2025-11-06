@@ -1,5 +1,6 @@
 import { findAvailablePorts } from '../test-helpers/findAvailablePorts.mts';
 import type { ConfigServer } from './config/types.mts';
+import type { AddColour } from './log.mts';
 import { ServerManager } from './ServerManager.mts';
 import 'lean-test';
 
@@ -8,7 +9,7 @@ describe('ServerManager', () => {
     const [port] = await findAvailablePorts(1);
 
     const logs: string[] = [];
-    const manager = new ServerManager((msg) => logs.push(msg), NO_COLOUR);
+    const manager = new ServerManager((_, msg) => logs.push(msg), NO_COLOUR);
     try {
       await manager.set([fixtureServer(port!, 'content')]);
       expect(logs).equals([
@@ -31,7 +32,7 @@ describe('ServerManager', () => {
     const [port1, port2] = await findAvailablePorts(2);
 
     const logs: string[] = [];
-    const manager = new ServerManager((msg) => logs.push(msg), NO_COLOUR);
+    const manager = new ServerManager((_, msg) => logs.push(msg), NO_COLOUR);
     try {
       await manager.set([fixtureServer(port1!, 'content 1'), fixtureServer(port2!, 'content 2')]);
       expect(logs[logs.length - 1]).equals('all servers ready');
@@ -50,7 +51,7 @@ describe('ServerManager', () => {
     const [port] = await findAvailablePorts(1);
 
     const logs: string[] = [];
-    const manager = new ServerManager((msg) => logs.push(msg), NO_COLOUR);
+    const manager = new ServerManager((_, msg) => logs.push(msg), NO_COLOUR);
     try {
       await manager.set([fixtureServer(port!, 'content 1'), fixtureServer(port!, 'content 2')]);
       expect(logs).equals([
@@ -69,7 +70,7 @@ describe('ServerManager', () => {
 
   it('skips servers with invalid ports', { timeout: 3000 }, async () => {
     const logs: string[] = [];
-    const manager = new ServerManager((msg) => logs.push(msg), NO_COLOUR);
+    const manager = new ServerManager((_, msg) => logs.push(msg), NO_COLOUR);
     try {
       await manager.set([fixtureServer(0, 'content 1'), fixtureServer(65536, 'content 2')]);
       expect(logs).equals([
@@ -86,7 +87,7 @@ describe('ServerManager', () => {
     const [port] = await findAvailablePorts(1);
 
     const logs: string[] = [];
-    const manager = new ServerManager((msg) => logs.push(msg), NO_COLOUR);
+    const manager = new ServerManager((_, msg) => logs.push(msg), NO_COLOUR);
     try {
       await manager.set([fixtureServer(port!, 'content')]);
       expect(logs).equals([
@@ -113,7 +114,7 @@ describe('ServerManager', () => {
     const [port] = await findAvailablePorts(1);
 
     const logs: string[] = [];
-    const manager = new ServerManager((msg) => logs.push(msg), NO_COLOUR);
+    const manager = new ServerManager((_, msg) => logs.push(msg), NO_COLOUR);
     try {
       await manager.set([fixtureServer(port!, 'content')]);
       expect(logs).equals([
@@ -152,7 +153,7 @@ describe('ServerManager', () => {
       const [port1, port2] = await findAvailablePorts(2);
 
       const logs: string[] = [];
-      const manager = new ServerManager((msg) => logs.push(msg), NO_COLOUR);
+      const manager = new ServerManager((_, msg) => logs.push(msg), NO_COLOUR);
       try {
         await manager.set([fixtureServer(port1!, 'content 1'), fixtureServer(port2!, 'content 2')]);
         manager.shutdown();
@@ -171,7 +172,7 @@ describe('ServerManager', () => {
       const [port1, port2] = await findAvailablePorts(2);
 
       const logs: string[] = [];
-      const manager = new ServerManager((msg) => logs.push(msg), NO_COLOUR);
+      const manager = new ServerManager((_, msg) => logs.push(msg), NO_COLOUR);
       try {
         manager.set([fixtureServer(port1!, 'content 1'), fixtureServer(port2!, 'content 2')]);
         manager.shutdown();
@@ -189,7 +190,7 @@ describe('ServerManager', () => {
   });
 });
 
-const NO_COLOUR = (_: string, message: string) => message;
+const NO_COLOUR: AddColour = (_, message) => message;
 
 const DEFAULT_SERVER_OPTIONS = {
   backlog: 511,

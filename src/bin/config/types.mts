@@ -1,4 +1,5 @@
 import type { ProxyOptions, FileServerOptions, CombinedServerOptions } from '../../index.mts';
+import type { LogLevel } from '../log.mts';
 
 interface ConfigMountFiles {
   type: 'files';
@@ -46,4 +47,5 @@ export interface Config {
   writeCompressed: boolean;
   minCompress: number;
   noServe: boolean;
+  log: LogLevel;
 }
