@@ -266,6 +266,7 @@ const DEFAULT_FILES_OPTIONS = {
   hide: [],
   allow: ['.well-known'],
   indexFiles: ['index.htm', 'index.html'],
+  implicitSuffixes: [],
   negotiation: [],
 };
 

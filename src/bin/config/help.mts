@@ -14,6 +14,8 @@ export const helpText = (name: string) => [
   '  --port=..., -p        The port to bind to. Default "8080"',
   '  --host=..., -a        The host address to bind to. Default "localhost"',
   '  --dir=...             The directory to serve. Default "."',
+  '  --ext=...             Implicit file extension to attempt if the requested file',
+  '                        does not exist (can be specified multiple times)',
   '  --404=...             File to use for file-not-found, with status 404',
   '  --spa=...             File to use for file-not-found, with status 200',
   '                        (e.g. to serve an index file for Single-Page-Apps)',

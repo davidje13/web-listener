@@ -101,6 +101,15 @@ export interface FileFinderOptions {
   indexFiles?: string[] | undefined;
 
   /**
+   * Suffixes to try appending if the requested file does not exist.
+   *
+   * For example, specifying `['.html']` will serve `foo.html` at `/foo`
+   *
+   * @default []
+   */
+  implicitSuffixes?: string[] | undefined;
+
+  /**
    * Content negotiation rules to apply to files.
    *
    * This can be used to respond to the `Accept`, `Accept-Language`, and `Accept-Encoding` headers.
@@ -146,6 +155,7 @@ export class FileFinder implements FileFinderCore {
   /** @internal */ private readonly _hidePattern: RegExp[];
   /** @internal */ private readonly _indexFiles: string[];
   /** @internal */ private readonly _indexFilesSet: Set<string>;
+  /** @internal */ private readonly _implicitSuffixes: string[];
   /** @internal */ private readonly _negotiator: Negotiator | undefined;
   public readonly vary: string;
 
@@ -161,6 +171,7 @@ export class FileFinder implements FileFinderCore {
       allow = ['.well-known'],
       hide = [],
       indexFiles = ['index.htm', 'index.html'],
+      implicitSuffixes = [],
       negotiation,
     }: FileFinderOptions,
   ) {
@@ -171,6 +182,7 @@ export class FileFinder implements FileFinderCore {
     this._allowAllTildefiles = allowAllTildefiles;
     this._allowDirectIndexAccess = allowDirectIndexAccess;
     this._indexFiles = indexFiles;
+    this._implicitSuffixes = ['', ...implicitSuffixes];
 
     this._allow = new Set(allow.map((v) => this._normalise(v)));
     this._hide = new Set();
@@ -218,11 +230,6 @@ export class FileFinder implements FileFinderCore {
     }
   }
 
-  /** @internal */
-  private _isIndex(normed: string) {
-    return this._indexFilesSet.has(normed);
-  }
-
   /**
    * Find a file which matches the path.
    *
@@ -240,31 +247,40 @@ export class FileFinder implements FileFinderCore {
     if (this._caseSensitive === 'force-lowercase') {
       subPath = subPath.toLowerCase();
     }
-    const resolvedPath = resolve(this._basePath, subPath);
+    let resolvedPath = resolve(this._basePath, subPath);
     if (!resolvedPath.startsWith(this._basePath) && resolvedPath + sep !== this._basePath) {
       return null; // directory traversal escaped root directory: fail
     }
-    const parts = resolvedPath
-      .substring(this._basePath.length)
-      .split(sep)
-      .filter((part) => part);
-    if (parts.length > this._subDirectories + 1) {
-      return null; // requested path is too deep for our config: fail
-    }
-    if (parts.some((p) => !this._checkPermitted(this._normalise(p)))) {
-      return null; // part of the requested path involves a file which we do not permit access to: fail
-    }
-    const name = parts[parts.length - 1] ?? '';
-    if (
-      !this._allowDirectIndexAccess &&
-      this._isIndex(this._normalise(name)) &&
-      !this._allow.has(this._normalise(name))
-    ) {
-      return null; // requested an index file by name, denied by config: fail
-    }
 
-    const realPath = await realpath(resolvedPath, { encoding: 'utf-8' }).catch(() => null);
-    if (!realPath) {
+    let parts: string[] | null = null;
+    let realPath: string | null = null;
+    for (const suffix of this._implicitSuffixes) {
+      const suffixedPath = resolvedPath + suffix;
+      parts = suffixedPath
+        .substring(this._basePath.length)
+        .split(sep)
+        .filter((part) => part);
+      if (parts.length > this._subDirectories + 1) {
+        return null; // requested path is too deep for our config: fail
+      }
+      if (parts.some((p) => !this._checkPermitted(this._normalise(p)))) {
+        return null; // part of the requested path involves a file which we do not permit access to: fail
+      }
+      const name = parts[parts.length - 1] ?? '';
+      if (
+        !this._allowDirectIndexAccess &&
+        this._indexFilesSet.has(this._normalise(name)) &&
+        !this._allow.has(this._normalise(name))
+      ) {
+        return null; // requested an index file by name, denied by config: fail
+      }
+      realPath = await realpath(suffixedPath, { encoding: 'utf-8' }).catch(() => null);
+      if (realPath) {
+        resolvedPath = suffixedPath;
+        break;
+      }
+    }
+    if (!realPath || !parts) {
       // requested path does not exist: fail
       return null;
     }
@@ -316,6 +332,12 @@ export class FileFinder implements FileFinderCore {
 
   async precompute(): Promise<FileFinderCore> {
     const lookup = new Map<string, StaticFileInfo>();
+    const set = (path: string, info: StaticFileInfo) => {
+      const existing = lookup.get(path);
+      if (!existing || info.p > existing.p) {
+        lookup.set(path, info);
+      }
+    };
     const queue = new Queue({ dir: [this._basePath], depth: 0 });
     for (const { dir, depth } of queue) {
       const dirEntries = await readdir(join(...dir), { withFileTypes: true, encoding: 'utf-8' });
@@ -330,20 +352,31 @@ export class FileFinder implements FileFinderCore {
           if (depth < this._subDirectories) {
             queue.push({ dir: path, depth: depth + 1 });
           }
+          set(this._normalise(path.slice(1).join('/')), DIR);
         } else if (file.isFile()) {
-          const entity: StaticFileInfo = {
+          const entity: Omit<StaticFileInfo, 'p'> = {
             file: join(...path),
             dir: join(...dir),
             basename: normFileName,
             siblings,
           };
-          if (this._isIndex(normFileName)) {
-            lookup.set(this._normalise(dir.slice(1).join('/')), entity);
+          const indexPos = this._indexFiles.indexOf(normFileName);
+          if (indexPos !== -1) {
+            set(this._normalise(dir.slice(1).join('/')), {
+              ...entity,
+              p: this._indexFiles.length + 1 - indexPos,
+            });
             if (!this._allowDirectIndexAccess && !this._allow.has(normFileName)) {
               continue;
             }
           }
-          lookup.set(this._normalise(path.slice(1).join('/')), entity);
+          const fullPath = this._normalise(path.slice(1).join('/'));
+          for (let i = 0; i < this._implicitSuffixes.length; ++i) {
+            const suffix = this._implicitSuffixes[i]!;
+            if (file.name.endsWith(suffix)) {
+              set(fullPath.substring(0, fullPath.length - suffix.length), { ...entity, p: -i });
+            }
+          }
         }
       }
     }
@@ -351,7 +384,7 @@ export class FileFinder implements FileFinderCore {
     return {
       find: async (path, negotiation = {}) => {
         const entity = lookup.get(this._normalise(path.join('/')));
-        if (!entity) {
+        if (!entity?.file) {
           return null;
         }
         if (this._negotiator) {
@@ -391,7 +424,10 @@ interface StaticFileInfo {
   dir: string;
   basename: string;
   siblings: Set<string>;
+  p: number;
 }
+
+const DIR: StaticFileInfo = { file: '', dir: '', basename: '', siblings: new Set(), p: 1 };
 
 async function internalTryReturn(
   details: Omit<ResolvedFileInfo, 'handle' | 'stats'>,

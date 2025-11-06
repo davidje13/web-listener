@@ -10,6 +10,7 @@ const shorthands = new Map<string, string>([
   ['-c', 'config-file'],
   ['-C', 'config-json'],
   ['-d', 'dir'],
+  ['-e', 'ext'],
   ['-g', 'gzip'],
   ['-h', 'help'],
   ['-p', 'port'],
@@ -23,6 +24,7 @@ const params = new Map<string, { type: 'string' | 'number' | 'boolean'; multi?: 
   ['config-file', { type: 'string' }],
   ['config-json', { type: 'string' }],
   ['dir', { type: 'string' }],
+  ['ext', { type: 'string', multi: true }],
   ['port', { type: 'number' }],
   ['host', { type: 'string' }],
   ['zstd', { type: 'boolean' }],
@@ -134,6 +136,7 @@ export async function loadConfig(
   const port = numberParam('port');
   const host = stringParam('host');
   const dir = stringParam('dir') || '.';
+  const ext = stringListParam('ext').map((v) => (v.startsWith('.') ? v : `.${v}`));
   const err404 = stringParam('404');
   const spa = stringParam('spa');
   const proxy = stringParam('proxy');
@@ -204,6 +207,15 @@ export async function loadConfig(
   for (const [flag, enc] of ENCODINGS) {
     if (args.get(flag)) {
       addNegotiation('encoding', enc);
+    }
+  }
+  if (ext.length) {
+    for (const server of config.servers) {
+      for (const mount of server.mount) {
+        if (mount.type === 'files') {
+          mount.options.implicitSuffixes = ext;
+        }
+      }
     }
   }
   if (mime.length || mimeTypes.length) {
