@@ -1,3 +1,7 @@
+workflow:
+  rules:
+    - if: '$CI_COMMIT_BRANCH' # do not run pipeline for tags
+
 variables:
   # Setting a depth of 1 can result in jobs failing if they are not the latest commit when they begin executing.
   # See https://docs.gitlab.com/ee/ci/runners/configure_runners.html#shallow-cloning
