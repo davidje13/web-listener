@@ -1,5 +1,7 @@
 import type { IncomingMessage } from 'node:http';
+import { anyHandler, type RequestHandler, type UpgradeHandler } from '../core/handler.mts';
 import { internalGetProps, internalMustGetProps } from '../core/messages.mts';
+import { CONTINUE } from '../core/RoutingInstruction.mts';
 
 export const internalAsFactory = <Args extends any[], T>(
   value: T | ((...args: Args) => T),
@@ -15,9 +17,12 @@ export interface Property<T> {
   set(req: IncomingMessage, value: T): void;
   get(req: IncomingMessage): T;
   clear(req: IncomingMessage): void;
+  withValue(value: T): RequestHandler & UpgradeHandler;
 }
 
-export function makeProperty<T>(defaultValue: T | ((req: IncomingMessage) => T)): Property<T> {
+export function makeProperty<T>(
+  defaultValue: T | ((req: IncomingMessage) => T) = throwNotSet,
+): Property<T> {
   return {
     factory: internalAsFactory(defaultValue),
     set(req, value) {
@@ -28,6 +33,12 @@ export function makeProperty<T>(defaultValue: T | ((req: IncomingMessage) => T))
     },
     clear(req) {
       clearProperty(req, this);
+    },
+    withValue(value) {
+      return anyHandler((req: IncomingMessage) => {
+        setProperty(req, this, value);
+        return CONTINUE;
+      });
     },
   };
 }
@@ -73,3 +84,7 @@ export function clearProperty<T>(req: IncomingMessage, property: Property<T>): v
   const props = internalGetProps<PropertiesMessageProps>(req);
   props?._customProperties?.delete(property);
 }
+
+const throwNotSet = () => {
+  throw new Error('property has not been set');
+};

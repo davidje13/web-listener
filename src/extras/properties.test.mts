@@ -1,4 +1,5 @@
 import { withServer } from '../test-helpers/withServer.mts';
+import { responds } from '../test-helpers/responds.mts';
 import { Router } from '../core/Router.mts';
 import { requestHandler } from '../core/handler.mts';
 import { CONTINUE } from '../core/RoutingInstruction.mts';
@@ -30,6 +31,29 @@ describe('makeProperty', () => {
 
     return withServer(handler, async (url) => {
       expect(await fetchJSON(url)).equals(5);
+    });
+  });
+
+  it('throws by default if the property has not been set', { timeout: 3000 }, () => {
+    const myProp = makeProperty<number>();
+    const handler = requestHandler((req) => {
+      myProp.get(req);
+    });
+
+    return withServer(handler, async (url, { expectError }) => {
+      await expect(fetch(url), responds({ status: 500 }));
+      expectError('handling request /: Error: property has not been set');
+    });
+  });
+
+  it('provides convenience middleware for setting a constant value', { timeout: 3000 }, () => {
+    const myProp = makeProperty<number>();
+    const router = new Router();
+    router.use(myProp.withValue(7));
+    router.get('/', (req, res) => res.end(JSON.stringify(myProp.get(req))));
+
+    return withServer(router, async (url) => {
+      expect(await fetchJSON(url)).equals(7);
     });
   });
 
