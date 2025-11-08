@@ -82,7 +82,12 @@ export {
   type ProxyResponseHeaderAdapter,
 } from './extras/proxy/headerAdapters.mts';
 
-export { registerCharset, registerUTF32 } from './extras/registries/charset.mts';
+export {
+  registerCharset,
+  registerUTF32,
+  getTextDecoder,
+  getTextDecoderStream,
+} from './extras/registries/charset.mts';
 export {
   registerMime,
   readMimeTypes,

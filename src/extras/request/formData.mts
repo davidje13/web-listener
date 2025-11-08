@@ -1,7 +1,8 @@
 import type { IncomingMessage } from 'node:http';
 import type { Readable } from 'node:stream';
 import { openAsBlob } from 'node:fs';
-import busboy from 'busboy';
+import { busboy } from '../../forks/busboy/busboy.mts';
+import type { BusboyOptions } from '../../forks/busboy/types.mts';
 import { HTTPError, type HTTPErrorOptions } from '../../core/HTTPError.mts';
 import { addTeardown } from '../../core/close.mts';
 import type { MaybePromise } from '../../util/MaybePromise.mts';
@@ -14,23 +15,13 @@ import { acceptBody } from './continue.mts';
 
 export function getFormFields(
   req: IncomingMessage,
-  { allowMultipart = false, closeAfterErrorDelay = 500, limits = {} }: GetFormFieldsOptions = {},
+  { closeAfterErrorDelay = 500, ...options }: GetFormFieldsOptions = {},
 ): AsyncIterable<FormField, unknown, undefined> {
-  const type = req.headers['content-type'] ?? '';
-  const supported =
-    /^application\/x-www-form-urlencoded\s*(;|$)/i.test(type) ||
-    (allowMultipart && /^multipart\/form-data\s*(;|$)/i.test(type));
-  if (!supported) {
-    throw new HTTPError(415);
-  }
+  const bus = busboy(req.headers, options);
 
   acceptBody(req);
 
   const output = new BlockingQueue<FormField>();
-  limits = { ...limits };
-  if (!allowMultipart) {
-    limits.files = 0;
-  }
 
   const fail = (status: number, options: HTTPErrorOptions) => {
     output.fail(new HTTPError(status, options));
@@ -46,16 +37,13 @@ export function getFormFields(
     }
   };
 
-  const fieldNameLimit = limits.fieldNameSize ?? 100;
-
-  const bus = busboy({ headers: req.headers, limits, preservePath: false });
   bus.on('field', (name, val, { nameTruncated, valueTruncated, encoding, mimeType }) => {
     if (!name) {
       return fail(400, { body: 'missing field name' });
     }
-    if (nameTruncated || name.length > fieldNameLimit) {
+    if (nameTruncated) {
       return fail(400, {
-        body: `field name ${JSON.stringify(name.slice(0, fieldNameLimit))}... too long`,
+        body: `field name ${JSON.stringify(name)}... too long`,
       });
     }
     if (valueTruncated) {
@@ -64,13 +52,13 @@ export function getFormFields(
     output.push({ name, encoding, mimeType, type: 'string', value: val });
   });
 
-  bus.on('file', (name, stream, { filename, encoding, mimeType }) => {
-    if (name === null) {
+  bus.on('file', (name, stream, { nameTruncated, filename, encoding, mimeType }) => {
+    if (!name) {
       return fail(400, { body: 'missing field name' });
     }
-    if (name.length > fieldNameLimit) {
+    if (nameTruncated) {
       return fail(400, {
-        body: `field name ${JSON.stringify(name.slice(0, fieldNameLimit))}... too long`,
+        body: `field name ${JSON.stringify(name)}... too long`,
       });
     }
     if (!filename) {
@@ -181,19 +169,13 @@ export async function getFormData(
   });
 }
 
-export interface GetFormFieldsOptions {
-  /**
-   * True to allow `multipart/form-data` (including file uploads). Otherwise only `application/x-www-form-urlencoded` is supported.
-   * @default false
-   */
-  allowMultipart?: boolean;
+export interface GetFormFieldsOptions extends BusboyOptions {
   /**
    * Delay (in milliseconds) before forcibly closing the request if an error occurs (e.g. a limit is exceeded).
    * This can be used to prevent clients uploading large files when the request has already been rejected.
    * @default 500
    */
   closeAfterErrorDelay?: number;
-  limits?: Limits;
 }
 
 export interface GetFormDataOptions extends GetFormFieldsOptions {
@@ -232,56 +214,4 @@ export interface AugmentedFormData extends FormData {
   getAllStrings(name: string): string[];
   getFile(name: string): File | null;
   getAllFiles(name: string): File[];
-}
-
-// Limits interface comes from busboy (duplicated here to avoid runtime dependency on @types/busboy)
-interface Limits {
-  /**
-   * Max field name size (in bytes).
-   *
-   * @default 100
-   */
-  fieldNameSize?: number | undefined;
-
-  /**
-   * Max field value size (in bytes).
-   *
-   * @default 1048576 (1MB)
-   */
-  fieldSize?: number | undefined;
-
-  /**
-   * Max number of non-file fields.
-   *
-   * @default Infinity
-   */
-  fields?: number | undefined;
-
-  /**
-   * For multipart forms, the max file size (in bytes).
-   *
-   * @default Infinity
-   */
-  fileSize?: number | undefined;
-
-  /**
-   * For multipart forms, the max number of file fields.
-   *
-   * @default Infinity
-   */
-  files?: number | undefined;
-
-  /**
-   * For multipart forms, the max number of parts (fields + files).
-   *
-   * @default Infinity
-   */
-  parts?: number | undefined;
-
-  /**
-   * For multipart forms, the max number of header key-value pairs to parse.
-   *
-   * @default 2000 (same as node's http module)
-   */
-  headerPairs?: number | undefined;
 }

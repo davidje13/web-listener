@@ -39,7 +39,7 @@ new WebListener(router).listen(3000);
   - Existing object prototypes are not modified; all features are available as imported functions
   - Unused features can removed via tree-shaking / dead-code-analysis during the build (via any of
     the major bundlers and minifiers) to reduce runtime size even further
-  - No package dependencies (bundles a minified copy of `busboy` for form data handling)
+  - No package dependencies (bundles a fork of `busboy` for form data handling)
   - Very low runtime memory requirements; only minimal book-keeping is needed to track each request,
     and the standard handlers are designed to have low working-memory requirements. Minified code
     means little runtime memory is occupied by the source code (Node.js keeps a copy of all source

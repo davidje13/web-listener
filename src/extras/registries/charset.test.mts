@@ -1,28 +1,65 @@
 import { ReadableStream, TextDecoderStream } from 'node:stream/web';
 import {
   internalDecodeUnicode,
-  internalTextDecoderStream,
+  getTextDecoderStream,
   registerCharset,
   registerUTF32,
+  getTextDecoder,
 } from './charset.mts';
 import 'lean-test';
 
-describe('internalTextDecoderStream', () => {
-  it('returns a text decoder for the requested encoding', async () => {
+describe('getTextDecoder', () => {
+  it('returns a text decoder for the requested encoding', () => {
     const input = new Uint8Array([0xb7, 0xb5]);
-    const decoder = internalTextDecoderStream('macintosh', {});
+    const decoder = getTextDecoder('macintosh', {});
+    expect(decoder.decode(input)).equals('∑µ');
+  });
+
+  it('supports custom registered character sets', () => {
+    registerCharset('my-custom-charset', {
+      decoder: (options) => new TextDecoder('iso-8859-2', options),
+    });
+    const input = new Uint8Array([0xa1, 0xfe]);
+
+    const decoder = getTextDecoder('my-custom-charset', {});
+    expect(decoder.decode(input)).equals('Ąţ');
+  });
+
+  it('throws for unknown character sets', async () => {
+    expect(() => getTextDecoder('unknown-thing', {})).throws('unsupported charset: unknown-thing');
+  });
+});
+
+describe('getTextDecoderStream', () => {
+  it('returns a text decoder stream for the requested encoding', async () => {
+    const input = new Uint8Array([0xb7, 0xb5]);
+    const decoder = getTextDecoderStream('macintosh', {});
     expect(await read(stream([input]).pipeThrough(decoder))).equals(['∑µ']);
   });
 
   it('supports custom registered character sets', async () => {
-    registerCharset('my-custom-charset', (options) => new TextDecoderStream('iso-8859-2', options));
+    registerCharset('my-custom-charset', {
+      decoder: (options) => new TextDecoder('iso-8859-2', options),
+      decoderStream: (options) => new TextDecoderStream('iso-8859-2', options),
+    });
     const input = new Uint8Array([0xa1, 0xfe]);
-    const decoder = internalTextDecoderStream('my-custom-charset', {});
+
+    const decoder = getTextDecoderStream('my-custom-charset', {});
+    expect(await read(stream([input]).pipeThrough(decoder))).equals(['Ąţ']);
+  });
+
+  it('builds a decoder stream automatically if one was not registered', async () => {
+    registerCharset('my-custom-charset', {
+      decoder: (options) => new TextDecoder('iso-8859-2', options),
+    });
+    const input = new Uint8Array([0xa1, 0xfe]);
+
+    const decoder = getTextDecoderStream('my-custom-charset', {});
     expect(await read(stream([input]).pipeThrough(decoder))).equals(['Ąţ']);
   });
 
   it('throws for unknown character sets', async () => {
-    expect(() => internalTextDecoderStream('unknown-thing', {})).throws(
+    expect(() => getTextDecoderStream('unknown-thing', {})).throws(
       'unsupported charset: unknown-thing',
     );
   });

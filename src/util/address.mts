@@ -69,7 +69,7 @@ export function makeAddressTester(cidrRanges: string[]) {
   };
 }
 
-const MAX_IPv6 = BigInt('0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF');
+const MAX_IPv6 = /*@__PURE__*/ BigInt('0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF');
 
 function internalReadIPv4(ip: string) {
   const parts = ip.split('.').map(Number);

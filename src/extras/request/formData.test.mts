@@ -227,19 +227,11 @@ describe('getFormFields', () => {
   });
 
   describe('multipart/form-data', () => {
-    it('rejects multipart data by default', { timeout: 3000 }, () => {
-      return withServer(consumeFormFields({}), async (url, { expectError }) => {
-        const res = await fetch(url, { method: 'POST', body: makeFormData([]) });
-        expect(res.status).equals(415);
-        expectError('handling request /: HTTPError(415 Unsupported Media Type)');
-      });
-    });
-
     it('returns an async iterable of all form fields', { timeout: 3000 }, () =>
       inRequestHandler(
         async (req) => {
           const fields: FormField[] = [];
-          for await (const field of getFormFields(req, { allowMultipart: true })) {
+          for await (const field of getFormFields(req)) {
             fields.push(field);
           }
           expect(fields).equals([
@@ -269,11 +261,22 @@ describe('getFormFields', () => {
       ),
     );
 
+    it('rejects multipart data if configured', { timeout: 3000 }, () => {
+      return withServer(
+        consumeFormFields({ blockMultipart: true }),
+        async (url, { expectError }) => {
+          const res = await fetch(url, { method: 'POST', body: makeFormData([]) });
+          expect(res.status).equals(415);
+          expectError('handling request /: HTTPError(415 Unsupported Media Type)');
+        },
+      );
+    });
+
     it('includes duplicate fields', { timeout: 3000 }, () =>
       inRequestHandler(
         async (req) => {
           const fields: FormField[] = [];
-          for await (const field of getFormFields(req, { allowMultipart: true })) {
+          for await (const field of getFormFields(req)) {
             fields.push(field);
           }
           expect(fields).equals([
@@ -295,7 +298,7 @@ describe('getFormFields', () => {
       inRequestHandler(
         async (req) => {
           const fields: FormField[] = [];
-          for await (const field of getFormFields(req, { allowMultipart: true })) {
+          for await (const field of getFormFields(req)) {
             fields.push(field);
           }
           expect(fields).equals([]);
@@ -307,7 +310,7 @@ describe('getFormFields', () => {
     it('includes file streams', { timeout: 3000 }, () =>
       inRequestHandler(
         async (req) => {
-          const nextField = stepper(getFormFields(req, { allowMultipart: true }));
+          const nextField = stepper(getFormFields(req));
           const field = await nextField();
           expect(field).isTruthy();
           expect(field!.name).equals('upload');
@@ -336,7 +339,7 @@ describe('getFormFields', () => {
     it('skips blank files', { timeout: 3000 }, () =>
       inRequestHandler(
         async (req) => {
-          const fields = getFormFields(req, { allowMultipart: true });
+          const fields = getFormFields(req);
           const fieldIterator = fields[Symbol.asyncIterator]();
           expect((await fieldIterator.next()).done).isTrue();
         },
@@ -349,7 +352,7 @@ describe('getFormFields', () => {
 
     it('returns HTTP 400 if a text field name is too long', { timeout: 3000 }, () =>
       withServer(
-        consumeFormFields({ allowMultipart: true, limits: { fieldNameSize: 5 } }),
+        consumeFormFields({ limits: { fieldNameSize: 5 } }),
         async (url, { expectError }) => {
           const res = await fetch(url, {
             method: 'POST',
@@ -365,7 +368,7 @@ describe('getFormFields', () => {
 
     it('returns HTTP 400 if a file field name is too long', { timeout: 3000 }, () =>
       withServer(
-        consumeFormFields({ allowMultipart: true, limits: { fieldNameSize: 5 } }),
+        consumeFormFields({ limits: { fieldNameSize: 5 } }),
         async (url, { expectError }) => {
           const res = await fetch(url, {
             method: 'POST',
@@ -380,75 +383,62 @@ describe('getFormFields', () => {
     );
 
     it('returns HTTP 400 if a field value is too long', { timeout: 3000 }, () =>
-      withServer(
-        consumeFormFields({ allowMultipart: true, limits: { fieldSize: 10 } }),
-        async (url, { expectError }) => {
-          const res = await fetch(url, {
-            method: 'POST',
-            body: makeFormData([['lv', 'too-long-value']]),
-          });
-          expect(res.status).equals(400);
-          expectError('handling request /: HTTPError(400 Bad Request): value for "lv" too long');
-        },
-      ),
+      withServer(consumeFormFields({ limits: { fieldSize: 10 } }), async (url, { expectError }) => {
+        const res = await fetch(url, {
+          method: 'POST',
+          body: makeFormData([['lv', 'too-long-value']]),
+        });
+        expect(res.status).equals(400);
+        expectError('handling request /: HTTPError(400 Bad Request): value for "lv" too long');
+      }),
     );
 
     it('returns HTTP 400 if a file is too large', { timeout: 3000 }, () =>
-      withServer(
-        consumeFormFields({ allowMultipart: true, limits: { fileSize: 10 } }),
-        async (url, { expectError }) => {
-          const res = await fetch(url, {
-            method: 'POST',
-            body: makeFormData([['lf', new File(['too much file content'], 'file.txt')]]),
-          });
-          expect(res.status).equals(400);
-          expectError(
-            'handling request /: HTTPError(400 Bad Request): uploaded file for "lf": "file.txt" too large',
-          );
-        },
-      ),
+      withServer(consumeFormFields({ limits: { fileSize: 10 } }), async (url, { expectError }) => {
+        const res = await fetch(url, {
+          method: 'POST',
+          body: makeFormData([['lf', new File(['too much file content'], 'file.txt')]]),
+        });
+        expect(res.status).equals(400);
+        expectError(
+          'handling request /: HTTPError(400 Bad Request): uploaded file for "lf": "file.txt" too large',
+        );
+      }),
     );
 
     it('returns HTTP 400 if there are too many text fields', { timeout: 3000 }, () =>
-      withServer(
-        consumeFormFields({ allowMultipart: true, limits: { fields: 2 } }),
-        async (url, { expectError }) => {
-          const res = await fetch(url, {
-            method: 'POST',
-            body: makeFormData([
-              ['f1', '1'],
-              ['f2', '2'],
-              ['f3', '3'],
-            ]),
-          });
-          expect(res.status).equals(400);
-          expectError('handling request /: HTTPError(400 Bad Request): too many fields');
-        },
-      ),
+      withServer(consumeFormFields({ limits: { fields: 2 } }), async (url, { expectError }) => {
+        const res = await fetch(url, {
+          method: 'POST',
+          body: makeFormData([
+            ['f1', '1'],
+            ['f2', '2'],
+            ['f3', '3'],
+          ]),
+        });
+        expect(res.status).equals(400);
+        expectError('handling request /: HTTPError(400 Bad Request): too many fields');
+      }),
     );
 
     it('returns HTTP 400 if there are too many file fields', { timeout: 3000 }, () =>
-      withServer(
-        consumeFormFields({ allowMultipart: true, limits: { files: 2 } }),
-        async (url, { expectError }) => {
-          const res = await fetch(url, {
-            method: 'POST',
-            body: makeFormData([
-              ['f1', new File(['a'], 'file1.txt')],
-              ['f2', new File(['b'], 'file2.txt')],
-              ['f3', new File(['c'], 'file3.txt')],
-            ]),
-          });
-          expect(res.status).equals(400);
-          expectError('handling request /: HTTPError(400 Bad Request): too many files');
-        },
-      ),
+      withServer(consumeFormFields({ limits: { files: 2 } }), async (url, { expectError }) => {
+        const res = await fetch(url, {
+          method: 'POST',
+          body: makeFormData([
+            ['f1', new File(['a'], 'file1.txt')],
+            ['f2', new File(['b'], 'file2.txt')],
+            ['f3', new File(['c'], 'file3.txt')],
+          ]),
+        });
+        expect(res.status).equals(400);
+        expectError('handling request /: HTTPError(400 Bad Request): too many files');
+      }),
     );
 
     it('returns HTTP 400 if there are too many fields', { timeout: 3000 }, () =>
       withServer(
         consumeFormFields({
-          allowMultipart: true,
           limits: { parts: 3 },
         }),
         async (url, { expectError }) => {
@@ -468,22 +458,19 @@ describe('getFormFields', () => {
     );
 
     it('does not break the connection due to limits being reached', { timeout: 3000 }, () =>
-      withServer(
-        consumeFormFields({ allowMultipart: true, limits: { files: 1 } }),
-        async (url, { expectError }) => {
-          const largeFile = new File(['x'.repeat(100000)], 'file.txt');
-          const res = await fetch(url, {
-            method: 'POST',
-            body: makeFormData([
-              ['f1', largeFile],
-              ['f2', largeFile],
-              ['f3', largeFile],
-            ]),
-          });
-          expect(res.status).equals(400);
-          expectError('handling request /: HTTPError(400 Bad Request)');
-        },
-      ),
+      withServer(consumeFormFields({ limits: { files: 1 } }), async (url, { expectError }) => {
+        const largeFile = new File(['x'.repeat(100000)], 'file.txt');
+        const res = await fetch(url, {
+          method: 'POST',
+          body: makeFormData([
+            ['f1', largeFile],
+            ['f2', largeFile],
+            ['f3', largeFile],
+          ]),
+        });
+        expect(res.status).equals(400);
+        expectError('handling request /: HTTPError(400 Bad Request)');
+      }),
     );
 
     it('stops if the request is cancelled', { timeout: 3000 }, () => {
@@ -493,7 +480,7 @@ describe('getFormFields', () => {
 
       return inRequestHandler(
         async (req, res, { expectFetchError }) => {
-          const nextField = stepper(getFormFields(req, { allowMultipart: true }));
+          const nextField = stepper(getFormFields(req));
           expect(await nextField()).isTruthy();
           expectFetchError();
           await writer.abort();
@@ -582,7 +569,7 @@ describe('getFormData', () => {
   it('stores uploaded files in a temporary location', { timeout: 3000 }, () =>
     inRequestHandler(
       async (req, _, { teardown }) => {
-        const data = await getFormData(req, { allowMultipart: true });
+        const data = await getFormData(req);
         const upload = data.get('upload');
         expect(upload).isTruthy();
         expect(upload).isInstanceOf(File);
@@ -614,7 +601,7 @@ describe('getFormData', () => {
   it('adds convenience methods for reading string and file values', { timeout: 3000 }, () =>
     inRequestHandler(
       async (req) => {
-        const data = await getFormData(req, { allowMultipart: true });
+        const data = await getFormData(req);
         expect(data.getString('field')).equals('value');
         expect(data.getString('upload')).isNull();
 
@@ -641,7 +628,6 @@ describe('getFormData', () => {
     withServer(
       requestHandler(async (req) => {
         await getFormData(req, {
-          allowMultipart: true,
           preCheckFile: ({ filename }) => {
             throw new HTTPError(499, { statusMessage: `Rejected File ${filename}` });
           },
@@ -667,7 +653,7 @@ describe('getFormData', () => {
       async (req, res, { expectFetchError }) => {
         expectFetchError();
         await writer.abort();
-        await expect(() => getFormData(req, { allowMultipart: true })).throws('STOP');
+        await expect(() => getFormData(req)).throws('STOP');
         await expect.poll(() => res.closed, isTrue(), { timeout: 500 });
       },
       {

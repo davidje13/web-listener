@@ -9,7 +9,7 @@ import {
 import zlib from 'node:zlib';
 import { HTTPError } from '../../core/HTTPError.mts';
 import { ByteLimitStream } from '../../util/ByteLimitStream.mts';
-import { internalDecodeUnicode, internalTextDecoderStream } from '../registries/charset.mts';
+import { internalDecodeUnicode, getTextDecoderStream } from '../registries/charset.mts';
 import { getCharset, readHTTPInteger, readHTTPUnquotedCommaSeparated } from './headers.mts';
 import { acceptBody } from './continue.mts';
 
@@ -68,7 +68,7 @@ export function getBodyTextStream(
 ): ReadableStream<string> {
   const readable = getBodyStream(req, options);
   const charset = getCharset(req) ?? options.defaultCharset ?? 'utf-8';
-  return readable.pipeThrough(internalTextDecoderStream(charset, options));
+  return readable.pipeThrough(getTextDecoderStream(charset, options));
 }
 
 export async function getBodyText(req: IncomingMessage, options: GetBodyTextOptions = {}) {

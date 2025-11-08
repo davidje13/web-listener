@@ -1,5 +1,3 @@
-import commonjs from '@rollup/plugin-commonjs';
-import { nodeResolve } from '@rollup/plugin-node-resolve';
 import terser from '@rollup/plugin-terser';
 import typescript from '@rollup/plugin-typescript';
 import { dts } from 'rollup-plugin-dts';
@@ -10,7 +8,6 @@ export default [
     output: {
       dir: 'build',
       format: 'esm',
-      paths: (p) => (p === 'stream' ? 'node:stream' : p), // patch busboy import
     },
     external: [/node:.*/],
     plugins: [
@@ -26,8 +23,6 @@ export default [
         exclude: ['**/*.test.*', 'src/test-helpers/**', 'src/bin/**'],
         tslib: {},
       }),
-      nodeResolve(), // for bundling busboy
-      commonjs(), // for bundling busboy
       terser({
         ecma: 2015,
         module: true,

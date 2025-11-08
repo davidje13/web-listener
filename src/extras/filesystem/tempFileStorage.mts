@@ -24,7 +24,7 @@ export interface TempFileStorage {
   ) => Promise<SavedFile>;
 }
 
-export const makeTempFileStorage = makeMemo(
+export const makeTempFileStorage = /*@__PURE__*/ makeMemo(
   async (req: IncomingMessage): Promise<TempFileStorage> => {
     const signal = getAbortSignal(req);
     if (signal.aborted) {

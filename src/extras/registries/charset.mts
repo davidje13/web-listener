@@ -1,33 +1,51 @@
-import {
-  ReadableStream,
-  TransformStream,
-  TextDecoderStream,
-  type TextDecoderOptions,
-} from 'node:stream/web';
+import { ReadableStream, TextDecoderStream, type TextDecoderOptions } from 'node:stream/web';
 import { UTF32Decoder } from '../../util/UTF32Decoder.mts';
 import { HTTPError } from '../../core/HTTPError.mts';
+import {
+  type Decoder,
+  type DecoderStream,
+  WrappedDecoderStream,
+} from '../../util/DecoderStream.mts';
 
-const CHARSETS = new Map<
-  string,
-  (options: TextDecoderOptions) => TransformStream<Uint8Array, string>
->();
+interface Charset {
+  decoder: (options: TextDecoderOptions) => Decoder;
+  decoderStream?: (options: TextDecoderOptions) => DecoderStream;
+}
 
-export function registerCharset(
-  charset: string,
-  transformerFactory: (options: TextDecoderOptions) => TransformStream<Uint8Array, string>,
-) {
-  CHARSETS.set(charset.toLowerCase(), transformerFactory);
+const CHARSETS = new Map<string, Charset>();
+
+export function registerCharset(charset: string, definition: Charset) {
+  CHARSETS.set(charset.toLowerCase(), definition);
 }
 
 export function registerUTF32() {
-  registerCharset('utf-32be', () => new UTF32Decoder(false));
-  registerCharset('utf-32le', () => new UTF32Decoder(true));
+  registerCharset('utf-32be', { decoder: (options) => new UTF32Decoder(false, options) });
+  registerCharset('utf-32le', { decoder: (options) => new UTF32Decoder(true, options) });
 }
 
-export function internalTextDecoderStream(charset: string, options: TextDecoderOptions) {
-  const custom = CHARSETS.get(charset);
+export function getTextDecoder(charset: string, options: TextDecoderOptions = {}): Decoder {
+  const custom = CHARSETS.get(charset.toLowerCase());
   if (custom) {
-    return custom(options);
+    return custom.decoder(options);
+  }
+  try {
+    return new TextDecoder(charset, options);
+  } catch {
+    throw new HTTPError(415, { body: `unsupported charset: ${charset}` });
+  }
+}
+
+export function getTextDecoderStream(
+  charset: string,
+  options: TextDecoderOptions = {},
+): DecoderStream {
+  const custom = CHARSETS.get(charset.toLowerCase());
+  if (custom) {
+    if (custom.decoderStream) {
+      return custom.decoderStream(options);
+    } else {
+      return new WrappedDecoderStream(custom.decoder(options));
+    }
   }
   try {
     return new TextDecoderStream(charset, options);
@@ -77,7 +95,7 @@ export async function internalDecodeUnicode(
     inReader.cancel();
     throw new HTTPError(415, { body: 'invalid JSON encoding' });
   }
-  const decoder = internalTextDecoderStream(charset, options);
+  const decoder = getTextDecoderStream(charset, options);
   const decoderWriter = decoder.writable.getWriter();
   if (n) {
     decoderWriter.write(temp.subarray(0, n));
