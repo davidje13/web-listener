@@ -2,8 +2,8 @@ import { rm, stat } from 'node:fs/promises';
 import { text } from 'node:stream/consumers';
 import { spawn } from 'node:child_process';
 import { dirname, join } from 'node:path';
+import { createServer } from 'node:net';
 import { createInterface } from 'node:readline/promises';
-import { findAvailablePorts } from '../src/test-helpers/findAvailablePorts.mts';
 import 'lean-test';
 
 const selfDir = dirname(new URL(import.meta.url).pathname);
@@ -148,6 +148,28 @@ describe('cli', () => {
     };
   });
 });
+
+async function findAvailablePorts(count = 1) {
+  const servers = [];
+  for (let i = 0; i < count; ++i) {
+    const s = createServer();
+    servers.push(s);
+  }
+  await Promise.all(
+    servers.map(
+      (s) =>
+        new Promise((resolve, reject) => {
+          s.once('error', reject);
+          s.listen(0, 'localhost', resolve);
+        }),
+    ),
+  );
+  try {
+    return servers.map((s) => s.address().port);
+  } finally {
+    await Promise.all(servers.map((s) => new Promise((resolve) => s.close(resolve))));
+  }
+}
 
 function spawnProcess(path, args, options = {}) {
   const ac = new AbortController();
