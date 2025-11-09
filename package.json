@@ -21,8 +21,9 @@
   "bin": "./run.js",
   "scripts": {
     "format": "prettier --write .",
-    "test": "lean-test --preprocess=tsc --parallel-suites && package/build.sh && package/run.sh && tsc && prettier --check .",
-    "test-run": "./src/bin/run.mts",
+    "test": "lean-test src --preprocess=tsc --parallel-suites && package/build.sh && package/run.sh && tsc && prettier --check .",
+    "test-performance": "performance/run.sh",
+    "cli": "./src/bin/run.mts",
     "dopublish": "package/build.sh && npm publish package.tgz"
   },
   "repository": {

@@ -1,0 +1,8 @@
+{
+  "name": "web-listener-performance-test",
+  "private": true,
+  "devDependencies": {
+    "@types/streamsearch": "1.1.x",
+    "streamsearch": "1.1.0"
+  }
+}

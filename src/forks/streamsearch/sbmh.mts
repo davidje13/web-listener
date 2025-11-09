@@ -1,9 +1,10 @@
 /*
- * Copied from streamsearch@1.1.0 by Brian White
+ * Adapted from streamsearch@1.1.0 by Brian White
  * https://github.com/mscdex/streamsearch/tree/2df4e8db15b379f6faf0196a4ea3868bd3046e32
+ * based on https://github.com/FooBarWidget/boyer-moore-horspool by Hongli Lai
  *
- * Based heavily on the Streaming Boyer-Moore-Horspool C++ implementation
- * by Hongli Lai at: https://github.com/FooBarWidget/boyer-moore-horspool
+ * Heavily adapted for improved performance on recent versions of Node.js
+ * (the original was written before Buffer.indexOf was fast)
  */
 
 import { VOID_BUFFER } from '../../util/voidBuffer.mts';
@@ -19,66 +20,62 @@ export type StreamSearchCallback = (
 export class StreamSearch {
   /** @internal */ private readonly _needle: Buffer;
   /** @internal */ private readonly _cb: StreamSearchCallback;
-  /** @internal */ private _lookbehind: Buffer;
+  /** @internal */ private _lookbehind: Buffer | null;
   /** @internal */ private _lookbehindSize: number;
-  /** @internal */ private _bufPos: number;
-  /** @internal */ private readonly _occ: Uint16Array;
+  /** @internal */ private _occ: Uint16Array | null;
 
   constructor(needle: Buffer, callback: StreamSearchCallback) {
     const needleLen = needle.byteLength;
-    if (!needleLen) {
-      throw new Error('cannot search for empty needle');
+    if (!needleLen || needleLen > 65535) {
+      throw new Error('invalid needle');
     }
     this._needle = needle;
     this._cb = callback;
-    this._lookbehind = Buffer.alloc(needleLen);
+    this._lookbehind = null;
     this._lookbehindSize = 0;
-    this._bufPos = 0;
-
-    // Populate occurrence table with analysis of the needle, ignoring the last letter.
-    this._occ = new Uint16Array(256).fill(needleLen);
-    for (let i = 0; i < needleLen - 1; ++i) {
-      this._occ[needle[i]!] = needleLen - 1 - i;
-    }
+    this._occ = null;
   }
 
-  push(chunk: Buffer, pos = 0) {
-    this._bufPos = pos;
-    const chunkLen = chunk.byteLength;
-    while (this._feed(chunk) !== chunkLen);
-  }
-
-  destroy() {
-    const lbSize = this._lookbehindSize;
-    if (lbSize) {
-      this._cb(false, this._lookbehind, 0, lbSize, false);
-    }
-    this._lookbehindSize = 0;
-    this._bufPos = 0;
-  }
-
-  /** @internal */
-  private _feed(data: Buffer) {
+  push(data: Buffer) {
+    let begin = 0;
     const len = data.byteLength;
     const needle = this._needle;
-    const needleLen = needle.byteLength;
+    const needleLenM1 = needle.byteLength - 1;
+    const end = len - needleLenM1;
 
     // Positive: points to a position in `data`
     //           pos == 3 points to data[3]
     // Negative: points to a position in the lookbehind buffer
     //           pos == -2 points to lookbehind[lookbehindSize - 2]
     let pos = -this._lookbehindSize;
-    const lastNeedleCharPos = needleLen - 1;
-    const lastNeedleChar = needle[lastNeedleCharPos];
-    const end = len - needleLen;
-    const occ = this._occ;
-    const lookbehind = this._lookbehind;
 
-    if (pos < 0) {
+    if (this._lookbehindSize) {
       // Lookbehind buffer is not empty. Perform Boyer-Moore-Horspool
       // search with character lookup code that considers both the
       // lookbehind buffer and the current round's haystack data.
-      //
+
+      // these properties are guaranteed to be set if lookbehindSize > 0
+      const occ = this._occ!;
+      const lookbehind = this._lookbehind!;
+
+      const lastNeedleChar = needle[needleLenM1];
+      if (end > 0) {
+        // we already know the lookbehind buffer is a valid needle prefix, so
+        // until we advance pos, we only need to check if data contains the
+        // rest of the needle.
+        const ch = data[pos + needleLenM1]!;
+        if (
+          ch === lastNeedleChar &&
+          !data.compare(needle, -pos, needleLenM1, 0, pos + needleLenM1)
+        ) {
+          this._cb(true, VOID_BUFFER, 0, 0, true);
+          this._lookbehindSize = 0;
+          begin = pos += needleLenM1 + 1;
+        } else {
+          pos += occ[ch]!;
+        }
+      }
+
       // Loop until
       //   there is a match.
       // or until
@@ -87,136 +84,113 @@ export class StreamSearch {
       //   optimized loop.
       // or until
       //   the character to look at lies outside the haystack.
-      while (pos < 0 && pos <= end) {
-        const nextPos = pos + lastNeedleCharPos;
-        const ch = nextPos < 0 ? lookbehind[this._lookbehindSize + nextPos]! : data[nextPos]!;
-
-        if (ch === lastNeedleChar && this._matchNeedle(data, pos, lastNeedleCharPos)) {
+      const stop = end < 0 ? end : 0;
+      while (pos < stop) {
+        const ch = data[pos + needleLenM1]!;
+        if (
+          ch === lastNeedleChar &&
+          !lookbehind.compare(needle, 0, -pos, this._lookbehindSize + pos, this._lookbehindSize) &&
+          !data.compare(needle, -pos, needleLenM1, 0, pos + needleLenM1)
+        ) {
+          this._cb(true, lookbehind, 0, this._lookbehindSize + pos, false);
           this._lookbehindSize = 0;
-          if (pos > -this._lookbehindSize) {
-            this._cb(true, lookbehind, 0, this._lookbehindSize + pos, false);
-          } else {
-            this._cb(true, VOID_BUFFER, 0, 0, true);
-          }
-
-          return (this._bufPos = pos + needleLen);
+          begin = pos += needleLenM1 + 1;
+          break;
         }
-
         pos += occ[ch]!;
       }
 
-      // No match.
+      // Drop as much of the lookbehind buffer as we can
+      const lbSize = this._lookbehindSize;
+      if (lbSize > 0) {
+        const firstNeedleChar = needle[0]!;
+        while (pos < 0) {
+          const found = lookbehind.indexOf(firstNeedleChar, lbSize + pos);
+          if (found === -1) {
+            pos = 0;
+            break;
+          }
+          const lbStart = lbSize - found;
+          if (
+            !lookbehind.compare(needle, 1, lbStart, found + 1, lbSize) &&
+            !data.compare(needle, lbStart, lbStart + len)
+          ) {
+            // Remove prefix from lookbehind buffer that can no-longer be part of the needle
+            if (found) {
+              this._cb(false, lookbehind, 0, found, false);
+              lookbehind.copy(lookbehind, 0, found, lbStart);
+            }
 
-      // There's too few data for Boyer-Moore-Horspool to run,
-      // so let's use a different algorithm to skip as much as
-      // we can.
-      // Forward pos until
-      //   the trailing part of lookbehind + data
-      //   looks like the beginning of the needle
-      // or until
-      //   pos == 0
-      while (pos < 0 && !this._matchNeedle(data, pos, len - pos)) {
-        ++pos;
-      }
-
-      if (pos < 0) {
-        // Cut off part of the lookbehind buffer that has
-        // been processed and append the entire haystack
-        // into it.
-        const bytesToCutOff = this._lookbehindSize + pos;
-
-        if (bytesToCutOff > 0) {
-          // The cut off data is guaranteed not to contain the needle.
-          this._cb(false, lookbehind, 0, bytesToCutOff, false);
+            // Append all of the current chunk
+            lookbehind.set(data, lbStart);
+            this._lookbehindSize += len - found;
+            return;
+          }
+          pos = found + 1 - lbSize;
         }
 
-        this._lookbehindSize -= bytesToCutOff;
-        lookbehind.copy(lookbehind, 0, bytesToCutOff, this._lookbehindSize);
-        lookbehind.set(data, this._lookbehindSize);
-        this._lookbehindSize += len;
-
-        this._bufPos = len;
-        return len;
+        this._cb(false, lookbehind, 0, lbSize, false);
+        this._lookbehindSize = 0;
       }
-
-      // Discard lookbehind buffer.
-      this._cb(false, lookbehind, 0, this._lookbehindSize, false);
-      this._lookbehindSize = 0;
     }
 
-    pos += this._bufPos;
-
-    const firstNeedleChar = needle[0];
-
-    // Lookbehind buffer is now empty. Perform Boyer-Moore-Horspool
-    // search with optimized character lookup code that only considers
-    // the current round's haystack data.
-    while (pos <= end) {
-      const ch = data[pos + lastNeedleCharPos]!;
-
-      if (
-        ch === lastNeedleChar &&
-        data[pos] === firstNeedleChar &&
-        memcmp(needle, 0, data, pos, lastNeedleCharPos)
-      ) {
-        if (pos > 0) {
-          this._cb(true, data, this._bufPos, pos, true);
-        } else {
-          this._cb(true, VOID_BUFFER, 0, 0, true);
+    // Lookbehind buffer is now empty. Native Buffer.indexOf performs
+    // efficient searching using various methods (including BMH)
+    // https://github.com/nodejs/nbytes/blob/dac045c3a39f2a4ba87337d9642b6ffa66e99d4b/include/nbytes.h#L320
+    // So use that to cover the bulk of the available data:
+    while (pos < end) {
+      const found = data.indexOf(needle, pos);
+      if (found !== -1) {
+        this._cb(true, data, begin, found, true);
+        if (found === end + 1) {
+          return;
         }
-
-        return (this._bufPos = pos + needleLen);
+        begin = pos = found + needleLenM1 + 1;
+      } else {
+        pos = end;
       }
-
-      pos += occ[ch]!;
     }
 
     // There was no match. If there's trailing haystack data that we cannot
-    // match yet using the Boyer-Moore-Horspool algorithm (because the trailing
-    // data is less than the needle size) then match using a modified
-    // algorithm that starts matching from the beginning instead of the end.
-    // Whatever trailing data is left after running this algorithm is added to
-    // the lookbehind buffer.
+    // match yet (because the trailing data is less than the needle size) then
+    // store it in the lookbehind buffer for the next chunk.
+    const firstNeedleChar = needle[0]!;
     while (pos < len) {
-      if (data[pos] !== firstNeedleChar || !memcmp(data, pos, needle, 0, len - pos)) {
-        ++pos;
-        continue;
+      const found = data.indexOf(firstNeedleChar, pos);
+      if (found === -1) {
+        this._cb(false, data, begin, len, true);
+        return;
       }
-      data.copy(lookbehind, 0, pos, len);
-      this._lookbehindSize = len - pos;
-      break;
+      if (!data.compare(needle, 1, len - found, found + 1)) {
+        if (!this._lookbehind) {
+          // Allocate lookbehind buffer and BMH lookup table on demand
+          this._lookbehind = Buffer.allocUnsafe(needleLenM1);
+          // Populate occurrence table with analysis of the needle, ignoring the last letter.
+          this._occ = new Uint16Array(256).fill(needleLenM1 + 1);
+          for (let i = 0; i < needleLenM1; ++i) {
+            this._occ[needle[i]!] = needleLenM1 - i;
+          }
+        }
+        data.copy(this._lookbehind, 0, found);
+        this._lookbehindSize = len - found;
+        if (found > begin) {
+          this._cb(false, data, begin, found, true);
+        }
+        return;
+      }
+      pos = found + 1;
     }
 
-    // Everything until `pos` is guaranteed not to contain needle data.
-    if (pos > 0) {
-      this._cb(false, data, this._bufPos, pos < len ? pos : len, true);
+    if (len > begin) {
+      this._cb(false, data, begin, len, true);
     }
-
-    this._bufPos = len;
-    return len;
   }
 
-  /** @internal */
-  private _matchNeedle(data: Buffer, pos: number, len: number) {
-    const lb = this._lookbehind;
+  destroy() {
     const lbSize = this._lookbehindSize;
-    const needle = this._needle;
-
-    for (let i = 0; i < len; ++i, ++pos) {
-      const ch = pos < 0 ? lb[lbSize + pos] : data[pos];
-      if (ch !== needle[i]) {
-        return false;
-      }
+    if (lbSize && this._lookbehind) {
+      this._cb(false, this._lookbehind, 0, lbSize, false);
     }
-    return true;
+    this._lookbehindSize = 0;
   }
-}
-
-function memcmp(buf1: Buffer, pos1: number, buf2: Buffer, pos2: number, num: number) {
-  for (let i = 0; i < num; ++i) {
-    if (buf1[pos1 + i] !== buf2[pos2 + i]) {
-      return false;
-    }
-  }
-  return true;
 }

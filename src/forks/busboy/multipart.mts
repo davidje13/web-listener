@@ -160,9 +160,18 @@ export class Multipart extends Writable {
     let matchPostBoundary = 0;
     const needle = Buffer.from(`\r\n--${boundary}`, 'latin1');
     this._bparser = new StreamSearch(needle, (isMatch, data, start, end, isDataSafe) => {
+      const safeData = (start: number, end: number) => {
+        if (isDataSafe) {
+          return data.subarray(start, end);
+        }
+        const chunk = Buffer.allocUnsafe(end - start);
+        data.copy(chunk, 0, start, end);
+        return chunk;
+      };
+
       while (start !== end) {
         if (this._hparser) {
-          const ret = this._hparser.push(data, start, end);
+          const ret = this._hparser.push(data, start, end, isDataSafe);
           if (ret === -1) {
             this._hparser = undefined;
             hparser.reset();
@@ -221,15 +230,8 @@ export class Multipart extends Writable {
         }
         if (!skipPart) {
           if (this._fileStream) {
-            let chunk: Buffer;
-            const actualLen = Math.min(end - start, fileSizeLimit - fileSize);
-            if (!isDataSafe) {
-              chunk = Buffer.allocUnsafe(actualLen);
-              data.copy(chunk, 0, start, start + actualLen);
-            } else {
-              chunk = data.subarray(start, start + actualLen);
-            }
-            fileSize += chunk.length;
+            const chunk = safeData(start, Math.min(end, start + fileSizeLimit - fileSize));
+            fileSize += chunk.byteLength;
             if (fileSize === fileSizeLimit) {
               if (chunk.length > 0) {
                 this._fileStream.push(chunk);
@@ -244,15 +246,8 @@ export class Multipart extends Writable {
               this._writecb = undefined;
             }
           } else if (field) {
-            let chunk: Buffer;
-            const actualLen = Math.min(end - start, fieldSizeLimit - fieldSize);
-            if (!isDataSafe) {
-              chunk = Buffer.allocUnsafe(actualLen);
-              data.copy(chunk, 0, start, start + actualLen);
-            } else {
-              chunk = data.subarray(start, start + actualLen);
-            }
-            fieldSize += actualLen;
+            const chunk = safeData(start, Math.min(end, start + fieldSizeLimit - fieldSize));
+            fieldSize += chunk.byteLength;
             field.push(partDecoder.decode(chunk));
             if (fieldSize === fieldSizeLimit) {
               skipPart = true;
@@ -269,10 +264,10 @@ export class Multipart extends Writable {
           this._fileStream.push(null);
           this._fileStream = undefined;
         } else if (field) {
-          const data = field.join('');
+          const value = field.join('');
           field = undefined;
           fieldSize = 0;
-          this.emit('field', partName, data, {
+          this.emit('field', partName, value, {
             nameTruncated,
             valueTruncated: partTruncated,
             encoding: partEncoding,
@@ -291,7 +286,7 @@ export class Multipart extends Writable {
 
   override _write(chunk: Buffer, _: BufferEncoding, cb: (err?: Error | null) => void) {
     this._writecb = cb;
-    this._bparser.push(chunk, 0);
+    this._bparser.push(chunk);
     const cbDone = this._writecb;
     if (cbDone) {
       this._writecb = undefined;
@@ -385,7 +380,7 @@ class HeaderParser {
     this._crlf = 0;
   }
 
-  push(chunk: Buffer, pos: number, end: number) {
+  push(chunk: Buffer, pos: number, end: number, isDataSafe: boolean) {
     let start = pos;
     main: while (pos < end) {
       switch (this._state) {
@@ -449,7 +444,14 @@ class HeaderParser {
                   break;
                 }
               }
-              this._value.push(chunk.subarray(start, pos++));
+              if (isDataSafe) {
+                this._value.push(chunk.subarray(start, pos));
+              } else {
+                const longLived = Buffer.allocUnsafe(pos - start);
+                chunk.copy(longLived, 0, start, pos);
+                this._value.push(longLived);
+              }
+              ++pos;
               break;
             case 1: // Received CR
               if (this._byteCount === MAX_HEADER_SIZE) {

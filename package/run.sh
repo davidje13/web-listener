@@ -11,7 +11,7 @@ cd "$BASE_DIR/package";
 rm -rf node_modules/web-listener || true;
 npm install --audit=false;
 rm web-listener.tgz || true;
-npm test;
+npm -s test;
 cd - >/dev/null;
 
 echo;

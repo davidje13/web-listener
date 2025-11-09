@@ -88,6 +88,150 @@ const tests = [
     ],
   },
   {
+    name: 'false match followed by match in lookbehind',
+    needle: 'ababba',
+    chunks: 'beforeabab|abbaafter',
+    expected: [
+      [false, 'before'],
+      [true, 'ab'],
+      [false, 'after'],
+    ],
+  },
+  {
+    name: 'partial false matches across boundaries',
+    needle: 'ababba',
+    chunks: '0|ababba1a|ababba2ab|ababba3aba|ababba4abab|ababba5ababb|xababba',
+    expected: [
+      [false, '0'],
+      [true, ''],
+      [false, '1'],
+      [false, 'a'],
+      [true, ''],
+      [false, '2'],
+      [false, 'ab'],
+      [true, ''],
+      [false, '3'],
+      [false, 'aba'],
+      [true, ''],
+      [false, '4'],
+      [false, 'abab'],
+      [true, ''],
+      [false, '5'],
+      [false, 'ababb'],
+      [true, 'x'],
+    ],
+  },
+  {
+    name: 'partial subsequent matches across boundaries',
+    needle: 'ababba',
+    chunks: '0|ababba1a|babba2ab|abba3aba|babba4abab|abba',
+    expected: [
+      [false, '0'],
+      [true, ''],
+      [false, '1'],
+      [true, ''],
+      [false, '2'],
+      [true, ''],
+      [false, '3'],
+      [true, 'ab'],
+      [false, '4'],
+      [true, 'ab'],
+    ],
+  },
+  {
+    name: 'false matches across multiple boundaries',
+    needle: '-----.',
+    chunks: '--|--|---|x--|---x|-|--|--|-|.',
+    expected: [
+      [false, '--'],
+      [false, '-----'],
+      [false, 'x'],
+      [false, '--'],
+      [false, '---x'],
+      [false, '-'],
+      [true, ''],
+    ],
+  },
+  {
+    name: 'extended false match across multiple boundaries',
+    needle: '-----.',
+    chunks: '-|--|---|----|-----|----|---|--|-|--|----..........',
+    expected: [
+      [false, '-'],
+      [false, '----'],
+      [false, '-----'],
+      [false, '----'],
+      [false, '---'],
+      [false, '--'],
+      [false, '-'],
+      [false, '--'],
+      [true, '----'],
+      [false, '.........'],
+    ],
+  },
+  {
+    name: 'false match just before true match across boundary (repetitive needle with suffix)',
+    needle: '-----.',
+    chunks: '1--|--------.2--|-------.3--|------.4--|-----.5',
+    expected: [
+      [false, '1'],
+      [false, '--'],
+      [true, '---'],
+      [false, '2'],
+      [false, '--'],
+      [true, '--'],
+      [false, '3'],
+      [false, '--'],
+      [true, '-'],
+      [false, '4'],
+      [false, '--'],
+      [true, ''],
+      [false, '5'],
+    ],
+  },
+  {
+    name: 'false match just before true match across boundary (repetitive needle with prefix)',
+    needle: '.-----',
+    chunks: '1.-|---.-----2.-|--.-----3.-|-.-----4.-|.-----5..|-----6',
+    expected: [
+      [false, '1'],
+      [false, '.-'],
+      [true, '---'],
+      [false, '2'],
+      [false, '.-'],
+      [true, '--'],
+      [false, '3'],
+      [false, '.-'],
+      [true, '-'],
+      [false, '4'],
+      [false, '.-'],
+      [true, ''],
+      [false, '5.'],
+      [true, ''],
+      [false, '6'],
+    ],
+  },
+  {
+    name: 'false match just before true match across boundary (unique needle)',
+    needle: 'abcdef',
+    chunks: '1ab|cdeabcdef2ab|cdabcdef3ab|cabcdef4ab|abcdef5',
+    expected: [
+      [false, '1'],
+      [false, 'ab'],
+      [true, 'cde'],
+      [false, '2'],
+      [false, 'ab'],
+      [true, 'cd'],
+      [false, '3'],
+      [false, 'ab'],
+      [true, 'c'],
+      [false, '4'],
+      [false, 'ab'],
+      [true, ''],
+      [false, '5'],
+    ],
+  },
+  {
     name: 'at start',
     needle: '\r\n',
     chunks: '\r\nfoo',
@@ -163,9 +307,40 @@ describe('StreamSearch', () => {
   );
 
   it('rejects an empty needle', () => {
-    expect(() => new StreamSearch(Buffer.alloc(0), () => {})).throws(
-      'cannot search for empty needle',
-    );
+    expect(() => new StreamSearch(Buffer.alloc(0), () => {})).throws('invalid needle');
+  });
+
+  it('reliably finds needles regardless of position and chunk boundaries', () => {
+    const needleTypes = [
+      Buffer.alloc(10).fill(1),
+      Buffer.from('abcdefghij'),
+      Buffer.from('.---------'),
+    ];
+    for (const needleType of needleTypes) {
+      for (let size = 1; size < needleType.byteLength; ++size) {
+        const needle = needleType.subarray(0, size);
+        for (let pos = 0; pos < 30; ++pos) {
+          const background = Buffer.alloc(100);
+          background.set(needle, pos);
+          background.set(needle, 80);
+
+          for (let split = 1; split < 20; ++split) {
+            const results: CapturedResults = [];
+            const ss = new StreamSearch(needle, collect(results));
+
+            for (let i = 0; i < background.byteLength; i += split) {
+              ss.push(background.subarray(i, i + split));
+            }
+            ss.destroy();
+
+            const combined = mergeParts(results);
+            expect(combined).hasLength(3);
+            expect(combined[0]![1]).hasLength(pos);
+            expect(combined[1]![1]).hasLength(80 - pos - size);
+          }
+        }
+      }
+    }
   });
 });
 
@@ -193,5 +368,6 @@ function mergeParts(items: CapturedResults) {
       partial = '';
     }
   }
-  return [false, partial];
+  result.push([false, partial]);
+  return result;
 }

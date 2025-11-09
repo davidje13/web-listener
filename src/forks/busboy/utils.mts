@@ -265,23 +265,6 @@ function parseDispositionParams(
   return true;
 }
 
-//declare global {
-//  interface Buffer {
-//    base64Slice(start: number, end: number): string;
-//  }
-//}
-//const decoders = {
-//  base64: (data: Buffer | string) => {
-//    if (data.length === 0) {
-//      return '';
-//    }
-//    if (typeof data === 'string') {
-//      data = Buffer.from(data, 'latin1');
-//    }
-//    return data.base64Slice(0, data.length);
-//  },
-//};
-
 export const LATIN1 = /*@__PURE__*/ new TextDecoder('iso-8859-1');
 
 // prettier-ignore
