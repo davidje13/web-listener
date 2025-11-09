@@ -54,7 +54,7 @@ export async function sendJSONStream(
     space = '          '.substring(0, space);
   }
   const options: JSONPartOptions = {
-    _write: (v: string) => target.write(v, encoding),
+    _send: (v: string) => target.write(v, encoding),
     _flush: () => internalDrainUncorked(target),
     _replacer: replacer,
     _space: space,
@@ -69,7 +69,7 @@ export async function sendJSONStream(
   entity = internalConvert(null, '', entity, options);
   if (isSkip(entity)) {
     if (undefinedAsNull) {
-      options._write('null');
+      options._send('null');
     }
   } else {
     target.cork();
@@ -90,7 +90,7 @@ export async function sendJSONStream(
 }
 
 interface JSONPartOptions {
-  _write: (v: string) => boolean;
+  _send: (v: string) => boolean;
   _flush: () => Promise<void>;
   _replacer: ((this: unknown, key: string, value: unknown) => unknown) | null;
   _space: string;
@@ -98,7 +98,7 @@ interface JSONPartOptions {
 
 async function internalSendJSONPart(options: JSONPartOptions, entity: unknown, indent: string) {
   const loop = (prefix: string, suffix: string, keyed: boolean) => {
-    options._write(prefix);
+    options._send(prefix);
     const subIndent = indent + options._space;
     const sep = options._space ? ': ' : ':';
     let first = true;
@@ -109,23 +109,23 @@ async function internalSendJSONPart(options: JSONPartOptions, entity: unknown, i
           if (first) {
             first = false;
           } else {
-            options._write(',');
+            options._send(',');
           }
-          options._write(subIndent);
+          options._send(subIndent);
           if (keyed) {
-            if (!options._write(JSON.stringify(key))) {
+            if (!options._send(JSON.stringify(key))) {
               await options._flush();
             }
-            options._write(sep);
+            options._send(sep);
           }
           await internalSendJSONPart(options, v, subIndent);
         }
       },
       _end: () => {
         if (!first) {
-          options._write(indent);
+          options._send(indent);
         }
-        options._write(suffix);
+        options._send(suffix);
       },
     };
   };
@@ -140,21 +140,21 @@ async function internalSendJSONPart(options: JSONPartOptions, entity: unknown, i
     entity instanceof BigInt ||
     isRawJSON(entity)
   ) {
-    if (!options._write(JSON.stringify(entity) ?? 'null')) {
+    if (!options._send(JSON.stringify(entity) ?? 'null')) {
       await options._flush();
     }
   } else if (entity instanceof Readable) {
-    options._write('"');
+    options._send('"');
     for await (const chunk of entity) {
       if (typeof chunk !== 'string') {
         throw new TypeError('Readables must have an encoding');
       }
       const encoded = JSON.stringify(chunk);
-      if (!options._write(encoded.substring(1, encoded.length - 1))) {
+      if (!options._send(encoded.substring(1, encoded.length - 1))) {
         await options._flush();
       }
     }
-    options._write('"');
+    options._send('"');
   } else if (entity instanceof Map) {
     const act = loop('{', '}', true);
     for (const [k, v] of entity) {

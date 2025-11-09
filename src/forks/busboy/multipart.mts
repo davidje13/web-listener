@@ -1,4 +1,4 @@
-import { Readable, Writable, type ReadableOptions } from 'node:stream';
+import { Readable, Writable, type ReadableOptions, type WritableOptions } from 'node:stream';
 import type { Decoder } from '../../util/DecoderStream.mts';
 import { HTTPError } from '../../core/HTTPError.mts';
 import { getTextDecoder } from '../../extras/registries/charset.mts';
@@ -13,11 +13,11 @@ import {
 import type { BusboyOptions } from './types.mts';
 
 export class Multipart extends Writable {
-  /** @internal */ private _bparser: Pick<StreamSearch, 'push' | 'destroy'>;
-  /** @internal */ private _writecb: (() => void) | undefined;
-  /** @internal */ private _fileStream: FileStream | undefined;
-  /** @internal */ private _complete: boolean;
-  /** @internal */ private _hparser: HeaderParser | undefined;
+  /** @internal */ _bparser: Pick<StreamSearch, 'push' | 'destroy'>;
+  /** @internal */ _writecb: (() => void) | undefined;
+  /** @internal */ _fileStream: FileStream | undefined;
+  /** @internal */ _complete: boolean;
+  /** @internal */ _hparser: HeaderParser | undefined;
   /** @internal */ _fileEndsLeft: number;
   /** @internal */ _finalcb: (() => void) | undefined;
 
@@ -32,7 +32,15 @@ export class Multipart extends Writable {
     }: BusboyOptions,
     conTypeParams: ContentTypeParams,
   ) {
-    super({ autoDestroy: true, emitClose: true, highWaterMark });
+    super({
+      autoDestroy: true,
+      emitClose: true,
+      highWaterMark,
+      // use constructor form of registering internal methods to avoid issues with names being mangled due to starting with _
+      write,
+      destroy,
+      final,
+    } as WritableOptions<Writable>);
 
     const boundary = conTypeParams.get('boundary');
     if (!boundary) {
@@ -284,42 +292,8 @@ export class Multipart extends Writable {
     this.write(BUF_CRLF);
   }
 
-  override _write(chunk: Buffer, _: BufferEncoding, cb: (err?: Error | null) => void) {
-    this._writecb = cb;
-    this._bparser.push(chunk);
-    const cbDone = this._writecb;
-    if (cbDone) {
-      this._writecb = undefined;
-      cbDone();
-    }
-  }
-
-  override _destroy(err: Error | null, cb: (err?: Error | null) => void) {
-    this._hparser = undefined;
-    this._bparser = IGNORE_DATA;
-    err ??= this._checkEndState();
-    const fileStream = this._fileStream;
-    if (fileStream) {
-      this._fileStream = undefined;
-      fileStream.destroy(err ?? undefined);
-    }
-    cb(err);
-  }
-
-  override _final(cb: (err?: Error | null) => void) {
-    this._bparser.destroy();
-    if (!this._complete) {
-      return cb(new Error('Unexpected end of form'));
-    }
-    if (this._fileEndsLeft) {
-      this._finalcb = () => cb(this._checkEndState());
-    } else {
-      cb(this._checkEndState());
-    }
-  }
-
   /** @internal */
-  private _checkEndState() {
+  _checkEndState() {
     if (this._hparser) {
       return new Error('Malformed part header');
     }
@@ -335,7 +309,44 @@ export class Multipart extends Writable {
   }
 }
 
-//function noop() {}
+function write(
+  this: Multipart,
+  chunk: Buffer,
+  _: BufferEncoding,
+  cb: (err?: Error | null) => void,
+) {
+  this._writecb = cb;
+  this._bparser.push(chunk);
+  const cbDone = this._writecb;
+  if (cbDone) {
+    this._writecb = undefined;
+    cbDone();
+  }
+}
+
+function destroy(this: Multipart, err: Error | null, cb: (err?: Error | null) => void) {
+  this._hparser = undefined;
+  this._bparser = IGNORE_DATA;
+  err ??= this._checkEndState();
+  const fileStream = this._fileStream;
+  if (fileStream) {
+    this._fileStream = undefined;
+    fileStream.destroy(err ?? undefined);
+  }
+  cb(err);
+}
+
+function final(this: Multipart, cb: (err?: Error | null) => void) {
+  this._bparser.destroy();
+  if (!this._complete) {
+    return cb(new Error('Unexpected end of form'));
+  }
+  if (this._fileEndsLeft) {
+    this._finalcb = () => cb(this._checkEndState());
+  } else {
+    cb(this._checkEndState());
+  }
+}
 
 const MAX_HEADER_PAIRS = 2000; // From node
 const MAX_HEADER_SIZE = 16 * 1024; // From node (its default value)
@@ -527,14 +538,14 @@ class FileStream extends Readable {
   truncated: boolean;
 
   constructor(opts: ReadableOptions, owner: Multipart) {
-    super(opts);
+    super({ ...opts, read } as ReadableOptions);
     this.truncated = false;
     this.once('end', () => {
       // We need to make sure that we call any outstanding _writecb() that is
       // associated with this file so that processing of the rest of the form
       // can continue. This may not happen if the file stream ends right after
       // backpressure kicks in, so we force it here.
-      this._read();
+      this._read(0);
       if (--owner._fileEndsLeft === 0 && owner._finalcb) {
         const cb = owner._finalcb;
         owner._finalcb = undefined;
@@ -544,13 +555,13 @@ class FileStream extends Readable {
       }
     });
   }
+}
 
-  override _read() {
-    const cb = this._readcb;
-    if (cb) {
-      this._readcb = undefined;
-      cb();
-    }
+function read(this: FileStream, _: number) {
+  const cb = this._readcb;
+  if (cb) {
+    this._readcb = undefined;
+    cb();
   }
 }
 

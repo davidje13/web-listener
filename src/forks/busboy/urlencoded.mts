@@ -1,4 +1,4 @@
-import { Writable } from 'node:stream';
+import { Writable, type WritableOptions } from 'node:stream';
 import type { Decoder } from '../../util/DecoderStream.mts';
 import { VOID_BUFFER } from '../../util/voidBuffer.mts';
 import { getTextDecoder } from '../../extras/registries/charset.mts';
@@ -6,28 +6,35 @@ import { HEX_VALUES, type ContentTypeParams } from './utils.mts';
 import type { BusboyOptions } from './types.mts';
 
 export class URLEncoded extends Writable {
-  /** @internal */ private readonly _charset: string;
-  /** @internal */ private readonly _fieldSizeLimit: number;
-  /** @internal */ private readonly _fieldsLimit: number;
-  /** @internal */ private readonly _fieldNameSizeLimit: number;
+  /** @internal */ readonly _charset: string;
+  /** @internal */ readonly _fieldSizeLimit: number;
+  /** @internal */ readonly _fieldsLimit: number;
+  /** @internal */ readonly _fieldNameSizeLimit: number;
 
-  /** @internal */ private _inKey: boolean;
-  /** @internal */ private _keyTrunc: boolean;
-  /** @internal */ private _valTrunc: boolean;
-  /** @internal */ private _bytesKey: number;
-  /** @internal */ private _bytesVal: number;
-  /** @internal */ private _fields: number;
-  /** @internal */ private _key: string[];
-  /** @internal */ private _val: string[];
-  /** @internal */ private _byte: number;
-  /** @internal */ private _lastPos: number;
-  /** @internal */ private _decoder: Decoder;
+  /** @internal */ _inKey: boolean;
+  /** @internal */ _keyTrunc: boolean;
+  /** @internal */ _valTrunc: boolean;
+  /** @internal */ _bytesKey: number;
+  /** @internal */ _bytesVal: number;
+  /** @internal */ _fields: number;
+  /** @internal */ _key: string[];
+  /** @internal */ _val: string[];
+  /** @internal */ _byte: number;
+  /** @internal */ _lastPos: number;
+  /** @internal */ _decoder: Decoder;
 
   constructor(
     { limits = {}, highWaterMark, defCharset = 'utf-8' }: BusboyOptions,
     conTypeParams: ContentTypeParams,
   ) {
-    super({ autoDestroy: true, emitClose: true, highWaterMark });
+    super({
+      autoDestroy: true,
+      emitClose: true,
+      highWaterMark,
+      // use constructor form of registering internal methods to avoid issues with names being mangled due to starting with _
+      write,
+      final,
+    } as WritableOptions<Writable>);
 
     this._charset = conTypeParams.get('charset') ?? defCharset;
 
@@ -49,7 +56,7 @@ export class URLEncoded extends Writable {
   }
 
   /** @internal */
-  private _accumulate(buffer: Buffer, end: boolean) {
+  _accumulate(buffer: Buffer, end: boolean) {
     const target = this._inKey ? this._key : this._val;
     const decoded = this._decoder.decode(buffer, { stream: !end });
     if (decoded) {
@@ -57,177 +64,8 @@ export class URLEncoded extends Writable {
     }
   }
 
-  override _write(chunk: Buffer, _: BufferEncoding, cb: (error?: Error | null) => void) {
-    if (this._fields >= this._fieldsLimit) {
-      return cb();
-    }
-
-    let i = 0;
-    const len = chunk.length;
-    this._lastPos = 0;
-
-    // Check if we last ended mid-percent-encoded byte
-    if (this._byte !== -2) {
-      i = this._readPctEnc(chunk, i, len);
-      if (i === -1) {
-        return cb(new Error('Malformed urlencoded form'));
-      }
-      if (i >= len) {
-        return cb();
-      }
-      if (this._inKey) {
-        ++this._bytesKey;
-      } else {
-        ++this._bytesVal;
-      }
-    }
-
-    main: while (i < len) {
-      if (this._inKey) {
-        // Parsing key
-
-        i = this._skipKeyBytes(chunk, i, len);
-
-        while (i < len) {
-          switch (chunk[i]) {
-            case 61: // '='
-              this._accumulate(chunk.subarray(this._lastPos, i), true);
-              this._lastPos = ++i;
-              this._inKey = false;
-              continue main;
-            case 38: // '&'
-              this._accumulate(chunk.subarray(this._lastPos, i), true);
-              this._lastPos = ++i;
-              if (this._key.length > 0) {
-                this.emit('field', this._key.join(''), '', {
-                  nameTruncated: this._keyTrunc,
-                  valueTruncated: false,
-                  encoding: this._charset,
-                  mimeType: 'text/plain',
-                });
-                this._key.length = 0;
-              }
-              this._keyTrunc = false;
-              this._bytesKey = 0;
-              if (++this._fields >= this._fieldsLimit) {
-                this.emit('fieldsLimit');
-                return cb();
-              }
-              continue;
-            case 43: // '+'
-              if (this._lastPos < i) {
-                this._accumulate(chunk.subarray(this._lastPos, i), false);
-              }
-              this._accumulate(BUF_SPACE, false);
-              this._lastPos = i + 1;
-              break;
-            case 37: // '%'
-              if (this._lastPos < i) {
-                this._accumulate(chunk.subarray(this._lastPos, i), false);
-              }
-              this._lastPos = i + 1;
-              this._byte = -1;
-              i = this._readPctEnc(chunk, i + 1, len);
-              if (i === -1) {
-                return cb(new Error('Malformed urlencoded form'));
-              }
-              if (i >= len) {
-                return cb();
-              }
-              ++this._bytesKey;
-              i = this._skipKeyBytes(chunk, i, len);
-              continue;
-          }
-          ++i;
-          ++this._bytesKey;
-          i = this._skipKeyBytes(chunk, i, len);
-        }
-        if (this._lastPos < i) {
-          this._accumulate(chunk.subarray(this._lastPos, i), false);
-        }
-      } else {
-        // Parsing value
-
-        i = this._skipValBytes(chunk, i, len);
-
-        while (i < len) {
-          switch (chunk[i]) {
-            case 38: // '&'
-              this._accumulate(chunk.subarray(this._lastPos, i), true);
-              this._lastPos = ++i;
-              this._inKey = true;
-              this.emit('field', this._key.join(''), this._val.join(''), {
-                nameTruncated: this._keyTrunc,
-                valueTruncated: this._valTrunc,
-                encoding: this._charset,
-                mimeType: 'text/plain',
-              });
-              this._key.length = 0;
-              this._val.length = 0;
-              this._keyTrunc = false;
-              this._valTrunc = false;
-              this._bytesKey = 0;
-              this._bytesVal = 0;
-              if (++this._fields >= this._fieldsLimit) {
-                this.emit('fieldsLimit');
-                return cb();
-              }
-              continue main;
-            case 43: // '+'
-              if (this._lastPos < i) {
-                this._accumulate(chunk.subarray(this._lastPos, i), false);
-              }
-              this._accumulate(BUF_SPACE, false);
-              this._lastPos = i + 1;
-              break;
-            case 37: // '%'
-              if (this._lastPos < i) {
-                this._accumulate(chunk.subarray(this._lastPos, i), false);
-              }
-              this._lastPos = i + 1;
-              this._byte = -1;
-              i = this._readPctEnc(chunk, i + 1, len);
-              if (i === -1) {
-                return cb(new Error('Malformed urlencoded form'));
-              }
-              if (i >= len) {
-                return cb();
-              }
-              ++this._bytesVal;
-              i = this._skipValBytes(chunk, i, len);
-              continue;
-          }
-          ++i;
-          ++this._bytesVal;
-          i = this._skipValBytes(chunk, i, len);
-        }
-        if (this._lastPos < i) {
-          this._accumulate(chunk.subarray(this._lastPos, i), false);
-        }
-      }
-    }
-
-    cb();
-  }
-
-  override _final(cb: (error?: Error | null) => void) {
-    if (this._byte !== -2) {
-      return cb(new Error('Malformed urlencoded form'));
-    }
-    this._accumulate(VOID_BUFFER, true);
-    if (!this._inKey || this._key.length > 0) {
-      this.emit('field', this._key.join(''), this._inKey ? '' : this._val.join(''), {
-        nameTruncated: this._keyTrunc,
-        valueTruncated: this._valTrunc,
-        encoding: this._charset,
-        mimeType: 'text/plain',
-      });
-    }
-    cb();
-  }
-
   /** @internal */
-  private _readPctEnc(chunk: Buffer, pos: number, len: number) {
+  _readPctEnc(chunk: Buffer, pos: number, len: number) {
     if (pos >= len) {
       return len;
     }
@@ -271,7 +109,7 @@ export class URLEncoded extends Writable {
   }
 
   /** @internal */
-  private _skipKeyBytes(chunk: Buffer, pos: number, len: number) {
+  _skipKeyBytes(chunk: Buffer, pos: number, len: number) {
     // Skip bytes if we've truncated
     if (this._bytesKey > this._fieldNameSizeLimit) {
       if (!this._keyTrunc) {
@@ -293,7 +131,7 @@ export class URLEncoded extends Writable {
   }
 
   /** @internal */
-  private _skipValBytes(chunk: Buffer, pos: number, len: number) {
+  _skipValBytes(chunk: Buffer, pos: number, len: number) {
     // Skip bytes if we've truncated
     if (this._bytesVal > this._fieldSizeLimit) {
       if (!this._valTrunc) {
@@ -312,6 +150,180 @@ export class URLEncoded extends Writable {
 
     return pos;
   }
+}
+
+function write(
+  this: URLEncoded,
+  chunk: Buffer,
+  _: BufferEncoding,
+  cb: (error?: Error | null) => void,
+) {
+  if (this._fields >= this._fieldsLimit) {
+    return cb();
+  }
+
+  let i = 0;
+  const len = chunk.length;
+  this._lastPos = 0;
+
+  // Check if we last ended mid-percent-encoded byte
+  if (this._byte !== -2) {
+    i = this._readPctEnc(chunk, i, len);
+    if (i === -1) {
+      return cb(new Error('Malformed urlencoded form'));
+    }
+    if (i >= len) {
+      return cb();
+    }
+    if (this._inKey) {
+      ++this._bytesKey;
+    } else {
+      ++this._bytesVal;
+    }
+  }
+
+  main: while (i < len) {
+    if (this._inKey) {
+      // Parsing key
+
+      i = this._skipKeyBytes(chunk, i, len);
+
+      while (i < len) {
+        switch (chunk[i]) {
+          case 61: // '='
+            this._accumulate(chunk.subarray(this._lastPos, i), true);
+            this._lastPos = ++i;
+            this._inKey = false;
+            continue main;
+          case 38: // '&'
+            this._accumulate(chunk.subarray(this._lastPos, i), true);
+            this._lastPos = ++i;
+            if (this._key.length > 0) {
+              this.emit('field', this._key.join(''), '', {
+                nameTruncated: this._keyTrunc,
+                valueTruncated: false,
+                encoding: this._charset,
+                mimeType: 'text/plain',
+              });
+              this._key.length = 0;
+            }
+            this._keyTrunc = false;
+            this._bytesKey = 0;
+            if (++this._fields >= this._fieldsLimit) {
+              this.emit('fieldsLimit');
+              return cb();
+            }
+            continue;
+          case 43: // '+'
+            if (this._lastPos < i) {
+              this._accumulate(chunk.subarray(this._lastPos, i), false);
+            }
+            this._accumulate(BUF_SPACE, false);
+            this._lastPos = i + 1;
+            break;
+          case 37: // '%'
+            if (this._lastPos < i) {
+              this._accumulate(chunk.subarray(this._lastPos, i), false);
+            }
+            this._lastPos = i + 1;
+            this._byte = -1;
+            i = this._readPctEnc(chunk, i + 1, len);
+            if (i === -1) {
+              return cb(new Error('Malformed urlencoded form'));
+            }
+            if (i >= len) {
+              return cb();
+            }
+            ++this._bytesKey;
+            i = this._skipKeyBytes(chunk, i, len);
+            continue;
+        }
+        ++i;
+        ++this._bytesKey;
+        i = this._skipKeyBytes(chunk, i, len);
+      }
+      if (this._lastPos < i) {
+        this._accumulate(chunk.subarray(this._lastPos, i), false);
+      }
+    } else {
+      // Parsing value
+
+      i = this._skipValBytes(chunk, i, len);
+
+      while (i < len) {
+        switch (chunk[i]) {
+          case 38: // '&'
+            this._accumulate(chunk.subarray(this._lastPos, i), true);
+            this._lastPos = ++i;
+            this._inKey = true;
+            this.emit('field', this._key.join(''), this._val.join(''), {
+              nameTruncated: this._keyTrunc,
+              valueTruncated: this._valTrunc,
+              encoding: this._charset,
+              mimeType: 'text/plain',
+            });
+            this._key.length = 0;
+            this._val.length = 0;
+            this._keyTrunc = false;
+            this._valTrunc = false;
+            this._bytesKey = 0;
+            this._bytesVal = 0;
+            if (++this._fields >= this._fieldsLimit) {
+              this.emit('fieldsLimit');
+              return cb();
+            }
+            continue main;
+          case 43: // '+'
+            if (this._lastPos < i) {
+              this._accumulate(chunk.subarray(this._lastPos, i), false);
+            }
+            this._accumulate(BUF_SPACE, false);
+            this._lastPos = i + 1;
+            break;
+          case 37: // '%'
+            if (this._lastPos < i) {
+              this._accumulate(chunk.subarray(this._lastPos, i), false);
+            }
+            this._lastPos = i + 1;
+            this._byte = -1;
+            i = this._readPctEnc(chunk, i + 1, len);
+            if (i === -1) {
+              return cb(new Error('Malformed urlencoded form'));
+            }
+            if (i >= len) {
+              return cb();
+            }
+            ++this._bytesVal;
+            i = this._skipValBytes(chunk, i, len);
+            continue;
+        }
+        ++i;
+        ++this._bytesVal;
+        i = this._skipValBytes(chunk, i, len);
+      }
+      if (this._lastPos < i) {
+        this._accumulate(chunk.subarray(this._lastPos, i), false);
+      }
+    }
+  }
+
+  cb();
+}
+
+function final(this: URLEncoded, cb: (error?: Error | null) => void) {
+  if (this._byte !== -2) {
+    return cb(new Error('Malformed urlencoded form'));
+  }
+  this._accumulate(VOID_BUFFER, true);
+  if (!this._inKey || this._key.length > 0) {
+    this.emit('field', this._key.join(''), this._inKey ? '' : this._val.join(''), {
+      nameTruncated: this._keyTrunc,
+      valueTruncated: this._valTrunc,
+      encoding: this._charset,
+      mimeType: 'text/plain',
+    });
+  }
+  cb();
 }
 
 const BUF_SPACE = /*@__PURE__*/ Buffer.from(' ', 'utf-8');

@@ -2,6 +2,16 @@ import terser from '@rollup/plugin-terser';
 import typescript from '@rollup/plugin-typescript';
 import { dts } from 'rollup-plugin-dts';
 
+const TERSER_OPTS = {
+  ecma: 2015,
+  module: true,
+  compress: { passes: 2, unsafe_arrows: true },
+  format: { ascii_only: true, preserve_annotations: true },
+  mangle: {
+    properties: { regex: /^_/ },
+  },
+};
+
 export default [
   {
     input: 'src/index.mts',
@@ -23,13 +33,7 @@ export default [
         exclude: ['**/*.test.*', 'src/test-helpers/**', 'src/bin/**'],
         tslib: {},
       }),
-      terser({
-        ecma: 2015,
-        module: true,
-        compress: { passes: 2, unsafe_arrows: true },
-        format: { ascii_only: true, preserve_annotations: true },
-        mangle: { properties: { regex: /^_/ } },
-      }),
+      terser(TERSER_OPTS),
     ],
   },
   {
@@ -48,13 +52,7 @@ export default [
         exclude: ['**/*.test.*'],
         tslib: {},
       }),
-      terser({
-        ecma: 2015,
-        module: true,
-        compress: { passes: 2, unsafe_arrows: true },
-        format: { ascii_only: true, preserve_annotations: true },
-        mangle: { properties: { regex: /^_/ } },
-      }),
+      terser(TERSER_OPTS),
     ],
   },
   {
