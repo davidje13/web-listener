@@ -1,5 +1,5 @@
 {
-  "$schema": "node_modules/web-listener/schema.json",
+  "$schema": "../node_modules/web-listener/schema.json",
   "servers": [
     {
       "port": 8080,
@@ -12,8 +12,7 @@
           "body": "{\"env\":\"local\"}"
         },
         { "type": "redirect", "path": "/request", "target": "/other" },
-        { "type": "proxy", "path": "/api", "target": "http://localhost:8090" },
-        { "type": "files", "path": "/", "dir": "web" }
+        { "type": "files", "path": "/", "dir": "sample" }
       ]
     }
   ],

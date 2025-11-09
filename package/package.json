@@ -2,7 +2,7 @@
   "name": "web-listener-package-test",
   "private": true,
   "scripts": {
-    "test": "./commonjs.cjs && ./es6modules.mjs && tsc --noEmit && ./cli-test.sh && ./treeshake/run.sh"
+    "test": "./commonjs.cjs && ./es6modules.mjs && tsc --noEmit && lean-test && ./treeshake/run.sh"
   },
   "devDependencies": {
     "@types/ws": "8.x",

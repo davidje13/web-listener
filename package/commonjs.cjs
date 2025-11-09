@@ -7,14 +7,17 @@ const weblistener = new WebListener(router);
 
 (async () => {
   const server = await weblistener.listen(0, 'localhost');
-  const response = await fetch(getAddressURL(server.address()));
-  const responseText = await response.text();
-  await server.closeWithTimeout('done', 0);
+  try {
+    const response = await fetch(getAddressURL(server.address()));
+    if (response.status !== 200) {
+      throw new Error('unexpected status: ' + response.status);
+    }
 
-  if (response.status !== 200) {
-    throw new Error('unexpected status: ' + response.status);
-  }
-  if (responseText !== 'hi') {
-    throw new Error('unexpected response: ' + responseText);
+    const responseText = await response.text();
+    if (responseText !== 'hi') {
+      throw new Error('unexpected response: ' + responseText);
+    }
+  } finally {
+    await server.closeWithTimeout('done', 0);
   }
 })();

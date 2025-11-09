@@ -4,3 +4,4 @@ node_modules/
 build/
 *.tgz
 package/treeshake/*.output.mjs
+package/cli/sample/file.txt.gz
