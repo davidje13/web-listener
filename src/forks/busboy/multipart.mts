@@ -545,7 +545,7 @@ class FileStream extends Readable {
       // associated with this file so that processing of the rest of the form
       // can continue. This may not happen if the file stream ends right after
       // backpressure kicks in, so we force it here.
-      this._read(0);
+      read.call(this);
       if (--owner._fileEndsLeft === 0 && owner._finalcb) {
         const cb = owner._finalcb;
         owner._finalcb = undefined;
@@ -557,7 +557,7 @@ class FileStream extends Readable {
   }
 }
 
-function read(this: FileStream, _: number) {
+function read(this: FileStream, _?: number) {
   const cb = this._readcb;
   if (cb) {
     this._readcb = undefined;

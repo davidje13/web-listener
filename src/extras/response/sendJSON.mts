@@ -4,10 +4,30 @@ import { internalDrainUncorked } from '../../util/drain.mts';
 import { VOID_BUFFER } from '../../util/voidBuffer.mts';
 
 export interface JSONOptions {
+  /**
+   * Either a function to invoke on every object (recursive) to be printed, or a list of properties to filter for when printing objects (applies to nested objects too).
+   * @default null
+   */
   replacer?: ((this: unknown, key: string, value: unknown) => unknown) | (number | string)[] | null;
+  /**
+   * The amount of spacing to use for indentation. If this is 0, no spacing is used anywhere.
+   * @default 0
+   */
   space?: string | number;
+  /**
+   * If the top-level value being encoded is `undefined`, setting this to `true` will output `null`. `false` will output nothing.
+   * @default false
+   */
   undefinedAsNull?: boolean;
+  /**
+   * The text encoding to use. Note that only Unicode variants are permitted by the standard.
+   * @default 'utf-8'
+   */
   encoding?: BufferEncoding;
+  /**
+   * Whether to close the writable automatically after writing the JSON content.
+   * @default true
+   */
   end?: boolean;
 }
 

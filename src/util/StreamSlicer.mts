@@ -95,5 +95,6 @@ export class StreamSlicer {
 
 function internalIsNodeReadable(stream: Readable | ReadableStream<any>): stream is Readable {
   const test = stream as Readable;
-  return typeof test._read === 'function' && typeof test.pipe === 'function';
+  // note: the syntax here is chosen to ensure it is not mangled by terser
+  return '_read' in test && typeof test.pipe === 'function';
 }
