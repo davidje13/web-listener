@@ -42,7 +42,7 @@ export class HTTPError extends Error {
     this.name = `HTTPError(${this.statusCode} ${this.statusMessage})`;
   }
 
-  static readonly INTERNAL_SERVER_ERROR = new HTTPError(500);
+  static readonly INTERNAL_SERVER_ERROR = /*@__PURE__*/ new HTTPError(500);
 
   send(res: PartialServerResponse, extraHeaders?: OutgoingHttpHeaders) {
     res.setHeaders(internalNormaliseHeaders(this.headers));

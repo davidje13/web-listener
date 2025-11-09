@@ -196,10 +196,10 @@ export function toListeners(
 const makeErrorResponse = (code: number) =>
   Buffer.from(`HTTP/1.1 ${code} ${STATUS_CODES[code]}\r\nConnection: close\r\n\r\n`);
 
-const ERROR_LOOKUP = new Map<string | undefined, Buffer>([
-  ['HPE_HEADER_OVERFLOW', makeErrorResponse(431)],
-  ['HPE_CHUNK_EXTENSIONS_OVERFLOW', makeErrorResponse(413)],
-  ['ERR_HTTP_REQUEST_TIMEOUT', makeErrorResponse(408)],
+const ERROR_LOOKUP = /*@__PURE__*/ new Map<string | undefined, Buffer>([
+  ['HPE_HEADER_OVERFLOW', /*@__PURE__*/ makeErrorResponse(431)],
+  ['HPE_CHUNK_EXTENSIONS_OVERFLOW', /*@__PURE__*/ makeErrorResponse(413)],
+  ['ERR_HTTP_REQUEST_TIMEOUT', /*@__PURE__*/ makeErrorResponse(408)],
 ]);
 
-const BAD_REQUEST_RESPONSE = makeErrorResponse(400);
+const BAD_REQUEST_RESPONSE = /*@__PURE__*/ makeErrorResponse(400);
