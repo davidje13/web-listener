@@ -75,6 +75,19 @@ describe('makeNegotiator', () => {
       expect(optionGenerator.next().done).isTrue();
     });
 
+    it('breaks ties using the configured ordering', () => {
+      const multi = makeNegotiator(COMPLEX_RULES, 20);
+
+      const optionGenerator = multi.options('my-file.txt', {
+        language: readHTTPQualityValues('pl;q=0.9, en;q=0.9'),
+      });
+
+      expect(optionGenerator.next().value?.filename).equals('my-file-en.txt');
+      expect(optionGenerator.next().value?.filename).equals('my-file-pl.txt');
+      expect(optionGenerator.next().value?.filename).equals('my-file.txt');
+      expect(optionGenerator.next().done).isTrue();
+    });
+
     it('excludes options the client did not request', () => {
       const multi = makeNegotiator(COMPLEX_RULES, 20);
 

@@ -104,30 +104,38 @@ export interface Negotiator {
   vary: string;
 }
 
+interface InternalRule {
+  _type: NegotiationType;
+  _options: InternalOption[];
+}
+
+interface InternalOption {
+  _match: string | RegExp;
+  _as: string | undefined;
+  _file: string;
+}
+
 export function makeNegotiator(rules: FileNegotiation[], maxFailedAttempts = 10): Negotiator {
   const normalisedRules = rules
-    .map((rule) => ({
-      _type: rule.type,
-      _options: rule.options.map((option) => ({
-        _file: option.file,
-        _match:
-          typeof option.match === 'string'
-            ? option.match.toLowerCase()
-            : internalOverrideFlags(option.match, true),
-        _as: option.as ?? (typeof option.match === 'string' ? option.match : undefined),
-      })),
-    }))
+    .map(
+      (rule): InternalRule => ({
+        _type: rule.type,
+        _options: rule.options.map((option) => ({
+          _file: option.file,
+          _match:
+            typeof option.match === 'string'
+              ? option.match.toLowerCase()
+              : internalOverrideFlags(option.match, true),
+          _as: option.as ?? (typeof option.match === 'string' ? option.match : undefined),
+        })),
+      }),
+    )
     .filter((rule) => rule._options.length > 0);
 
   return {
     options(base, negotiation) {
       let attempts = maxFailedAttempts;
       const info: NegotiationOutputInfo = {};
-      const normNegotiation: NegotiationInput = {
-        mime: internalSortQuality(negotiation.mime),
-        language: internalSortQuality(negotiation.language),
-        encoding: internalSortQuality(negotiation.encoding),
-      };
       function* next(name: string, pos: number): Generator<NegotiationOutput> {
         const rule = normalisedRules[pos];
         if (!rule) {
@@ -136,26 +144,28 @@ export function makeNegotiator(rules: FileNegotiation[], maxFailedAttempts = 10)
           return;
         }
         const seen = new Set<string>();
-        const values = normNegotiation[rule._type] ?? [];
-        for (const value of values) {
-          const normValue = value.name.toLowerCase();
-          for (const option of rule._options) {
-            const match =
-              typeof option._match === 'string'
-                ? option._match === normValue
-                : option._match.test(normValue);
-            if (match) {
-              const sub = internalMutateName(name, option._file);
-              if (seen.has(sub)) {
-                continue;
-              }
-              seen.add(sub);
-              info[rule._type] = option._as;
-              yield* next(sub, pos + 1);
-              if (attempts <= 0) {
-                return;
-              }
-            }
+        const values = internalSortQuality(negotiation[rule._type]);
+        const matchedOptions: (QualityValue & { _option: InternalOption })[] = [];
+        for (const option of rule._options) {
+          const firstMatch = values.find((v) =>
+            typeof option._match === 'string'
+              ? v.name.toLowerCase() === option._match
+              : option._match.test(v.name),
+          );
+          if (firstMatch) {
+            matchedOptions.push({ ...firstMatch, _option: option });
+          }
+        }
+        for (const match of matchedOptions.sort(byQuality)) {
+          const sub = internalMutateName(name, match._option._file);
+          if (seen.has(sub)) {
+            continue;
+          }
+          seen.add(sub);
+          info[rule._type] = match._option._as;
+          yield* next(sub, pos + 1);
+          if (attempts <= 0) {
+            return;
           }
         }
         info[rule._type] = undefined;
@@ -169,15 +179,18 @@ export function makeNegotiator(rules: FileNegotiation[], maxFailedAttempts = 10)
   };
 }
 
-function internalSortQuality(list: QualityValue[] | undefined): QualityValue[] | undefined {
+function internalSortQuality(list: QualityValue[] | undefined): QualityValue[] {
   if (!list?.length) {
-    return undefined;
+    return [];
   }
   if (list.length === 1) {
     return list;
   }
-  return [...list].sort((a, b) => b.q - a.q || b.specificity - a.specificity);
+  return [...list].sort(byQuality);
 }
+
+const byQuality = <T extends QualityValue>(a: T, b: T) =>
+  b.q - a.q || b.specificity - a.specificity;
 
 export function internalMutateName(original: string, mutation: string) {
   return mutation.replaceAll(/\{(?:file|base|ext)\}/g, (param) =>
