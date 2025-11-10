@@ -105,7 +105,7 @@ export class StreamSearch {
       if (lbSize > 0) {
         const firstNeedleChar = needle[0]!;
         while (pos < 0) {
-          const found = lookbehind.indexOf(firstNeedleChar, lbSize + pos);
+          const found = lookbehind.subarray(0, lbSize).indexOf(firstNeedleChar, lbSize + pos);
           if (found === -1) {
             pos = 0;
             break;
