@@ -117,3 +117,12 @@ export interface Limits {
    */
   headerPairs?: number | undefined;
 }
+
+declare global {
+  interface Buffer {
+    // undocumented methods, used for speed
+    // https://github.com/nodejs/node/blob/5e1ab9fffb8399fcc51ab1b592d0fffef4e418aa/typings/internalBinding/buffer.d.ts#L28
+    // https://github.com/nodejs/node/issues/46467
+    latin1Slice(begin?: number, end?: number): string;
+  }
+}

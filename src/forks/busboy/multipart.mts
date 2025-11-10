@@ -3,13 +3,7 @@ import type { Decoder } from '../../util/DecoderStream.mts';
 import { HTTPError } from '../../core/HTTPError.mts';
 import { getTextDecoder } from '../../extras/registries/charset.mts';
 import { StreamSearch } from '../streamsearch/sbmh.mts';
-import {
-  LATIN1,
-  parseContentType,
-  parseDisposition,
-  TOKEN,
-  type ContentTypeParams,
-} from './utils.mts';
+import { parseContentType, parseDisposition, TOKEN, type ContentTypeParams } from './utils.mts';
 import type { BusboyOptions } from './types.mts';
 
 export class Multipart extends Writable {
@@ -110,7 +104,7 @@ export class Multipart extends Writable {
       }
       const contentType = header['content-type']?.[0];
       if (contentType) {
-        const conType = parseContentType(LATIN1.decode(contentType));
+        const conType = parseContentType(contentType.latin1Slice());
         if (conType) {
           partType = conType.mime;
           partCharset = conType.params.get('charset')?.toLowerCase() ?? defCharset;
@@ -119,7 +113,7 @@ export class Multipart extends Writable {
       partDecoder = getTextDecoder(partCharset);
       const contentTransferEncoding = header['content-transfer-encoding']?.[0];
       if (contentTransferEncoding) {
-        partEncoding = LATIN1.decode(contentTransferEncoding).toLowerCase();
+        partEncoding = contentTransferEncoding.latin1Slice().toLowerCase();
       }
       if (partType === 'application/octet-stream' || filename !== undefined) {
         // File
@@ -407,7 +401,7 @@ class HeaderParser {
                 return -1;
               }
               if (pos > start) {
-                this._name.push(LATIN1.decode(chunk.subarray(start, pos)));
+                this._name.push(chunk.latin1Slice(start, pos));
               }
               if (!this._name.length) {
                 return -1;
@@ -418,7 +412,7 @@ class HeaderParser {
             }
           }
           if (pos > start) {
-            this._name.push(LATIN1.decode(chunk.subarray(start, pos)));
+            this._name.push(chunk.latin1Slice(start, pos));
           }
           break;
         }

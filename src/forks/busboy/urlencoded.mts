@@ -1,6 +1,5 @@
 import { Writable, type WritableOptions } from 'node:stream';
 import type { Decoder } from '../../util/DecoderStream.mts';
-import { VOID_BUFFER } from '../../util/voidBuffer.mts';
 import { getTextDecoder } from '../../extras/registries/charset.mts';
 import { HEX_VALUES, type ContentTypeParams } from './utils.mts';
 import type { BusboyOptions } from './types.mts';
@@ -17,10 +16,12 @@ export class URLEncoded extends Writable {
   /** @internal */ declare _bytesKey: number;
   /** @internal */ declare _bytesVal: number;
   /** @internal */ declare _fields: number;
-  /** @internal */ declare _key: string[];
-  /** @internal */ declare _val: string[];
+  /** @internal */ declare _current: string;
+  /** @internal */ declare _currentNoHighBit: boolean;
+  /** @internal */ declare _key: string;
   /** @internal */ declare _byte: number;
   /** @internal */ declare _lastPos: number;
+  /** @internal */ declare _fastLatin1Allowed: boolean;
   /** @internal */ declare _decoder: Decoder;
 
   constructor(
@@ -49,20 +50,37 @@ export class URLEncoded extends Writable {
     this._bytesKey = 0;
     this._bytesVal = 0;
     this._fields = 0;
-    this._key = [];
-    this._val = [];
+    this._current = '';
+    this._currentNoHighBit = true;
+    this._key = '';
     this._byte = -2;
     this._lastPos = 0;
+    this._fastLatin1Allowed = /^(utf-?8|latin-?1|ascii)$/i.test(this._charset);
     this._decoder = getTextDecoder(this._charset);
   }
 
   /** @internal */
-  _accumulate(buffer: Buffer, end: boolean) {
-    const target = this._inKey ? this._key : this._val;
-    const decoded = this._decoder.decode(buffer, { stream: !end });
-    if (decoded) {
-      target.push(decoded);
+  _accumulate(buffer: Buffer, start: number, end: number) {
+    // surprisingly, using string concatenation here rather than just
+    // keeping a list of chunks is ~2x faster (as of Node.js 24)
+
+    // using the undocumented .latin1Slice is ~1.5x faster than .toString('latin1')
+    if (start < end) {
+      this._current += buffer.latin1Slice(start, end);
     }
+  }
+
+  /** @internal */
+  _complete() {
+    if (this._currentNoHighBit && this._fastLatin1Allowed) {
+      const value = this._current;
+      this._current = '';
+      return value;
+    }
+    const tmp = Buffer.from(this._current, 'latin1');
+    this._current = '';
+    this._currentNoHighBit = true;
+    return this._decoder.decode(tmp);
   }
 
   /** @internal */
@@ -74,18 +92,19 @@ export class URLEncoded extends Writable {
     if (this._byte === -1) {
       // We saw a '%' but no hex characters yet
       const hexUpper = HEX_VALUES[chunk[pos++]!]!;
-      if (hexUpper === -1) {
+      if (hexUpper === 16) {
         return -1;
       }
 
       if (pos < len) {
         // Both hex characters are in this chunk
         const hexLower = HEX_VALUES[chunk[pos++]!]!;
-        if (hexLower === -1) {
+        if (hexLower === 16) {
           return -1;
         }
 
-        this._accumulate(Buffer.from([(hexUpper << 4) + hexLower]), false);
+        this._current += String.fromCharCode((hexUpper << 4) + hexLower);
+        this._currentNoHighBit &&= hexUpper < 8;
 
         this._byte = -2;
         this._lastPos = pos;
@@ -94,13 +113,14 @@ export class URLEncoded extends Writable {
         this._byte = hexUpper;
       }
     } else {
-      // We saw only one hex character so far
+      // We saw one hex character already and this is the second
       const hexLower = HEX_VALUES[chunk[pos++]!]!;
-      if (hexLower === -1) {
+      if (hexLower === 16) {
         return -1;
       }
 
-      this._accumulate(Buffer.from([(this._byte << 4) + hexLower]), false);
+      this._current += String.fromCharCode((this._byte << 4) + hexLower);
+      this._currentNoHighBit &&= this._byte < 8;
 
       this._byte = -2;
       this._lastPos = pos;
@@ -114,9 +134,7 @@ export class URLEncoded extends Writable {
     // Skip bytes if we've truncated
     if (this._bytesKey > this._fieldNameSizeLimit) {
       if (!this._keyTrunc) {
-        if (this._lastPos < pos) {
-          this._accumulate(chunk.subarray(this._lastPos, pos - 1), false);
-        }
+        this._accumulate(chunk, this._lastPos, pos - 1);
       }
       this._keyTrunc = true;
       for (; pos < len; ++pos) {
@@ -136,9 +154,7 @@ export class URLEncoded extends Writable {
     // Skip bytes if we've truncated
     if (this._bytesVal > this._fieldSizeLimit) {
       if (!this._valTrunc) {
-        if (this._lastPos < pos) {
-          this._accumulate(chunk.subarray(this._lastPos, pos - 1), false);
-        }
+        this._accumulate(chunk, this._lastPos, pos - 1);
       }
       this._valTrunc = true;
       for (; pos < len; ++pos) {
@@ -192,22 +208,23 @@ function write(
       while (i < len) {
         switch (chunk[i]) {
           case 61: // '='
-            this._accumulate(chunk.subarray(this._lastPos, i), true);
+            this._accumulate(chunk, this._lastPos, i);
+            this._key = this._complete();
             this._lastPos = ++i;
             this._inKey = false;
             continue main;
           case 38: // '&'
-            this._accumulate(chunk.subarray(this._lastPos, i), true);
-            this._lastPos = ++i;
-            if (this._key.length > 0) {
-              this.emit('field', this._key.join(''), '', {
+            this._accumulate(chunk, this._lastPos, i);
+            const key = this._complete();
+            if (key) {
+              this.emit('field', key, '', {
                 nameTruncated: this._keyTrunc,
                 valueTruncated: false,
                 encoding: this._charset,
                 mimeType: 'text/plain',
               });
-              this._key.length = 0;
             }
+            this._lastPos = ++i;
             this._keyTrunc = false;
             this._bytesKey = 0;
             if (++this._fields >= this._fieldsLimit) {
@@ -216,16 +233,12 @@ function write(
             }
             continue;
           case 43: // '+'
-            if (this._lastPos < i) {
-              this._accumulate(chunk.subarray(this._lastPos, i), false);
-            }
-            this._accumulate(BUF_SPACE, false);
+            this._accumulate(chunk, this._lastPos, i);
+            this._current += ' ';
             this._lastPos = i + 1;
             break;
           case 37: // '%'
-            if (this._lastPos < i) {
-              this._accumulate(chunk.subarray(this._lastPos, i), false);
-            }
+            this._accumulate(chunk, this._lastPos, i);
             this._lastPos = i + 1;
             this._byte = -1;
             i = this._readPctEnc(chunk, i + 1, len);
@@ -244,7 +257,7 @@ function write(
         i = this._skipKeyBytes(chunk, i, len);
       }
       if (this._lastPos < i) {
-        this._accumulate(chunk.subarray(this._lastPos, i), false);
+        this._accumulate(chunk, this._lastPos, i);
       }
     } else {
       // Parsing value
@@ -254,17 +267,16 @@ function write(
       while (i < len) {
         switch (chunk[i]) {
           case 38: // '&'
-            this._accumulate(chunk.subarray(this._lastPos, i), true);
-            this._lastPos = ++i;
-            this._inKey = true;
-            this.emit('field', this._key.join(''), this._val.join(''), {
+            this._accumulate(chunk, this._lastPos, i);
+            this.emit('field', this._key, this._complete(), {
               nameTruncated: this._keyTrunc,
               valueTruncated: this._valTrunc,
               encoding: this._charset,
               mimeType: 'text/plain',
             });
-            this._key.length = 0;
-            this._val.length = 0;
+            this._lastPos = ++i;
+            this._inKey = true;
+            this._key = '';
             this._keyTrunc = false;
             this._valTrunc = false;
             this._bytesKey = 0;
@@ -275,16 +287,12 @@ function write(
             }
             continue main;
           case 43: // '+'
-            if (this._lastPos < i) {
-              this._accumulate(chunk.subarray(this._lastPos, i), false);
-            }
-            this._accumulate(BUF_SPACE, false);
+            this._accumulate(chunk, this._lastPos, i);
+            this._current += ' ';
             this._lastPos = i + 1;
             break;
           case 37: // '%'
-            if (this._lastPos < i) {
-              this._accumulate(chunk.subarray(this._lastPos, i), false);
-            }
+            this._accumulate(chunk, this._lastPos, i);
             this._lastPos = i + 1;
             this._byte = -1;
             i = this._readPctEnc(chunk, i + 1, len);
@@ -302,9 +310,7 @@ function write(
         ++this._bytesVal;
         i = this._skipValBytes(chunk, i, len);
       }
-      if (this._lastPos < i) {
-        this._accumulate(chunk.subarray(this._lastPos, i), false);
-      }
+      this._accumulate(chunk, this._lastPos, i);
     }
   }
 
@@ -315,9 +321,9 @@ function final(this: URLEncoded, cb: (error?: Error | null) => void) {
   if (this._byte !== -2) {
     return cb(new Error('Malformed urlencoded form'));
   }
-  this._accumulate(VOID_BUFFER, true);
-  if (!this._inKey || this._key.length > 0) {
-    this.emit('field', this._key.join(''), this._inKey ? '' : this._val.join(''), {
+  const current = this._complete();
+  if (!this._inKey || current) {
+    this.emit('field', this._inKey ? current : this._key, this._inKey ? '' : current, {
       nameTruncated: this._keyTrunc,
       valueTruncated: this._valTrunc,
       encoding: this._charset,
@@ -326,5 +332,3 @@ function final(this: URLEncoded, cb: (error?: Error | null) => void) {
   }
   cb();
 }
-
-const BUF_SPACE = /*@__PURE__*/ Buffer.from(' ', 'utf-8');

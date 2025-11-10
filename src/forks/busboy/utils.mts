@@ -44,7 +44,7 @@ export function parseDisposition(buffer: Buffer, defDecoder: Decoder) {
     }
   }
 
-  return { type: LATIN1.decode(buffer.subarray(0, i)).toLowerCase(), params };
+  return { type: buffer.latin1Slice(0, i).toLowerCase(), params };
 }
 
 function parseDispositionParams(
@@ -103,9 +103,8 @@ function parseDispositionParams(
       return false;
     }
 
-    const name = buffer.subarray(nameStart, i);
-    const nameStr = LATIN1.decode(name).toLowerCase();
-    if (name[name.byteLength - 1] === 42 /* '*' */) {
+    const name = buffer.latin1Slice(nameStart, i).toLowerCase();
+    if (name[name.length - 1] === '*') {
       // Extended value
 
       const charsetStart = ++i;
@@ -125,7 +124,7 @@ function parseDispositionParams(
         return false;
       }
 
-      const valueDecoder = getTextDecoder(LATIN1.decode(buffer.subarray(charsetStart, i)));
+      const valueDecoder = getTextDecoder(buffer.latin1Slice(charsetStart, i));
       ++i; // Skip over the '\''
 
       // Parse language name
@@ -159,8 +158,8 @@ function parseDispositionParams(
             let hexLower: number;
             if (
               i + 2 < L &&
-              (hexUpper = HEX_VALUES[buffer[i + 1]!]!) !== -1 &&
-              (hexLower = HEX_VALUES[buffer[i + 2]!]!) !== -1
+              (hexUpper = HEX_VALUES[buffer[i + 1]!]!) !== 16 &&
+              (hexLower = HEX_VALUES[buffer[i + 2]!]!) !== 16
             ) {
               const byteVal = (hexUpper << 4) + hexLower;
               if (i > valueStart) {
@@ -182,8 +181,8 @@ function parseDispositionParams(
 
       valueParts.push(valueDecoder.decode(buffer.subarray(valueStart, i)));
       const value = valueParts.join('');
-      if (!params.has(nameStr)) {
-        params.set(nameStr, value);
+      if (!params.has(name)) {
+        params.set(name, value);
       }
       continue;
     }
@@ -239,8 +238,8 @@ function parseDispositionParams(
       }
 
       ++i; // Skip over double quote
-      if (!params.has(nameStr)) {
-        params.set(nameStr, valueParts.join(''));
+      if (!params.has(name)) {
+        params.set(name, valueParts.join(''));
       }
       continue;
     }
@@ -257,15 +256,13 @@ function parseDispositionParams(
         break;
       }
     }
-    if (!params.has(nameStr)) {
-      params.set(nameStr, defDecoder.decode(buffer.subarray(valueStart, i)));
+    if (!params.has(name)) {
+      params.set(name, defDecoder.decode(buffer.subarray(valueStart, i)));
     }
   }
 
   return true;
 }
-
-export const LATIN1 = /*@__PURE__*/ new TextDecoder('iso-8859-1');
 
 // prettier-ignore
 const COMMON = [
@@ -326,7 +323,7 @@ const QDTEXT = /*@__PURE__*/ (() => {
 })();
 
 export const HEX_VALUES = /*@__PURE__*/ (() => {
-  const values = new Int8Array(256).fill(-1);
+  const values = new Uint8Array(256).fill(16);
   for (let i = 0; i < 10; ++i) {
     values[0x30 + i] = i;
   }

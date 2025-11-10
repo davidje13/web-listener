@@ -41,15 +41,19 @@ const inputs: InputDef[] = [
     ...makeInput(makeList(1000, (i) => [`f${i}`, 'value'])),
   },
   {
-    name: 'large ascii input',
+    name: 'large ascii',
     ...makeInput([['thing', 'a'.repeat(50000)]]),
   },
   {
-    name: 'unicode input',
+    name: 'percent encoded',
+    ...makeInput([['thing', '&'.repeat(2000)]]),
+  },
+  {
+    name: 'unicode',
     ...makeInput([['thing', '\u2026'.repeat(2000)]]),
   },
   {
-    name: 'mixed input',
+    name: 'mixed',
     ...makeInput([
       [
         'thing',
