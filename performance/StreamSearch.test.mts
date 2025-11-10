@@ -2,7 +2,7 @@
 import { randomFillSync } from 'node:crypto';
 import OriginalStreamSearch from 'streamsearch';
 import { StreamSearch } from '../src/forks/streamsearch/sbmh.mts';
-import { profile, type ProfilerResult } from './util.mts';
+import { drawTable, profile, splitChunks, type ProfilerResult } from './util.mts';
 
 const implementations: ImplementationDef[] = [
   {
@@ -87,8 +87,6 @@ interface NeedleDef {
   value: Buffer;
 }
 
-const longestNeedleName = Math.max(...needles.map(({ name }) => name.length));
-
 const batchImplementations = implementations.filter(({ multi }) => multi);
 
 const haystackSize = 100000;
@@ -98,27 +96,16 @@ process.stdout.write(`${needlePositions.length} separators in a ${haystackSize}-
 process.stdout.write(`unchunked / chunked into ${chunkSize}-byte chunks\n`);
 process.stdout.write('\n');
 
-process.stdout.write('| ' + 'Test'.padEnd(longestNeedleName, ' '));
-for (const implementation of implementations) {
-  process.stdout.write(' | ' + implementation.name);
-}
-for (const implementation of batchImplementations) {
-  process.stdout.write(` | ${implementation.name} (batched)`);
-}
-process.stdout.write(' |\n');
-process.stdout.write('| ' + '-'.repeat(longestNeedleName));
-for (const implementation of implementations) {
-  process.stdout.write(' | ' + '-'.repeat(implementation.name.length));
-}
-for (const implementation of batchImplementations) {
-  process.stdout.write(' | ' + '-'.repeat(implementation.name.length + 10));
-}
-process.stdout.write(' |\n');
+const table = drawTable(process.stdout, [
+  { name: 'Test', size: Math.max(...needles.map(({ name }) => name.length)) },
+  ...implementations.map((i) => i.name),
+  ...batchImplementations.map((i) => i.name + ' (batched)'),
+]);
 
 for (const needle of needles) {
   const haystack = buildHaystack(haystackSize, needle.value, needlePositions);
 
-  process.stdout.write('| ' + needle.name.padEnd(longestNeedleName, ' '));
+  table(needle.name);
   const results: ProfilerResult[] = [];
   let best = -1;
   for (const implementation of implementations) {
@@ -132,20 +119,16 @@ for (const needle of needles) {
       best = results.length - 1;
     }
   }
-  for (let i = 0; i < implementations.length; ++i) {
-    const implementation = implementations[i]!;
+  for (let i = 0; i < results.length; ++i) {
     const result = results[i]!;
     let value = `${(result.bestTime * 1000).toFixed(1)}\u00B5s`;
     if (best === i) {
       value = '* ' + value;
     }
-    process.stdout.write(' | ' + value.padStart(implementation.name.length, ' '));
+    table(value, 'right');
   }
 
-  const splitHaystack: Buffer[] = [];
-  for (let i = 0; i < haystack.byteLength; i += chunkSize) {
-    splitHaystack.push(haystack.subarray(i, i + chunkSize));
-  }
+  const splitHaystack = splitChunks(haystack, chunkSize);
   const batchResults: ProfilerResult[] = [];
   let batchBest = -1;
   for (const implementation of batchImplementations) {
@@ -159,16 +142,14 @@ for (const needle of needles) {
       batchBest = batchResults.length - 1;
     }
   }
-  for (let i = 0; i < batchImplementations.length; ++i) {
-    const implementation = implementations[i]!;
+  for (let i = 0; i < batchResults.length; ++i) {
     const result = batchResults[i]!;
     let value = `${(result.bestTime * 1000).toFixed(1)}\u00B5s`;
     if (batchBest === i) {
       value = '* ' + value;
     }
-    process.stdout.write(' | ' + value.padStart(implementation.name.length + 10, ' '));
+    table(value, 'right');
   }
-  process.stdout.write(' |\n');
 }
 
 function buildHaystack(size: number, needle: Buffer, needlePositions: number[]) {

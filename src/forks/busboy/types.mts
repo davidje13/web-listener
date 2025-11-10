@@ -2,15 +2,42 @@ import type { Readable, Writable } from 'node:stream';
 
 export interface BusboyOptions {
   /**
-   * True to block `multipart/form-data` (including file uploads). If set, only `application/x-www-form-urlencoded` is supported.
+   * `true` to block `multipart/form-data` (including file uploads). If set, only `application/x-www-form-urlencoded` is supported.
    * @default false
    */
   blockMultipart?: boolean;
+
   limits?: Limits;
+
+  /**
+   * `true` to preserve path information in filenames. `false` to only include the basename (omitting everything before the last `/` or `\`)
+   * @default false
+   */
   preservePath?: boolean;
+
+  /**
+   * High water mark to set on the underlying stream.
+   * @default 65536
+   */
   highWaterMark?: number;
+
+  /**
+   * High water mark to set on file streams.
+   * @default 65536
+   */
   fileHwm?: number;
+
+  /**
+   * Default character set to use for reading name and filename from the content-disposition header in multipart content.
+   * According to the standard this should be `latin1`, but most browsers use `utf-8`.
+   * @default 'utf-8'
+   */
   defParamCharset?: string;
+
+  /**
+   * Default character set to use for reading field content (and field names in urlencoded content).
+   * @default 'utf-8'
+   */
   defCharset?: string;
 }
 
@@ -30,73 +57,62 @@ interface FieldInfo {
   mimeType: string;
 }
 
-export type JoinType<Super extends abstract new (...args: any) => any, T> = {
-  new (...args: ConstructorParameters<Super>): InstanceType<Super> & T;
-};
-
 export type BusboyInstance = Omit<Writable, keyof NodeJS.EventEmitter> &
   NodeJS.EventEmitter<{
     close: [];
     drain: [];
-    error: [Error];
+    error: [error: Error];
     finish: [];
-    pipe: [Readable];
-    unpipe: [Readable];
+    pipe: [src: Readable];
+    unpipe: [src: Readable];
 
     filesLimit: [];
     fieldsLimit: [];
     partsLimit: [];
     limit: [];
-    file: [string, FileStream, FileInfo];
-    field: [string, string, FieldInfo];
+    file: [name: string, stream: FileStream, info: FileInfo];
+    field: [name: string, value: string, info: FieldInfo];
   }>;
 
 export interface Limits {
   /**
    * Max field name size (in bytes).
-   *
    * @default 100
    */
   fieldNameSize?: number | undefined;
 
   /**
    * Max field value size (in bytes).
-   *
    * @default 1048576 (1MB)
    */
   fieldSize?: number | undefined;
 
   /**
    * Max number of non-file fields.
-   *
    * @default Infinity
    */
   fields?: number | undefined;
 
   /**
    * For multipart forms, the max file size (in bytes).
-   *
    * @default Infinity
    */
   fileSize?: number | undefined;
 
   /**
    * For multipart forms, the max number of file fields.
-   *
    * @default Infinity
    */
   files?: number | undefined;
 
   /**
    * For multipart forms, the max number of parts (fields + files).
-   *
    * @default Infinity
    */
   parts?: number | undefined;
 
   /**
    * For multipart forms, the max number of header key-value pairs to parse.
-   *
    * @default 2000 (same as node's http module)
    */
   headerPairs?: number | undefined;

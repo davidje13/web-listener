@@ -36,6 +36,7 @@ export class URLEncoded extends Writable {
       final,
     } as WritableOptions<Writable>);
 
+    // officially charset is not a supported parameter for application/x-www-form-urlencoded, but if it's present we will respect it
     this._charset = conTypeParams.get('charset') ?? defCharset;
 
     this._fieldSizeLimit = limits.fieldSize ?? 1 * 1024 * 1024;

@@ -62,7 +62,7 @@ export class WebSocketMessages implements AsyncIterable<WebSocketMessage, unknow
         this._queue.push(new WebSocketMessage(data as Buffer, isBinary));
       } else if (typeof data === 'string') {
         // ws 7.x
-        this._queue.push(new WebSocketMessage(Buffer.from(data, 'utf8'), false));
+        this._queue.push(new WebSocketMessage(Buffer.from(data, 'utf-8'), false));
       } else {
         this._queue.push(new WebSocketMessage(data, true));
       }

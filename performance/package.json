@@ -2,7 +2,9 @@
   "name": "web-listener-performance-test",
   "private": true,
   "devDependencies": {
+    "@types/busboy": "1.5.x",
     "@types/streamsearch": "1.1.x",
+    "busboy": "1.6.0",
     "streamsearch": "1.1.0"
   }
 }

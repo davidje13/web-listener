@@ -1,3 +1,4 @@
+import type { Writable } from 'node:stream';
 import assert from 'node:assert';
 
 export async function profile<T>(
@@ -35,4 +36,51 @@ export interface ProfilerResult {
   bestTime: number;
   totalTime: number;
   totalRuns: number;
+}
+
+export function splitChunks(content: Buffer, chunkSize: number) {
+  const split: Buffer[] = [];
+  for (let i = 0; i < content.byteLength; i += chunkSize) {
+    split.push(content.subarray(i, Math.min(i + chunkSize, content.byteLength)));
+  }
+  return split;
+}
+
+export function drawTable(target: Writable, headers: (string | { name: string; size: number })[]) {
+  const widths = headers.map((h) =>
+    typeof h === 'string' ? h.length : Math.max(h.size, h.name.length),
+  );
+  for (let column = 0; column < headers.length; ++column) {
+    let header = headers[column]!;
+    const w = widths[column]!;
+    if (typeof header !== 'string') {
+      header = header.name;
+    }
+    target.write(`| ${header.padEnd(w, ' ')} `);
+  }
+  target.write('|\n');
+  for (const w of widths) {
+    target.write(`| ${'-'.repeat(w)} `);
+  }
+  target.write('|\n');
+
+  let column = 0;
+  return (cellValue: string, align: 'left' | 'right' = 'left') => {
+    const w = widths[column]!;
+    const padded = align === 'left' ? cellValue.padEnd(w, ' ') : cellValue.padStart(w, ' ');
+    target.write(`| ${padded.slice(0, w)} `);
+    ++column;
+    if (column === widths.length) {
+      target.write('|\n');
+      column = 0;
+    }
+  };
+}
+
+export function makeList<T>(size: number, generator: (i: number) => T): T[] {
+  const result: T[] = [];
+  for (let i = 0; i < size; ++i) {
+    result.push(generator(i));
+  }
+  return result;
 }
