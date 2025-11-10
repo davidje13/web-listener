@@ -5,8 +5,8 @@ interface WebSocketErrorOptions {
 }
 
 export class WebSocketError extends Error {
-  public readonly statusCode: number;
-  public readonly statusMessage: string;
+  declare public readonly statusCode: number;
+  declare public readonly statusMessage: string;
 
   constructor(
     statusCode: number,

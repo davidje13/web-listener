@@ -15,10 +15,10 @@ export interface ServerSentEvent {
 }
 
 export class ServerSentEvents {
-  /** @internal */ private readonly _res: ServerResponse;
-  /** @internal */ private readonly _ac: AbortController;
-  /** @internal */ private _keepaliveInterval: number;
-  /** @internal */ private _keepalive: NodeJS.Timeout | undefined;
+  /** @internal */ declare private readonly _res: ServerResponse;
+  /** @internal */ declare private readonly _ac: AbortController;
+  /** @internal */ declare private _keepaliveInterval: number;
+  /** @internal */ declare private _keepalive: NodeJS.Timeout | undefined;
 
   constructor(
     req: IncomingMessage,

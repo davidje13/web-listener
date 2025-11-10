@@ -6,22 +6,22 @@ import { HEX_VALUES, type ContentTypeParams } from './utils.mts';
 import type { BusboyOptions } from './types.mts';
 
 export class URLEncoded extends Writable {
-  /** @internal */ readonly _charset: string;
-  /** @internal */ readonly _fieldSizeLimit: number;
-  /** @internal */ readonly _fieldsLimit: number;
-  /** @internal */ readonly _fieldNameSizeLimit: number;
+  /** @internal */ declare readonly _charset: string;
+  /** @internal */ declare readonly _fieldSizeLimit: number;
+  /** @internal */ declare readonly _fieldsLimit: number;
+  /** @internal */ declare readonly _fieldNameSizeLimit: number;
 
-  /** @internal */ _inKey: boolean;
-  /** @internal */ _keyTrunc: boolean;
-  /** @internal */ _valTrunc: boolean;
-  /** @internal */ _bytesKey: number;
-  /** @internal */ _bytesVal: number;
-  /** @internal */ _fields: number;
-  /** @internal */ _key: string[];
-  /** @internal */ _val: string[];
-  /** @internal */ _byte: number;
-  /** @internal */ _lastPos: number;
-  /** @internal */ _decoder: Decoder;
+  /** @internal */ declare _inKey: boolean;
+  /** @internal */ declare _keyTrunc: boolean;
+  /** @internal */ declare _valTrunc: boolean;
+  /** @internal */ declare _bytesKey: number;
+  /** @internal */ declare _bytesVal: number;
+  /** @internal */ declare _fields: number;
+  /** @internal */ declare _key: string[];
+  /** @internal */ declare _val: string[];
+  /** @internal */ declare _byte: number;
+  /** @internal */ declare _lastPos: number;
+  /** @internal */ declare _decoder: Decoder;
 
   constructor(
     { limits = {}, highWaterMark, defCharset = 'utf-8' }: BusboyOptions,

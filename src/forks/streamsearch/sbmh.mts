@@ -18,11 +18,11 @@ export type StreamSearchCallback = (
 ) => void;
 
 export class StreamSearch {
-  /** @internal */ private readonly _needle: Buffer;
-  /** @internal */ private readonly _cb: StreamSearchCallback;
-  /** @internal */ private _lookbehind: Buffer | null;
-  /** @internal */ private _lookbehindSize: number;
-  /** @internal */ private _occ: Uint16Array | null;
+  /** @internal */ declare private readonly _needle: Buffer;
+  /** @internal */ declare private readonly _cb: StreamSearchCallback;
+  /** @internal */ declare private _lookbehind: Buffer | null;
+  /** @internal */ declare private _lookbehindSize: number;
+  /** @internal */ declare private _occ: Uint16Array | null;
 
   constructor(needle: Buffer, callback: StreamSearchCallback) {
     const needleLen = needle.byteLength;

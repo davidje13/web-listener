@@ -1,8 +1,8 @@
 type Node<T> = { _item: T; _next: Node<T> | null };
 
 export class Queue<T> {
-  /** @internal */ private _head: Node<T>;
-  /** @internal */ private _tail: Node<T>;
+  /** @internal */ declare private _head: Node<T>;
+  /** @internal */ declare private _tail: Node<T>;
 
   constructor(initialItem?: T) {
     const base: Node<T> = { _item: null as any, _next: null };

@@ -6,10 +6,10 @@ import {
 } from 'node:stream/web';
 
 export class StreamSlicer {
-  /** @internal */ private readonly _reader: ReadableStreamDefaultReader<unknown>;
-  /** @internal */ private _buffer: Uint8Array | null;
-  /** @internal */ private _pos: number;
-  /** @internal */ private _state: number;
+  /** @internal */ declare private readonly _reader: ReadableStreamDefaultReader<unknown>;
+  /** @internal */ declare private _buffer: Uint8Array | null;
+  /** @internal */ declare private _pos: number;
+  /** @internal */ declare private _state: number;
 
   constructor(stream: Readable | ReadableStream<Uint8Array>) {
     if (internalIsNodeReadable(stream)) {

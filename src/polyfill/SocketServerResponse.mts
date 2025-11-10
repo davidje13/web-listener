@@ -5,9 +5,9 @@ import type { Writable } from 'node:stream';
 // on an arbitrary socket. It attempts to mimic a subset of the ServerResponse API.
 
 export class SocketServerResponse {
-  /** @internal */ private _socket: Writable;
-  /** @internal */ private readonly _headers: OutgoingHttpHeaders;
-  /** @internal */ private _headersSent: boolean;
+  /** @internal */ declare private _socket: Writable;
+  /** @internal */ declare private readonly _headers: OutgoingHttpHeaders;
+  /** @internal */ declare private _headersSent: boolean;
 
   constructor(socket: Writable) {
     this._socket = socket;

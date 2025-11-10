@@ -7,10 +7,10 @@ interface PendingPop<T> {
 }
 
 export class BlockingQueue<T> {
-  /** @internal */ private readonly _pendingPush: Queue<T>;
-  /** @internal */ private readonly _pendingShift: Queue<PendingPop<T>>;
-  /** @internal */ private _state: number;
-  /** @internal */ private _closeReason: unknown;
+  /** @internal */ declare private readonly _pendingPush: Queue<T>;
+  /** @internal */ declare private readonly _pendingShift: Queue<PendingPop<T>>;
+  /** @internal */ declare private _state: number;
+  /** @internal */ declare private _closeReason: unknown;
 
   constructor() {
     this._pendingPush = new Queue();

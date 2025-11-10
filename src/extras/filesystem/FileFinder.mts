@@ -144,20 +144,23 @@ export interface FileFinderCore {
 }
 
 export class FileFinder implements FileFinderCore {
-  /** @internal */ private readonly _basePath: string;
-  /** @internal */ private readonly _subDirectories: number;
-  /** @internal */ private readonly _caseSensitive: 'exact' | 'filesystem' | 'force-lowercase';
-  /** @internal */ private readonly _allowAllDotfiles: boolean;
-  /** @internal */ private readonly _allowAllTildefiles: boolean;
-  /** @internal */ private readonly _allowDirectIndexAccess: boolean;
-  /** @internal */ private readonly _allow: Set<string>;
-  /** @internal */ private readonly _hide: Set<string>;
-  /** @internal */ private readonly _hidePattern: RegExp[];
-  /** @internal */ private readonly _indexFiles: string[];
-  /** @internal */ private readonly _indexFilesSet: Set<string>;
-  /** @internal */ private readonly _implicitSuffixes: string[];
-  /** @internal */ private readonly _negotiator: Negotiator | undefined;
-  public readonly vary: string;
+  /** @internal */ declare private readonly _basePath: string;
+  /** @internal */ declare private readonly _subDirectories: number;
+  /** @internal */ declare private readonly _caseSensitive:
+    | 'exact'
+    | 'filesystem'
+    | 'force-lowercase';
+  /** @internal */ declare private readonly _allowAllDotfiles: boolean;
+  /** @internal */ declare private readonly _allowAllTildefiles: boolean;
+  /** @internal */ declare private readonly _allowDirectIndexAccess: boolean;
+  /** @internal */ declare private readonly _allow: Set<string>;
+  /** @internal */ declare private readonly _hide: Set<string>;
+  /** @internal */ declare private readonly _hidePattern: RegExp[];
+  /** @internal */ declare private readonly _indexFiles: string[];
+  /** @internal */ declare private readonly _indexFilesSet: Set<string>;
+  /** @internal */ declare private readonly _implicitSuffixes: string[];
+  /** @internal */ declare private readonly _negotiator: Negotiator | undefined;
+  declare public readonly vary: string;
 
   /** @internal */
   private constructor(

@@ -53,7 +53,7 @@ export class WebListener extends (EventTarget as TypedEventTarget<
   WebListener,
   { error: CustomEvent<RequestErrorDetail> }
 >) {
-  /** @internal */ private readonly _handler: Handler;
+  /** @internal */ declare private readonly _handler: Handler;
 
   constructor(handler: Handler) {
     super();

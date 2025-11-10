@@ -5,12 +5,12 @@ import { buildRouter } from './buildRouter.mts';
 import type { Logger, AddColour } from './log.mts';
 
 export class ServerManager {
-  private _started: boolean;
-  private _building: boolean;
-  private _stopping: boolean;
-  private readonly _log: Logger;
-  private readonly _colour: AddColour;
-  private readonly _servers: Map<number, ServerState>;
+  declare private _started: boolean;
+  declare private _building: boolean;
+  declare private _stopping: boolean;
+  declare private readonly _log: Logger;
+  declare private readonly _colour: AddColour;
+  declare private readonly _servers: Map<number, ServerState>;
 
   constructor(log: Logger, colour: AddColour) {
     this._started = false;

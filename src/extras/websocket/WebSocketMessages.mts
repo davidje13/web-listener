@@ -14,8 +14,8 @@ export interface ListenableWebSocket {
 }
 
 export class WebSocketMessage {
-  public readonly data: Buffer;
-  public readonly isBinary: boolean;
+  declare public readonly data: Buffer;
+  declare public readonly isBinary: boolean;
 
   constructor(data: Buffer, isBinary: boolean) {
     this.data = data;
@@ -45,8 +45,8 @@ interface WebSocketMessagesOptions {
 }
 
 export class WebSocketMessages implements AsyncIterable<WebSocketMessage, unknown, undefined> {
-  /** @internal */ private readonly _queue: BlockingQueue<WebSocketMessage>;
-  public readonly detach: () => void;
+  /** @internal */ declare private readonly _queue: BlockingQueue<WebSocketMessage>;
+  declare public readonly detach: () => void;
 
   constructor(ws: ListenableWebSocket, { limit = -1, signal }: WebSocketMessagesOptions = {}) {
     this._queue = new BlockingQueue<WebSocketMessage>();

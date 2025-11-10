@@ -25,10 +25,10 @@ interface PartialServerResponse {
 }
 
 export class HTTPError extends Error {
-  public readonly statusCode: number;
-  public readonly statusMessage: string;
-  public readonly headers: AnyHeaders;
-  public readonly body: MessageBody;
+  declare public readonly statusCode: number;
+  declare public readonly statusMessage: string;
+  declare public readonly headers: AnyHeaders;
+  declare public readonly body: MessageBody;
 
   constructor(
     statusCode: number,

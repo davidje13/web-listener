@@ -226,7 +226,7 @@ export type Mapper<T> = (o: unknown, context: Context) => T;
 export type Type<T extends Mapper<any>> = ReturnType<T>;
 
 class ConfigError extends Error {
-  readonly p: number;
+  declare readonly p: number;
 
   constructor(message: string, ctx: Context, p: number = 0) {
     super(`${message} at ${ctx.path || 'root'}`);

@@ -76,8 +76,8 @@ interface RegisteredRoute {
 }
 
 export class Router<Req = {}> implements Required<Handler<Req>> {
-  /** @internal */ private readonly _routes: RegisteredRoute[];
-  /** @internal */ private readonly _returnHandlers: RequestReturnHandlerFn<unknown>[];
+  /** @internal */ declare private readonly _routes: RegisteredRoute[];
+  /** @internal */ declare private readonly _returnHandlers: RequestReturnHandlerFn<unknown>[];
 
   constructor() {
     this._routes = [];

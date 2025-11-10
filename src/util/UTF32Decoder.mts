@@ -1,11 +1,11 @@
 import type { Decoder } from './DecoderStream.mts';
 
 export class UTF32Decoder implements Decoder {
-  /** @internal */ private readonly _le: boolean;
-  /** @internal */ private readonly _fatal: boolean;
-  /** @internal */ private readonly _carry: Uint8Array;
-  /** @internal */ private readonly _carryDV: DataView;
-  /** @internal */ private _carryN: number;
+  /** @internal */ declare private readonly _le: boolean;
+  /** @internal */ declare private readonly _fatal: boolean;
+  /** @internal */ declare private readonly _carry: Uint8Array;
+  /** @internal */ declare private readonly _carryDV: DataView;
+  /** @internal */ declare private _carryN: number;
 
   constructor(littleEndian: boolean, { fatal = false }: TextDecoderOptions = {}) {
     this._le = littleEndian;

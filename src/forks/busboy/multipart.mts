@@ -13,13 +13,13 @@ import {
 import type { BusboyOptions } from './types.mts';
 
 export class Multipart extends Writable {
-  /** @internal */ _bparser: Pick<StreamSearch, 'push' | 'destroy'>;
-  /** @internal */ _writecb: (() => void) | undefined;
-  /** @internal */ _fileStream: FileStream | undefined;
-  /** @internal */ _complete: boolean;
-  /** @internal */ _hparser: HeaderParser | undefined;
-  /** @internal */ _fileEndsLeft: number;
-  /** @internal */ _finalcb: (() => void) | undefined;
+  /** @internal */ declare _bparser: Pick<StreamSearch, 'push' | 'destroy'>;
+  /** @internal */ declare _writecb: (() => void) | undefined;
+  /** @internal */ declare _fileStream: FileStream | undefined;
+  /** @internal */ declare _complete: boolean;
+  /** @internal */ declare _hparser: HeaderParser | undefined;
+  /** @internal */ declare _fileEndsLeft: number;
+  /** @internal */ declare _finalcb: (() => void) | undefined;
 
   constructor(
     {
@@ -358,17 +358,17 @@ const HPARSER_VALUE = 2;
 type Header = Record<string, Buffer[]>;
 
 class HeaderParser {
-  /** @internal */ private _header: Header;
-  /** @internal */ private _pairCount: number;
-  /** @internal */ private _byteCount: number;
-  /** @internal */ private _state:
+  /** @internal */ declare private _header: Header;
+  /** @internal */ declare private _pairCount: number;
+  /** @internal */ declare private _byteCount: number;
+  /** @internal */ declare private _state:
     | typeof HPARSER_NAME
     | typeof HPARSER_PRE_OWS
     | typeof HPARSER_VALUE;
-  /** @internal */ private readonly _name: string[];
-  /** @internal */ private readonly _value: Buffer[];
-  /** @internal */ private _crlf: number;
-  /** @internal */ private _cb: (header: Header) => void;
+  /** @internal */ declare private readonly _name: string[];
+  /** @internal */ declare private readonly _value: Buffer[];
+  /** @internal */ declare private _crlf: number;
+  /** @internal */ declare private _cb: (header: Header) => void;
 
   constructor(cb: (header: Header) => void) {
     this._header = Object.create(null);
@@ -534,8 +534,8 @@ class HeaderParser {
 }
 
 class FileStream extends Readable {
-  /** @internal */ _readcb: (() => void) | undefined;
-  truncated: boolean;
+  /** @internal */ declare _readcb: (() => void) | undefined;
+  declare truncated: boolean;
 
   constructor(opts: ReadableOptions, owner: Multipart) {
     super({ ...opts, read } as ReadableOptions);

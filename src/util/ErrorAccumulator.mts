@@ -1,8 +1,8 @@
 import { SuppressedError } from '../polyfill/SuppressedError.mts';
 
 export class ErrorAccumulator {
-  _hasError: boolean;
-  _error: unknown;
+  /** @internal */ declare _hasError: boolean;
+  /** @internal */ declare _error: unknown;
 
   constructor() {
     this._hasError = false;

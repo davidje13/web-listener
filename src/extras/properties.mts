@@ -13,7 +13,7 @@ interface PropertiesMessageProps {
 }
 
 export class Property<T> {
-  /** @internal */ readonly _factory: (req: IncomingMessage) => T;
+  /** @internal */ declare readonly _factory: (req: IncomingMessage) => T;
 
   constructor(defaultValue: T | ((req: IncomingMessage) => T) = throwNotSet) {
     this._factory = internalAsFactory(defaultValue);

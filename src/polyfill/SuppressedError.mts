@@ -1,8 +1,8 @@
 // Polyfill SuppressedError on Node.js (all current versions)
 
 class SuppressedError extends Error {
-  public readonly error: unknown;
-  public readonly suppressed: unknown;
+  declare public readonly error: unknown;
+  declare public readonly suppressed: unknown;
 
   constructor(error: unknown, suppressed: unknown, message?: string | undefined) {
     super(message ?? '');
