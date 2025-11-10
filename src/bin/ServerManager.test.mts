@@ -1,4 +1,4 @@
-import { findAvailablePorts } from '../test-helpers/findAvailablePorts.mts';
+import { findAvailablePort } from '../test-helpers/findAvailablePort.mts';
 import type { ConfigServer } from './config/types.mts';
 import type { AddColour } from './log.mts';
 import { ServerManager } from './ServerManager.mts';
@@ -6,12 +6,12 @@ import 'lean-test';
 
 describe('ServerManager', () => {
   it('launches a server based on the given config', { timeout: 3000 }, async () => {
-    const [port] = await findAvailablePorts(1);
+    const port = await findAvailablePort();
 
     const logs: string[] = [];
     const manager = new ServerManager((_, msg) => logs.push(msg), NO_COLOUR);
     try {
-      await manager.set([fixtureServer(port!, 'content')]);
+      await manager.set([fixtureServer(port, 'content')]);
       expect(logs).equals([
         `http://localhost:${port} starting`,
         `http://localhost:${port} ready`,
@@ -29,12 +29,12 @@ describe('ServerManager', () => {
   });
 
   it('launches multiple servers', { timeout: 3000 }, async () => {
-    const [port1, port2] = await findAvailablePorts(2);
+    const [port1, port2] = await Promise.all([findAvailablePort(), findAvailablePort()]);
 
     const logs: string[] = [];
     const manager = new ServerManager((_, msg) => logs.push(msg), NO_COLOUR);
     try {
-      await manager.set([fixtureServer(port1!, 'content 1'), fixtureServer(port2!, 'content 2')]);
+      await manager.set([fixtureServer(port1, 'content 1'), fixtureServer(port2, 'content 2')]);
       expect(logs[logs.length - 1]).equals('all servers ready');
 
       const res1 = await fetch(`http://localhost:${port1}`);
@@ -48,12 +48,12 @@ describe('ServerManager', () => {
   });
 
   it('skips servers with conflicting ports', { timeout: 3000 }, async () => {
-    const [port] = await findAvailablePorts(1);
+    const port = await findAvailablePort();
 
     const logs: string[] = [];
     const manager = new ServerManager((_, msg) => logs.push(msg), NO_COLOUR);
     try {
-      await manager.set([fixtureServer(port!, 'content 1'), fixtureServer(port!, 'content 2')]);
+      await manager.set([fixtureServer(port, 'content 1'), fixtureServer(port, 'content 2')]);
       expect(logs).equals([
         `skipping servers[1] because port ${port} has already been defined`,
         `http://localhost:${port} starting`,
@@ -84,12 +84,12 @@ describe('ServerManager', () => {
   });
 
   it('updates servers without relaunching if the config changes', { timeout: 3000 }, async () => {
-    const [port] = await findAvailablePorts(1);
+    const port = await findAvailablePort();
 
     const logs: string[] = [];
     const manager = new ServerManager((_, msg) => logs.push(msg), NO_COLOUR);
     try {
-      await manager.set([fixtureServer(port!, 'content')]);
+      await manager.set([fixtureServer(port, 'content')]);
       expect(logs).equals([
         `http://localhost:${port} starting`,
         `http://localhost:${port} ready`,
@@ -100,7 +100,7 @@ describe('ServerManager', () => {
       expect(await res1.text()).equals('content');
 
       logs.length = 0;
-      await manager.set([fixtureServer(port!, 'updated content')]);
+      await manager.set([fixtureServer(port, 'updated content')]);
       expect(logs).equals([`http://localhost:${port} updated`, 'all servers ready']);
 
       const res2 = await fetch(`http://localhost:${port}`);
@@ -111,12 +111,12 @@ describe('ServerManager', () => {
   });
 
   it('relaunches servers if the server config changes', { timeout: 3000 }, async () => {
-    const [port] = await findAvailablePorts(1);
+    const port = await findAvailablePort();
 
     const logs: string[] = [];
     const manager = new ServerManager((_, msg) => logs.push(msg), NO_COLOUR);
     try {
-      await manager.set([fixtureServer(port!, 'content')]);
+      await manager.set([fixtureServer(port, 'content')]);
       expect(logs).equals([
         `http://localhost:${port} starting`,
         `http://localhost:${port} ready`,
@@ -129,7 +129,7 @@ describe('ServerManager', () => {
       logs.length = 0;
       await manager.set([
         {
-          ...fixtureServer(port!, 'updated content'),
+          ...fixtureServer(port, 'updated content'),
           options: { ...DEFAULT_SERVER_OPTIONS, backlog: 300 },
         },
       ]);
@@ -150,12 +150,12 @@ describe('ServerManager', () => {
 
   describe('shutdown', () => {
     it('stops all servers', { timeout: 3000 }, async () => {
-      const [port1, port2] = await findAvailablePorts(2);
+      const [port1, port2] = await Promise.all([findAvailablePort(), findAvailablePort()]);
 
       const logs: string[] = [];
       const manager = new ServerManager((_, msg) => logs.push(msg), NO_COLOUR);
       try {
-        await manager.set([fixtureServer(port1!, 'content 1'), fixtureServer(port2!, 'content 2')]);
+        await manager.set([fixtureServer(port1, 'content 1'), fixtureServer(port2, 'content 2')]);
         manager.shutdown();
         await expect.poll(() => logs[logs.length - 1], equals('shutdown complete'), {
           timeout: 300,
@@ -169,12 +169,12 @@ describe('ServerManager', () => {
     });
 
     it('stops all servers even if some are still starting', { timeout: 3000 }, async () => {
-      const [port1, port2] = await findAvailablePorts(2);
+      const [port1, port2] = await Promise.all([findAvailablePort(), findAvailablePort()]);
 
       const logs: string[] = [];
       const manager = new ServerManager((_, msg) => logs.push(msg), NO_COLOUR);
       try {
-        manager.set([fixtureServer(port1!, 'content 1'), fixtureServer(port2!, 'content 2')]);
+        manager.set([fixtureServer(port1, 'content 1'), fixtureServer(port2, 'content 2')]);
         manager.shutdown();
         await new Promise((resolve) => setTimeout(resolve, 200));
         await expect.poll(() => logs[logs.length - 1], equals('shutdown complete'), {
