@@ -32,7 +32,7 @@ export function internalSetSoftCloseHandler(
   props._softCloseHandler = fn;
   const details = props._isSoftClosed;
   if (details) {
-    queueMicrotask(() => internalRunSoftCloseHandler(fn, props._request, details));
+    queueMicrotask(() => internalRunSoftCloseHandler(fn, details, props));
   }
 }
 
@@ -84,7 +84,7 @@ export function internalSoftClose(
   }
   props._output?._target.once('close', () => props._request.socket.destroy());
   props._isSoftClosed = { _reason: reason, _errorCallback: onError };
-  void internalRunSoftCloseHandler(props._softCloseHandler, props._request, props._isSoftClosed);
+  void internalRunSoftCloseHandler(props._softCloseHandler, props._isSoftClosed, props);
   internalUpdateCloseTimeout(props);
 }
 
@@ -121,11 +121,7 @@ function internalUpdateCloseTimeout(props: MessageProps & Partial<CloseMessagePr
       next = props._softCloseSchedule._time;
     } else {
       props._isSoftClosed = props._softCloseSchedule;
-      void internalRunSoftCloseHandler(
-        props._softCloseHandler,
-        props._request,
-        props._isSoftClosed,
-      );
+      void internalRunSoftCloseHandler(props._softCloseHandler, props._isSoftClosed, props);
     }
   }
   if (props._checkCloseTimeout === undefined) {
@@ -136,13 +132,14 @@ function internalUpdateCloseTimeout(props: MessageProps & Partial<CloseMessagePr
 
 async function internalRunSoftCloseHandler(
   handler: SoftCloseHandler | undefined,
-  req: IncomingMessage,
   details: SoftCloseDetails,
+  props: MessageProps,
 ) {
   try {
     await handler?.(details._reason);
   } catch (error: unknown) {
-    details._errorCallback(error, 'soft closing', req);
+    details._errorCallback(error, 'soft closing', props._request);
+    internalHardClose(props);
   }
 }
 

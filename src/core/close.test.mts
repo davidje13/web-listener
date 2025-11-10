@@ -196,13 +196,13 @@ describe('scheduleClose', () => {
     });
   });
 
-  it('reports soft close errors back', { timeout: 3000 }, () => {
+  it('reports soft close errors back and hard-closes the connection', { timeout: 3000 }, () => {
     const capturedErrors: unknown[] = [];
     const handler = requestHandler((req) => {
       setSoftCloseHandler(req, () => {
         throw 'oops';
       });
-      scheduleClose(req, 'timeout', Date.now() + 100, 50, (error, action) => {
+      scheduleClose(req, 'timeout', Date.now() + 1000, 950, (error, action) => {
         capturedErrors.push({ error, action });
       });
     });
