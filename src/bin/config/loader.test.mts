@@ -97,7 +97,7 @@ describe('loadConfig', () => {
           name: 'brotli',
           args: ['--brotli'],
           expected: withNegotiation([
-            { type: 'encoding', options: [{ match: 'brotli', file: '{file}.br' }] },
+            { type: 'encoding', options: [{ match: 'br', file: '{file}.br' }] },
           ]),
         },
         {

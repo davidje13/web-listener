@@ -16,7 +16,7 @@ describe('compressFileOffline', () => {
       file,
       [
         { match: 'gzip', file: '{file}.gz' },
-        { match: 'brotli', file: '{file}.br' },
+        { match: 'br', file: '{file}.br' },
         { match: 'deflate', file: 'custom-{file}.deflate' },
       ],
       300,

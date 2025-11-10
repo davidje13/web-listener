@@ -5,6 +5,7 @@ import {
   DecompressionStream,
   type ReadableStream,
   type TextDecoderOptions,
+  type CompressionFormat,
 } from 'node:stream/web';
 import zlib from 'node:zlib';
 import { HTTPError } from '../../core/HTTPError.mts';
@@ -107,7 +108,7 @@ function internalGetDecoder(id: string): TransformStream<Uint8Array, Uint8Array>
       return new DecompressionStream('deflate');
     case 'br':
       try {
-        return new DecompressionStream('brotli' as any); // Node 24+
+        return new DecompressionStream('brotli' as CompressionFormat); // Node 24+
       } catch {
         return Duplex.toWeb(zlib.createBrotliDecompress());
       }

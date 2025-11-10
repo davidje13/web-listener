@@ -256,7 +256,7 @@ export async function loadConfig(
 
 const ENCODINGS = new Map<string, FileNegotiationOption>([
   ['zstd', { match: 'zstd', file: '{file}.zst' }],
-  ['brotli', { match: 'brotli', file: '{file}.br' }],
+  ['brotli', { match: 'br', file: '{file}.br' }],
   ['gzip', { match: 'gzip', file: '{file}.gz' }],
   ['deflate', { match: 'deflate', file: '{file}.deflate' }],
 ]);

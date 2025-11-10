@@ -96,7 +96,7 @@ async function findFilesR(dir: string, output: string[]) {
 const ENCODERS = /*@__PURE__*/ new Map<string, (buffer: Buffer) => Promise<Buffer>>([
   ['zstd', (buffer) => promisify(zlib.zstdCompress)(buffer)],
   [
-    'brotli',
+    'br',
     (buffer) =>
       promisify(zlib.brotliCompress)(buffer, {
         params: {
