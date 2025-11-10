@@ -44,7 +44,7 @@ describe('makeTempFileStorage', () => {
       await teardown();
       // wait for directory to finish being created, then immediately deleted
       await new Promise((resolve) => setTimeout(resolve, 50));
-      await expect(() => stat(storage.dir)).throws('ENOENT');
+      await expect.poll(() => stat(storage.dir), throws('ENOENT'), { timeout: 300 });
     }),
   );
 

@@ -389,7 +389,7 @@ describe('addTeardown', () => {
     const router = new Router().get('/', (req, res) => {
       defer(req, async () => {
         events.push('deferred begin');
-        await new Promise((resolve) => setTimeout(resolve, 20));
+        await new Promise((resolve) => setTimeout(resolve, 10));
         events.push('deferred end');
       });
       addTeardown(req, () => void events.push('teardown'));

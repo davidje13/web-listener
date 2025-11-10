@@ -176,9 +176,8 @@ describe('ServerManager', () => {
       try {
         manager.set([fixtureServer(port1, 'content 1'), fixtureServer(port2, 'content 2')]);
         manager.shutdown();
-        await new Promise((resolve) => setTimeout(resolve, 200));
         await expect.poll(() => logs[logs.length - 1], equals('shutdown complete'), {
-          timeout: 300,
+          timeout: 500,
         });
 
         await expect(() => fetch(`http://localhost:${port1}`)).throws('fetch failed');

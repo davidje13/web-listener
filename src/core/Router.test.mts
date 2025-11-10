@@ -401,7 +401,7 @@ describe('router', () => {
           setTimeout(() => {
             res.write('B');
             resolve(CONTINUE);
-          }, 50),
+          }, 10),
         );
       },
       writeAndReturn('C'),

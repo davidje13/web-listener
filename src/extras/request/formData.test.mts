@@ -194,6 +194,7 @@ describe('getFormFields', () => {
       'preserves the socket if the request fails and stops sending data quickly',
       { timeout: 3000 },
       () => {
+        // potential flake if connection is slow
         const duplex = new TransformStream();
         const writer = duplex.writable.getWriter();
         writer.write('longname=1&two=');
@@ -204,7 +205,7 @@ describe('getFormFields', () => {
             const nextField = stepper(
               getFormFields(req, {
                 limits: { fieldNameSize: 5 },
-                closeAfterErrorDelay: 50,
+                closeAfterErrorDelay: 100,
               }),
             );
             await expect(nextField).throws('field name "longn"... too long');
@@ -212,7 +213,7 @@ describe('getFormFields', () => {
             writer.close();
             await teardown();
             expect(req.socket.closed).isFalse();
-            await new Promise((resolve) => setTimeout(resolve, 50));
+            await new Promise((resolve) => setTimeout(resolve, 150));
             expect(req.socket.closed).isFalse();
           },
           {

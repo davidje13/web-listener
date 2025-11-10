@@ -13,9 +13,9 @@ describe('ServerSentEvents', () => {
     const handler = requestHandler(async (req, res) => {
       const sse = new ServerSentEvents(req, res);
       await sse.send({ event: 'welcome', data: 'hello' });
-      await new Promise((resolve) => setTimeout(resolve, 30));
+      await new Promise((resolve) => setTimeout(resolve, 10));
       await sse.send({ data: 'tick' });
-      await new Promise((resolve) => setTimeout(resolve, 30));
+      await new Promise((resolve) => setTimeout(resolve, 10));
       await sse.send({ data: 'tick' });
     });
 
@@ -114,12 +114,13 @@ describe('ServerSentEvents', () => {
   });
 
   it('sends pings automatically to keep the connection alive', { timeout: 3000 }, () => {
+    // potential flake if connection is slow
     const handler = requestHandler(async (req, res) => {
-      const sse = new ServerSentEvents(req, res, { keepaliveInterval: 50 });
+      const sse = new ServerSentEvents(req, res, { keepaliveInterval: 100 });
       await sse.send({ data: 'one' });
-      await new Promise((resolve) => setTimeout(resolve, 80)); // should send 1 keepalive
+      await new Promise((resolve) => setTimeout(resolve, 160)); // should send 1 keepalive
       await sse.send({ data: 'two' });
-      await new Promise((resolve) => setTimeout(resolve, 30)); // should send no keepalive (interval is reset)
+      await new Promise((resolve) => setTimeout(resolve, 60)); // should send no keepalive (interval is reset)
       await sse.send({ data: 'three' });
       await sse.close();
     });

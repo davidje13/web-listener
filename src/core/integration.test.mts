@@ -151,8 +151,7 @@ describe('upgrade closing', () => {
         expect(listeners.countConnections()).equals(1);
 
         // dangling socket should be destroyed by server after a short delay:
-        await new Promise((resolve) => setTimeout(resolve, 200));
-        expect(listeners.countConnections()).equals(0);
+        await expect.poll(() => listeners.countConnections(), equals(0), { timeout: 300 });
       },
       { socketCloseTimeout: 100 },
     );
