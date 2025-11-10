@@ -310,6 +310,25 @@ describe('StreamSearch', () => {
     expect(() => new StreamSearch(Buffer.alloc(0), () => {})).throws('invalid needle');
   });
 
+  it('does not access undefined data', () => {
+    const results: CapturedResults = [];
+    const ss = new StreamSearch(Buffer.from('12341234'), collect(results));
+
+    // this specifically checks that we do not search lookbehind data outside the
+    // currently valid range. This can be from previous calls or uninitialised memory.
+
+    ss.push(Buffer.from('1234123')); // seed lookbehind buffer
+    ss.push(Buffer.from('12')); // fail lookbehind, set new shorter lookbehind
+    ss.push(Buffer.from('4')); // fail lookbehind, ensure previous memory is not used
+    ss.destroy();
+
+    expect(results).equals([
+      [false, '1234123'],
+      [false, '12'],
+      [false, '4'],
+    ]);
+  });
+
   it('reliably finds needles regardless of position and chunk boundaries', () => {
     const needleTypes = [
       Buffer.alloc(10).fill(1),
