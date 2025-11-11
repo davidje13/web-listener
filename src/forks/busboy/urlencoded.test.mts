@@ -29,7 +29,7 @@ const tests: TestDef[] = [
     expected: [['foo', 'bar', COMMON_INFO]],
   },
   {
-    name: 'Value with equals symbol',
+    name: 'Value with unencoded equals symbol',
     source: ['foo=bar=baz'],
     expected: [['foo', 'bar=baz', COMMON_INFO]],
   },
@@ -125,6 +125,12 @@ const tests: TestDef[] = [
     expected: [['foo', 'bar', COMMON_INFO]],
   },
   {
+    name: 'Limits: one field with multiple batches',
+    source: ['foo=bar&baz=bla', '&x=y'],
+    options: { limits: { fields: 1 } },
+    expected: [['foo', 'bar', COMMON_INFO]],
+  },
+  {
     name: 'Limits: field part lengths match limits',
     source: ['foo=bar&baz=bla'],
     options: { limits: { fieldNameSize: 3, fieldSize: 3 } },
@@ -150,6 +156,18 @@ const tests: TestDef[] = [
       ['foo', 'ba', { ...COMMON_INFO, valueTruncated: true }],
       ['baz', 'bl', { ...COMMON_INFO, valueTruncated: true }],
     ],
+  },
+  {
+    name: 'Limits: truncated field value with percent encoding',
+    source: ['foo=%25%25%25'],
+    options: { limits: { fieldSize: 2 } },
+    expected: [['foo', '%%', { ...COMMON_INFO, valueTruncated: true }]],
+  },
+  {
+    name: 'Limits: truncated field value with encoded spaces',
+    source: ['foo=+++'],
+    options: { limits: { fieldSize: 2 } },
+    expected: [['foo', '  ', { ...COMMON_INFO, valueTruncated: true }]],
   },
   {
     name: 'Limits: truncated field name and value',
