@@ -13,13 +13,12 @@ export class URLEncoded extends Writable {
   /** @internal */ declare _fields: number;
   /** @internal */ declare _inKey: boolean;
   /** @internal */ declare _current: string;
-  /** @internal */ declare _currentBytes: number;
   /** @internal */ declare _currentLimit: number;
   /** @internal */ declare _currentHighNibble: number;
   /** @internal */ declare _key: string;
   /** @internal */ declare _keyTrunc: boolean;
   /** @internal */ declare _percentEncodedState: number;
-  /** @internal */ declare _fastLatin1Allowed: boolean;
+  /** @internal */ declare _fastDecode: 0 | 1 | 2;
   /** @internal */ declare _decoder: Decoder;
 
   constructor(
@@ -45,13 +44,16 @@ export class URLEncoded extends Writable {
     this._fields = 0;
     this._inKey = true;
     this._current = '';
-    this._currentBytes = 0;
     this._currentLimit = this._fieldNameSizeLimit;
     this._currentHighNibble = 0;
     this._key = '';
     this._keyTrunc = false;
     this._percentEncodedState = -2;
-    this._fastLatin1Allowed = /^(utf-?8|latin-?1|ascii)$/i.test(this._charset);
+    this._fastDecode = /^utf-?8$/i.test(this._charset)
+      ? 1
+      : /^(latin-?1|iso[\-_]?8859-?1|(us-)?ascii)$/i.test(this._charset)
+        ? 2
+        : 0;
     this._decoder = getTextDecoder(this._charset);
   }
 }
@@ -100,18 +102,20 @@ function write(
   SPECIALS[AMP] = 1;
   SPECIALS[PLUS] = 1;
   SPECIALS[EQ] = this._inKey ? 1 : 0;
-  main: while (true) {
+  while (true) {
     const prev = pos;
     for (; pos < len && !SPECIALS[chunk[pos]!]; ++pos);
-    if (pos > prev && this._currentBytes <= this._currentLimit) {
+    if (pos > prev && this._currentLimit >= 0) {
       // surprisingly, using string concatenation here rather than just
       // keeping a list of chunks is ~2x faster (as of Node.js 24).
       // Using the undocumented .latin1Slice is ~1.5x faster than .toString('latin1')
       // (if the encoding is NOT latin1, we re-encode it later, which is still faster
       // than decoding as we go)
-      this._currentBytes += pos - prev;
-      const clip = this._currentBytes - this._currentLimit;
-      this._current += chunk.latin1Slice(prev, pos - (clip > 0 ? clip : 0));
+      if ((this._currentLimit -= pos - prev) < 0) {
+        this._current += chunk.latin1Slice(prev, pos + this._currentLimit);
+      } else {
+        this._current += chunk.latin1Slice(prev, pos);
+      }
     }
     if (pos === len) {
       return cb();
@@ -119,11 +123,11 @@ function write(
     switch (chunk[pos++]!) {
       case PCT:
         // optimise for runs of percent-encoded characters, as they will rarely be alone
-        do {
-          if (++this._currentBytes > this._currentLimit) {
+        while (true) {
+          if (--this._currentLimit < 0) {
             SPECIALS[PCT] = 0;
             SPECIALS[PLUS] = 0;
-            continue main;
+            break;
           }
           if (pos === len) {
             this._percentEncodedState = -1;
@@ -147,28 +151,34 @@ function write(
             return cb(new Error('Malformed urlencoded form'));
           }
           this._current += String.fromCharCode((hexUpper << 4) + hexLower);
-        } while (chunk[pos++] === PCT);
-        --pos;
+          if (pos === len) {
+            return cb();
+          }
+          if (chunk[pos] !== PCT) {
+            break;
+          }
+          pos++;
+        }
         break;
       case AMP:
-        if (this._currentHighNibble >= 8 || !this._fastLatin1Allowed) {
-          this._current = this._decoder.decode(Buffer.from(this._current, 'latin1'));
-        }
+        const current =
+          !this._fastDecode || (this._fastDecode === 1 && this._currentHighNibble & 8)
+            ? this._decoder.decode(Buffer.from(this._current, 'latin1'))
+            : this._current;
         if (!this._inKey) {
-          this.emit('field', this._key, this._current, {
+          this.emit('field', this._key, current, {
             nameTruncated: this._keyTrunc,
-            valueTruncated: this._currentBytes > this._fieldSizeLimit,
+            valueTruncated: this._currentLimit < 0,
             encoding: this._charset,
             mimeType: 'text/plain',
           });
           this._key = '';
           this._keyTrunc = false;
-          this._currentLimit = this._fieldNameSizeLimit;
           this._inKey = true;
           SPECIALS[EQ] = 1;
-        } else if (this._current) {
+        } else if (current) {
           this.emit('field', this._current, '', {
-            nameTruncated: this._currentBytes > this._fieldNameSizeLimit,
+            nameTruncated: this._currentLimit < 0,
             valueTruncated: false,
             encoding: this._charset,
             mimeType: 'text/plain',
@@ -177,7 +187,7 @@ function write(
         SPECIALS[PCT] = 1;
         SPECIALS[PLUS] = 1;
         this._current = '';
-        this._currentBytes = 0;
+        this._currentLimit = this._fieldNameSizeLimit;
         this._currentHighNibble = 0;
         if (++this._fields === this._fieldsLimit) {
           this.emit('fieldsLimit');
@@ -185,7 +195,7 @@ function write(
         }
         break;
       case PLUS:
-        if (++this._currentBytes > this._currentLimit) {
+        if (--this._currentLimit < 0) {
           SPECIALS[PCT] = 0;
           SPECIALS[PLUS] = 0;
         } else {
@@ -193,19 +203,18 @@ function write(
         }
         break;
       case EQ:
-        if (this._currentHighNibble >= 8 || !this._fastLatin1Allowed) {
-          this._current = this._decoder.decode(Buffer.from(this._current, 'latin1'));
-        }
-        this._key = this._current;
-        this._keyTrunc = this._currentBytes > this._fieldNameSizeLimit;
-        this._current = '';
-        this._currentBytes = 0;
-        this._currentHighNibble = 0;
-        this._currentLimit = this._fieldSizeLimit;
+        this._key =
+          !this._fastDecode || (this._fastDecode === 1 && this._currentHighNibble & 8)
+            ? this._decoder.decode(Buffer.from(this._current, 'latin1'))
+            : this._current;
+        this._keyTrunc = this._currentLimit < 0;
         this._inKey = false;
         SPECIALS[EQ] = 0;
         SPECIALS[PCT] = 1;
         SPECIALS[PLUS] = 1;
+        this._current = '';
+        this._currentHighNibble = 0;
+        this._currentLimit = this._fieldSizeLimit;
         break;
     }
     if (pos === len) {

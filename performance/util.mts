@@ -13,7 +13,7 @@ export async function profile<T>(
   let totalTime = 0;
   let batches = 0;
   let bestTime = Number.POSITIVE_INFINITY;
-  const deadline = Date.now() + 100;
+  const deadline = Date.now() + 500;
   do {
     for (let run = 0; run < runsPerBatch; ++run) {
       const tm0 = performance.now();
