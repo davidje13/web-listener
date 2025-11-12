@@ -65,6 +65,24 @@ describe('getFormFields', () => {
       ),
     );
 
+    it('includes empty values', { timeout: 3000 }, () =>
+      inRequestHandler(
+        async (req) => {
+          const fields: FormField[] = [];
+          for await (const field of getFormFields(req)) {
+            fields.push(field);
+          }
+          expect(fields).equals([
+            { name: 'f', mimeType: 'text/plain', encoding: 'UTF-8', type: 'string', value: '' },
+          ]);
+        },
+        {
+          method: 'POST',
+          body: new URLSearchParams([['f', '']]),
+        },
+      ),
+    );
+
     it('returns nothing if the body is empty', { timeout: 3000 }, () =>
       inRequestHandler(
         async (req) => {
@@ -272,6 +290,24 @@ describe('getFormFields', () => {
         },
       );
     });
+
+    it('includes empty values', { timeout: 3000 }, () =>
+      inRequestHandler(
+        async (req) => {
+          const fields: FormField[] = [];
+          for await (const field of getFormFields(req)) {
+            fields.push(field);
+          }
+          expect(fields).equals([
+            { name: 'f', mimeType: 'text/plain', encoding: '7bit', type: 'string', value: '' },
+          ]);
+        },
+        {
+          method: 'POST',
+          body: makeFormData([['f', '']]),
+        },
+      ),
+    );
 
     it('includes duplicate fields', { timeout: 3000 }, () =>
       inRequestHandler(

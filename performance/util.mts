@@ -3,7 +3,7 @@ import assert from 'node:assert';
 
 export async function profile<T>(
   name: string,
-  fn: () => T,
+  fn: () => Promise<T> | T,
   correctAnswer: T,
   runsPerBatch = 1000,
 ): Promise<ProfilerResult> {
@@ -17,7 +17,10 @@ export async function profile<T>(
   do {
     for (let run = 0; run < runsPerBatch; ++run) {
       const tm0 = performance.now();
-      const answer = fn();
+      let answer = fn();
+      if (answer instanceof Promise) {
+        answer = await answer;
+      }
       const time = performance.now() - tm0;
       totalTime += time;
       if (time < bestTime) {

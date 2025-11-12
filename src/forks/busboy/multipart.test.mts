@@ -174,6 +174,42 @@ const tests: TestDef[] = [
     ],
   },
   {
+    name: 'Fields and files (at limit)',
+    source: [
+      [
+        `--${COMMON_BOUNDARY}`,
+        'Content-Disposition: form-data; name="file_name_0"',
+        '',
+        'super',
+        `--${COMMON_BOUNDARY}`,
+        'Content-Disposition: form-data; name="upload_file_0"; filename="1k_a.dat"',
+        'Content-Type: application/octet-stream',
+        '',
+        'ABCDEFGHIJKLM',
+        `--${COMMON_BOUNDARY}--`,
+      ],
+    ],
+    boundary: COMMON_BOUNDARY,
+    options: { limits: { fileSize: 13, fieldSize: 5 } },
+    expected: [
+      {
+        type: 'field',
+        name: 'file_name_0',
+        val: 'super',
+        info: COMMON_FIELD_INFO,
+      },
+      {
+        type: 'file',
+        name: 'upload_file_0',
+        data: Buffer.from('ABCDEFGHIJKLM'),
+        info: { ...COMMON_FILE_INFO, filename: '1k_a.dat' },
+        limited: false,
+        truncated: false,
+        err: undefined,
+      },
+    ],
+  },
+  {
     name: 'Fields and files (limits: 0 files)',
     source: [
       [
@@ -433,6 +469,20 @@ const tests: TestDef[] = [
     ],
   },
   {
+    name: 'Field with multibyte characters',
+    source: [
+      [
+        `--${COMMON_BOUNDARY}`,
+        'Content-Disposition: form-data; name="f"',
+        '',
+        '\u2026',
+        `--${COMMON_BOUNDARY}--`,
+      ],
+    ],
+    boundary: COMMON_BOUNDARY,
+    expected: [{ type: 'field', name: 'f', val: '\u2026', info: COMMON_FIELD_INFO }],
+  },
+  {
     name: 'Invalid part header',
     source: [[`--${COMMON_BOUNDARY}`, ': oops', '', '', `--${COMMON_BOUNDARY}--`]],
     boundary: COMMON_BOUNDARY,
@@ -462,26 +512,26 @@ const tests: TestDef[] = [
       ],
     ],
     boundary: COMMON_BOUNDARY,
-    expected: [{ error: 'Unexpected end of form' }],
+    expected: [{ error: 'Unexpected end of headers' }],
   },
-  //{
-  //  name: 'Stopped before end of headers', // should this be an error?
-  //  source: [
-  //    [
-  //      `--${COMMON_BOUNDARY}`,
-  //      'Content-Type: text/plain',
-  //      'Content-Disposition: form-data; name="foo"',
-  //      `--${COMMON_BOUNDARY}`,
-  //      'Content-Type: text/plain',
-  //      'Content-Disposition: form-data; name="bar"',
-  //      '',
-  //      '',
-  //      `--${COMMON_BOUNDARY}--`,
-  //    ],
-  //  ],
-  //  boundary: COMMON_BOUNDARY,
-  //  expected: [{ error: '' }],
-  //},
+  {
+    name: 'Stopped before end of headers',
+    source: [
+      [
+        `--${COMMON_BOUNDARY}`,
+        'Content-Type: text/plain',
+        'Content-Disposition: form-data; name="foo"',
+        `--${COMMON_BOUNDARY}`,
+        'Content-Type: text/plain',
+        'Content-Disposition: form-data; name="bar"',
+        '',
+        '',
+        `--${COMMON_BOUNDARY}--`,
+      ],
+    ],
+    boundary: COMMON_BOUNDARY,
+    expected: [{ error: 'Unexpected end of headers' }],
+  },
   {
     name: 'content-type for fields',
     source: [
@@ -659,7 +709,22 @@ const tests: TestDef[] = [
     ],
   },
   {
-    name: 'Parts limit',
+    name: 'Parts limit reached',
+    source: [
+      [
+        `--${COMMON_BOUNDARY}`,
+        'Content-Disposition: form-data; name="file_name_0"',
+        '',
+        'a',
+        `--${COMMON_BOUNDARY}--`,
+      ],
+    ],
+    boundary: COMMON_BOUNDARY,
+    options: { limits: { parts: 1 } },
+    expected: [{ type: 'field', name: 'file_name_0', val: 'a', info: COMMON_FIELD_INFO }],
+  },
+  {
+    name: 'Parts limit exceeded',
     source: [
       [
         `--${COMMON_BOUNDARY}`,
@@ -683,7 +748,22 @@ const tests: TestDef[] = [
     ],
   },
   {
-    name: 'Fields limit',
+    name: 'Fields limit reached',
+    source: [
+      [
+        `--${COMMON_BOUNDARY}`,
+        'Content-Disposition: form-data; name="file_name_0"',
+        '',
+        'a',
+        `--${COMMON_BOUNDARY}--`,
+      ],
+    ],
+    boundary: COMMON_BOUNDARY,
+    options: { limits: { fields: 1 } },
+    expected: [{ type: 'field', name: 'file_name_0', val: 'a', info: COMMON_FIELD_INFO }],
+  },
+  {
+    name: 'Fields limit exceeded',
     source: [
       [
         `--${COMMON_BOUNDARY}`,
@@ -705,7 +785,33 @@ const tests: TestDef[] = [
     ],
   },
   {
-    name: 'Files limit',
+    name: 'Files limit reached',
+    source: [
+      [
+        `--${COMMON_BOUNDARY}`,
+        'Content-Disposition: form-data; name="upload_file_0"; filename="notes.txt"',
+        'Content-Type: text/plain; charset=utf8',
+        '',
+        'ab',
+        `--${COMMON_BOUNDARY}--`,
+      ],
+    ],
+    boundary: COMMON_BOUNDARY,
+    options: { limits: { files: 1 } },
+    expected: [
+      {
+        type: 'file',
+        name: 'upload_file_0',
+        data: Buffer.from('ab'),
+        info: { ...COMMON_FILE_INFO, filename: 'notes.txt', mimeType: 'text/plain' },
+        limited: false,
+        truncated: false,
+        err: undefined,
+      },
+    ],
+  },
+  {
+    name: 'Files limit exceeded',
     source: [
       [
         `--${COMMON_BOUNDARY}`,

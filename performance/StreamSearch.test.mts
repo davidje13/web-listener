@@ -76,6 +76,8 @@ const needles: NeedleDef[] = [
   { name: 'long repetitive suffixed', value: Buffer.from('-'.repeat(1000) + '.') },
 ];
 
+const chunkSizes = [100000, 2000, 100];
+
 interface ImplementationDef {
   name: string;
   run: (needle: Buffer, haystack: Buffer[]) => () => number[];
@@ -87,68 +89,52 @@ interface NeedleDef {
   value: Buffer;
 }
 
-const batchImplementations = implementations.filter(({ multi }) => multi);
-
 const haystackSize = 100000;
 const needlePositions = [200, 2000, 9570, 29990, 32000, 79999, 85500, 87000, 89995];
-const chunkSize = 2000;
 process.stdout.write(`${needlePositions.length} separators in a ${haystackSize}-byte source\n`);
-process.stdout.write(`unchunked / chunked into ${chunkSize}-byte chunks\n`);
 process.stdout.write('\n');
 
 const table = drawTable(process.stdout, [
   { name: 'Test', size: Math.max(...needles.map(({ name }) => name.length)) },
+  'Chunk Size',
   ...implementations.map((i) => i.name),
-  ...batchImplementations.map((i) => i.name + ' (batched)'),
 ]);
 
 for (const needle of needles) {
   const haystack = buildHaystack(haystackSize, needle.value, needlePositions);
-
-  table(needle.name);
-  const results: ProfilerResult[] = [];
-  let best = -1;
-  for (const implementation of implementations) {
-    const result = await profile(
-      implementation.name,
-      implementation.run(needle.value, [haystack]),
-      needlePositions,
-    );
-    results.push(result);
-    if (best === -1 || result.bestTime < results[best]!.bestTime) {
-      best = results.length - 1;
+  for (const chunkSize of chunkSizes) {
+    table(needle.name);
+    table(chunkSize.toString(), 'right');
+    const chunks = splitChunks(haystack, chunkSize);
+    const results: (ProfilerResult | null)[] = [];
+    let best = -1;
+    for (const implementation of implementations) {
+      if (chunks.length > 1 && !implementation.multi) {
+        results.push(null);
+        continue;
+      }
+      const result = await profile(
+        implementation.name,
+        implementation.run(needle.value, [haystack]),
+        needlePositions,
+      );
+      results.push(result);
+      if (best === -1 || result.bestTime < results[best]!.bestTime) {
+        best = results.length - 1;
+      }
     }
-  }
-  for (let i = 0; i < results.length; ++i) {
-    const result = results[i]!;
-    let value = `${(result.bestTime * 1000).toFixed(1)}\u00B5s`;
-    if (best === i) {
-      value = '* ' + value;
+    for (let i = 0; i < results.length; ++i) {
+      const result = results[i];
+      if (!result) {
+        table('n/a', 'right');
+      } else {
+        let value = `${(result.bestTime * 1000).toFixed(1)}\u00B5s`;
+        if (best === i) {
+          value = '* ' + value;
+        }
+        table(value, 'right');
+      }
     }
-    table(value, 'right');
-  }
-
-  const splitHaystack = splitChunks(haystack, chunkSize);
-  const batchResults: ProfilerResult[] = [];
-  let batchBest = -1;
-  for (const implementation of batchImplementations) {
-    const result = await profile(
-      implementation.name,
-      implementation.run(needle.value, splitHaystack),
-      needlePositions,
-    );
-    batchResults.push(result);
-    if (batchBest === -1 || result.bestTime < batchResults[batchBest]!.bestTime) {
-      batchBest = batchResults.length - 1;
-    }
-  }
-  for (let i = 0; i < batchResults.length; ++i) {
-    const result = batchResults[i]!;
-    let value = `${(result.bestTime * 1000).toFixed(1)}\u00B5s`;
-    if (batchBest === i) {
-      value = '* ' + value;
-    }
-    table(value, 'right');
   }
 }
 

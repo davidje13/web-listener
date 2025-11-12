@@ -50,87 +50,56 @@ export class Multipart extends Writable {
     const fieldsLimit = limits.fields ?? Number.POSITIVE_INFINITY;
     const partsLimit = limits.parts ?? Number.POSITIVE_INFINITY;
 
-    let parts = -1; // Account for initial boundary
+    let parts = 0;
     let fields = 0;
     let files = 0;
-    let skipPart = false;
+    let partSizeRemaining = -1;
 
     this._fileEndsLeft = 0;
     this._complete = false;
-    let fileSize = 0;
 
-    let field: string[] | undefined;
-    let fieldSize = 0;
+    let field: string | undefined;
     let partDecoder: Decoder;
     let partEncoding: string;
     let partType: string;
     let partName: string | undefined;
     let nameTruncated = false;
-    let partTruncated = false;
-
-    let hitFilesLimit = false;
-    let hitFieldsLimit = false;
 
     const hparser = new HeaderParser((header) => {
       this._hparser = undefined;
-      skipPart = false;
-      partType = 'text/plain';
-      let partCharset = defCharset;
-      partEncoding = '7bit';
-      partName = undefined;
-      nameTruncated = false;
-      partTruncated = false;
-      let filename: string | undefined;
-      const disposition = header['content-disposition']?.[0];
+      const disposition = header['content-disposition'];
       if (!disposition) {
-        skipPart = true;
+        partSizeRemaining = -1;
         return;
       }
-      const disp = parseDisposition(disposition, paramDecoder);
+      const disp = parseDisposition(Buffer.from(disposition, 'latin1'), paramDecoder);
       if (disp?.type !== 'form-data') {
-        skipPart = true;
+        partSizeRemaining = -1;
         return;
       }
-      if (disp.params) {
-        partName = disp.params.get('name') ?? '';
-        if (partName.length > fieldNameSizeLimit) {
-          partName = partName.substring(0, fieldNameSizeLimit);
-          nameTruncated = true;
-        }
-        filename = disp.params.get('filename*') ?? disp.params.get('filename');
-        if (filename !== undefined && !preservePath) {
-          filename = osIndependentBasename(filename);
-        }
+      partName = disp.params.get('name') ?? '';
+      nameTruncated = partName.length > fieldNameSizeLimit;
+      if (nameTruncated) {
+        partName = partName.substring(0, fieldNameSizeLimit);
       }
-      const contentType = header['content-type']?.[0];
-      if (contentType) {
-        const conType = parseContentType(contentType.latin1Slice());
-        if (conType) {
-          partType = conType.mime;
-          partCharset = conType.params.get('charset')?.toLowerCase() ?? defCharset;
-        }
+      let filename = disp.params.get('filename*') ?? disp.params.get('filename');
+      if (filename !== undefined && !preservePath) {
+        filename = osIndependentBasename(filename);
       }
+      const conType = parseContentType(header['content-type']);
+      partType = conType?.mime ?? 'text/plain';
+      const partCharset = conType?.params.get('charset')?.toLowerCase() ?? defCharset;
       partDecoder = getTextDecoder(partCharset);
-      const contentTransferEncoding = header['content-transfer-encoding']?.[0];
-      if (contentTransferEncoding) {
-        partEncoding = contentTransferEncoding.latin1Slice().toLowerCase();
-      }
+      partEncoding = header['content-transfer-encoding']?.toLowerCase() ?? '7bit';
       if (partType === 'application/octet-stream' || filename !== undefined) {
         // File
-        if (files === filesLimit) {
-          if (!hitFilesLimit) {
-            hitFilesLimit = true;
-            this.emit('filesLimit');
-          }
-          skipPart = true;
+        if (files++ === filesLimit) {
+          this.emit('filesLimit');
+        }
+        if (files > filesLimit || this.listenerCount('file') === 0) {
+          partSizeRemaining = -1;
           return;
         }
-        ++files;
-        if (this.listenerCount('file') === 0) {
-          skipPart = true;
-          return;
-        }
-        fileSize = 0;
         this._fileStream = new FileStream(fileOpts, this);
         ++this._fileEndsLeft;
         this.emit('file', partName, this._fileStream, {
@@ -139,145 +108,130 @@ export class Multipart extends Writable {
           encoding: partEncoding,
           mimeType: partType,
         });
+        partSizeRemaining = fileSizeLimit;
       } else {
         // Non-file
-        if (fields === fieldsLimit) {
-          if (!hitFieldsLimit) {
-            hitFieldsLimit = true;
-            this.emit('fieldsLimit');
-          }
-          skipPart = true;
+        if (fields++ === fieldsLimit) {
+          this.emit('fieldsLimit');
+        }
+        if (fields > fieldsLimit || this.listenerCount('field') === 0) {
+          partSizeRemaining = -1;
           return;
         }
-        ++fields;
-        if (this.listenerCount('field') === 0) {
-          skipPart = true;
-          return;
-        }
-        field = [];
-        fieldSize = 0;
+        field = '';
+        partSizeRemaining = fieldSizeLimit;
       }
     });
 
     let matchPostBoundary = 0;
     const needle = Buffer.from(`\r\n--${boundary}`, 'latin1');
     this._bparser = new StreamSearch(needle, (isMatch, data, start, end, isDataSafe) => {
-      const safeData = (start: number, end: number) => {
-        if (isDataSafe) {
-          return data.subarray(start, end);
-        }
-        const chunk = Buffer.allocUnsafe(end - start);
-        data.copy(chunk, 0, start, end);
-        return chunk;
-      };
-
-      while (start !== end) {
-        if (this._hparser) {
-          const ret = this._hparser.push(data, start, end, isDataSafe);
-          if (ret === -1) {
-            this._hparser = undefined;
-            hparser.reset();
-            this.emit('error', new Error('Malformed part header'));
-            break;
-          }
-          if (ret === end) {
-            break;
-          }
-          start = ret;
+      try {
+        if (start === end) {
+          return;
         }
         if (matchPostBoundary) {
           if (matchPostBoundary === 1) {
-            switch (data[start]) {
-              case 45: // '-'
-                // Try matching '--' after boundary
-                matchPostBoundary = 2;
-                ++start;
-                break;
-              case 13: // '\r'
-                // Try matching CR LF before header
-                matchPostBoundary = 3;
-                ++start;
-                break;
-              default:
-                matchPostBoundary = 0;
+            if (data[start] === 13) {
+              // Try matching CR LF before header
+              matchPostBoundary = 2;
+            } else if (data[start] === 45) {
+              // Try matching '--' after boundary
+              matchPostBoundary = 3;
+            } else {
+              matchPostBoundary = 0;
+              return;
             }
-            if (start === end) {
+            if (++start === end) {
               return;
             }
           }
           if (matchPostBoundary === 2) {
             matchPostBoundary = 0;
-            if (data[start] === 45 /* '-' */) {
-              // End of multipart data
-              this._complete = true;
-              this._bparser = IGNORE_DATA;
+            if (data[start++] !== 10 /* '\n' */) {
+              return; // We saw something other than LF, so this section is invalid and will be ignored
+            }
+            if (parts++ === partsLimit) {
+              this.emit('partsLimit');
+            }
+            if (parts > partsLimit) {
               return;
             }
-            // We saw something other than '-', so this section is invalid and will be ignored
-          } else if (matchPostBoundary === 3) {
-            matchPostBoundary = 0;
-            if (data[start] === 10 /* '\n' */) {
-              ++start;
-              if (parts >= partsLimit) {
-                break;
-              }
-              // Prepare the header parser
-              this._hparser = hparser;
-              // Process the remaining data as a header
-              continue;
-            } else {
-              // We saw something other than LF, so this section is invalid and will be ignored
+            // Prepare the header parser
+            this._hparser = hparser;
+            // Process the remaining data as a header
+            if (start === end) {
+              return;
             }
+          } else {
+            matchPostBoundary = 0;
+            if (data[start] !== 45 /* '-' */) {
+              return; // We saw something other than '-', so this section is invalid and will be ignored
+            }
+            // End of multipart data
+            this._complete = true;
+            this._bparser = IGNORE_DATA;
+            return;
           }
         }
-        if (!skipPart) {
+        if (this._hparser) {
+          const ret = this._hparser.push(data, start, end);
+          if (ret === -1) {
+            this._hparser = undefined;
+            hparser.reset();
+            this.emit('error', new Error('Malformed part header'));
+            return;
+          }
+          if (ret === end) {
+            return;
+          }
+          start = ret;
+        }
+        if (partSizeRemaining >= 0) {
+          const stop = Math.min(end, start + partSizeRemaining);
+          partSizeRemaining -= end - start;
           if (this._fileStream) {
-            const chunk = safeData(start, Math.min(end, start + fileSizeLimit - fileSize));
-            fileSize += chunk.byteLength;
-            if (fileSize === fileSizeLimit) {
-              if (chunk.length > 0) {
-                this._fileStream.push(chunk);
+            if (stop > start) {
+              let safeData: Buffer;
+              if (isDataSafe) {
+                safeData = data.subarray(start, stop);
+              } else {
+                safeData = Buffer.allocUnsafe(stop - start);
+                data.copy(safeData, 0, start, stop);
               }
+              if (!this._fileStream.push(safeData)) {
+                this._fileStream._readcb ??= this._writecb;
+                this._writecb = undefined;
+              }
+            }
+            if (partSizeRemaining < 0) {
               this._fileStream.emit('limit');
               this._fileStream.truncated = true;
-              skipPart = true;
-            } else if (!this._fileStream.push(chunk)) {
-              if (this._writecb) {
-                this._fileStream._readcb = this._writecb;
-              }
-              this._writecb = undefined;
             }
-          } else if (field) {
-            const chunk = safeData(start, Math.min(end, start + fieldSizeLimit - fieldSize));
-            fieldSize += chunk.byteLength;
-            field.push(partDecoder.decode(chunk));
-            if (fieldSize === fieldSizeLimit) {
-              skipPart = true;
-              partTruncated = true;
-            }
+          } else if (field !== undefined) {
+            field += data.latin1Slice(start, stop);
           }
         }
-        break;
-      }
-      if (isMatch) {
-        matchPostBoundary = 1;
-        if (this._fileStream) {
-          // End the active file stream if the previous part was a file
-          this._fileStream.push(null);
-          this._fileStream = undefined;
-        } else if (field) {
-          const value = field.join('');
-          field = undefined;
-          fieldSize = 0;
-          this.emit('field', partName, value, {
-            nameTruncated,
-            valueTruncated: partTruncated,
-            encoding: partEncoding,
-            mimeType: partType,
-          });
-        }
-        if (++parts === partsLimit) {
-          this.emit('partsLimit');
+      } finally {
+        if (isMatch) {
+          if (this._hparser) {
+            this.emit('error', new Error('Unexpected end of headers'));
+            this._hparser = undefined;
+          } else if (this._fileStream) {
+            // End the active file stream if the previous part was a file
+            this._fileStream.push(null);
+            this._fileStream = undefined;
+          } else if (field !== undefined) {
+            this.emit('field', partName, partDecoder.decode(Buffer.from(field, 'latin1')), {
+              nameTruncated,
+              valueTruncated: partSizeRemaining < 0,
+              encoding: partEncoding,
+              mimeType: partType,
+            });
+            field = undefined;
+          }
+          matchPostBoundary = 1;
+          partSizeRemaining = -1;
         }
       }
     });
@@ -349,7 +303,7 @@ const HPARSER_NAME = 0;
 const HPARSER_PRE_OWS = 1;
 const HPARSER_VALUE = 2;
 
-type Header = Record<string, Buffer[]>;
+type Header = Record<string, string>;
 
 class HeaderParser {
   /** @internal */ declare private _header: Header;
@@ -359,8 +313,8 @@ class HeaderParser {
     | typeof HPARSER_NAME
     | typeof HPARSER_PRE_OWS
     | typeof HPARSER_VALUE;
-  /** @internal */ declare private readonly _name: string[];
-  /** @internal */ declare private readonly _value: Buffer[];
+  /** @internal */ declare private _name: string;
+  /** @internal */ declare private _value: string;
   /** @internal */ declare private _crlf: number;
   /** @internal */ declare private _cb: (header: Header) => void;
 
@@ -369,8 +323,8 @@ class HeaderParser {
     this._pairCount = 0;
     this._byteCount = 0;
     this._state = HPARSER_NAME;
-    this._name = [];
-    this._value = [];
+    this._name = '';
+    this._value = '';
     this._crlf = 0;
     this._cb = cb;
   }
@@ -380,54 +334,42 @@ class HeaderParser {
     this._pairCount = 0;
     this._byteCount = 0;
     this._state = HPARSER_NAME;
-    this._name.length = 0;
-    this._value.length = 0;
+    this._name = '';
+    this._value = '';
     this._crlf = 0;
   }
 
-  push(chunk: Buffer, pos: number, end: number, isDataSafe: boolean) {
-    let start = pos;
-    main: while (pos < end) {
+  push(chunk: Buffer, p0: number, p1: number) {
+    let start = p0;
+    let pos = p0;
+    const end = Math.min(p1, p0 + MAX_HEADER_SIZE - this._byteCount);
+    while (pos < end) {
       switch (this._state) {
         case HPARSER_NAME: {
-          for (; pos < end; ++pos) {
-            if (this._byteCount === MAX_HEADER_SIZE) {
+          for (; pos < end && TOKEN[chunk[pos]!]; ++pos);
+          if (pos > start) {
+            this._name += chunk.latin1Slice(start, pos);
+          }
+          if (pos < end) {
+            if (chunk[pos] !== 58 /* ':' */) {
               return -1;
             }
-            ++this._byteCount;
-            const code = chunk[pos]!;
-            if (!TOKEN[code]) {
-              if (code !== 58 /* ':' */) {
-                return -1;
-              }
-              if (pos > start) {
-                this._name.push(chunk.latin1Slice(start, pos));
-              }
-              if (!this._name.length) {
-                return -1;
-              }
-              ++pos;
-              this._state = HPARSER_PRE_OWS;
-              continue main;
+            if (!this._name) {
+              return -1;
             }
-          }
-          if (pos > start) {
-            this._name.push(chunk.latin1Slice(start, pos));
+            ++pos;
+            this._state = HPARSER_PRE_OWS;
           }
           break;
         }
         case HPARSER_PRE_OWS: {
           // Skip optional whitespace
           for (; pos < end; ++pos) {
-            if (this._byteCount === MAX_HEADER_SIZE) {
-              return -1;
-            }
-            ++this._byteCount;
             const code = chunk[pos];
             if (code !== 32 /* ' ' */ && code !== 9 /* '\t' */) {
               start = pos;
               this._state = HPARSER_VALUE;
-              continue main;
+              break;
             }
           }
           break;
@@ -436,10 +378,6 @@ class HeaderParser {
           switch (this._crlf) {
             case 0: // Nothing yet
               for (; pos < end; ++pos) {
-                if (this._byteCount === MAX_HEADER_SIZE) {
-                  return -1;
-                }
-                ++this._byteCount;
                 const code = chunk[pos]!;
                 if (code < 32 || code === 127) {
                   if (code !== 13 /* '\r' */) {
@@ -449,20 +387,10 @@ class HeaderParser {
                   break;
                 }
               }
-              if (isDataSafe) {
-                this._value.push(chunk.subarray(start, pos));
-              } else {
-                const longLived = Buffer.allocUnsafe(pos - start);
-                chunk.copy(longLived, 0, start, pos);
-                this._value.push(longLived);
-              }
+              this._value += chunk.latin1Slice(start, pos);
               ++pos;
               break;
             case 1: // Received CR
-              if (this._byteCount === MAX_HEADER_SIZE) {
-                return -1;
-              }
-              ++this._byteCount;
               if (chunk[pos++] !== 10 /* '\n' */) {
                 return -1;
               }
@@ -470,10 +398,6 @@ class HeaderParser {
               break;
             case 2: {
               // Received CR LF
-              if (this._byteCount === MAX_HEADER_SIZE) {
-                return -1;
-              }
-              ++this._byteCount;
               const code = chunk[pos];
               if (code === 32 /* ' ' */ || code === 9 /* '\t' */) {
                 // Folded value
@@ -481,14 +405,7 @@ class HeaderParser {
                 this._crlf = 0;
               } else {
                 if (++this._pairCount < MAX_HEADER_PAIRS) {
-                  const name = this._name.join('').toLowerCase();
-                  const value = Buffer.concat(this._value);
-                  const existing = this._header[name];
-                  if (existing) {
-                    existing.push(value);
-                  } else {
-                    this._header[name] = [value];
-                  }
+                  this._header[this._name.toLowerCase()] ??= this._value;
                 }
                 if (code === 13 /* '\r' */) {
                   ++this._crlf;
@@ -498,18 +415,14 @@ class HeaderParser {
                   start = pos;
                   this._crlf = 0;
                   this._state = HPARSER_NAME;
-                  this._name.length = 0;
-                  this._value.length = 0;
+                  this._name = '';
+                  this._value = '';
                 }
               }
               break;
             }
             case 3: {
               // Received CR LF CR
-              if (this._byteCount === MAX_HEADER_SIZE) {
-                return -1;
-              }
-              ++this._byteCount;
               if (chunk[pos++] !== 10 /* '\n' */) {
                 return -1;
               }
@@ -522,8 +435,11 @@ class HeaderParser {
           }
       }
     }
-
-    return pos;
+    if (end < p1) {
+      return -1;
+    }
+    this._byteCount += end - p0;
+    return end;
   }
 }
 
