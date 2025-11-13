@@ -709,6 +709,28 @@ const tests: TestDef[] = [
     ],
   },
   {
+    name: 'Zero parts limit',
+    source: [[`--${COMMON_BOUNDARY}--`]],
+    boundary: COMMON_BOUNDARY,
+    options: { limits: { parts: 0 } },
+    expected: [],
+  },
+  {
+    name: 'Zero parts limit exceeded',
+    source: [
+      [
+        `--${COMMON_BOUNDARY}`,
+        'Content-Disposition: form-data; name="file_name_0"',
+        '',
+        'a',
+        `--${COMMON_BOUNDARY}--`,
+      ],
+    ],
+    boundary: COMMON_BOUNDARY,
+    options: { limits: { parts: 0 } },
+    expected: ['partsLimit'],
+  },
+  {
     name: 'Parts limit reached',
     source: [
       [
@@ -748,6 +770,28 @@ const tests: TestDef[] = [
     ],
   },
   {
+    name: 'Zero fields limit',
+    source: [[`--${COMMON_BOUNDARY}--`]],
+    boundary: COMMON_BOUNDARY,
+    options: { limits: { fields: 0 } },
+    expected: [],
+  },
+  {
+    name: 'Zero fields limit exceeded',
+    source: [
+      [
+        `--${COMMON_BOUNDARY}`,
+        'Content-Disposition: form-data; name="file_name_0"',
+        '',
+        'a',
+        `--${COMMON_BOUNDARY}--`,
+      ],
+    ],
+    boundary: COMMON_BOUNDARY,
+    options: { limits: { fields: 0 } },
+    expected: ['fieldsLimit'],
+  },
+  {
     name: 'Fields limit reached',
     source: [
       [
@@ -783,6 +827,29 @@ const tests: TestDef[] = [
       { type: 'field', name: 'file_name_0', val: 'a', info: COMMON_FIELD_INFO },
       'fieldsLimit',
     ],
+  },
+  {
+    name: 'Zero files limit',
+    source: [[`--${COMMON_BOUNDARY}--`]],
+    boundary: COMMON_BOUNDARY,
+    options: { limits: { files: 0 } },
+    expected: [],
+  },
+  {
+    name: 'Zero files limit exceeded',
+    source: [
+      [
+        `--${COMMON_BOUNDARY}`,
+        'Content-Disposition: form-data; name="upload_file_0"; filename="notes.txt"',
+        'Content-Type: text/plain; charset=utf8',
+        '',
+        'ab',
+        `--${COMMON_BOUNDARY}--`,
+      ],
+    ],
+    boundary: COMMON_BOUNDARY,
+    options: { limits: { files: 0 } },
+    expected: ['filesLimit'],
   },
   {
     name: 'Files limit reached',

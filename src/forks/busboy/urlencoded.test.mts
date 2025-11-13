@@ -114,21 +114,33 @@ const tests: TestDef[] = [
   },
   {
     name: 'Limits: zero fields',
-    source: ['foo=bar&baz=bla'],
+    source: [''],
     options: { limits: { fields: 0 } },
     expected: [],
   },
   {
-    name: 'Limits: one field',
+    name: 'Limits: zero fields exceeded',
     source: ['foo=bar&baz=bla'],
+    options: { limits: { fields: 0 } },
+    expected: ['fieldsLimit'],
+  },
+  {
+    name: 'Limits: one field reached',
+    source: ['foo=bar'],
     options: { limits: { fields: 1 } },
     expected: [['foo', 'bar', COMMON_INFO]],
   },
   {
-    name: 'Limits: one field with multiple batches',
+    name: 'Limits: one field exceeded',
+    source: ['foo=bar&baz=bla'],
+    options: { limits: { fields: 1 } },
+    expected: [['foo', 'bar', COMMON_INFO], 'fieldsLimit'],
+  },
+  {
+    name: 'Limits: one field exceeded with multiple batches',
     source: ['foo=bar&baz=bla', '&x=y'],
     options: { limits: { fields: 1 } },
-    expected: [['foo', 'bar', COMMON_INFO]],
+    expected: [['foo', 'bar', COMMON_INFO], 'fieldsLimit'],
   },
   {
     name: 'Limits: field part lengths match limits',
@@ -266,6 +278,10 @@ describe('urlencoded', () => {
 
         bb.on('field', (key, val, info) => results.push([key, val, info]));
         bb.on('file', () => reject(new Error('Unexpected file')));
+        bb.on('error', (err) => results.push({ error: err.message }));
+        bb.on('partsLimit', () => results.push('partsLimit'));
+        bb.on('filesLimit', () => results.push('filesLimit'));
+        bb.on('fieldsLimit', () => results.push('fieldsLimit'));
         bb.on('close', () => resolve(results));
 
         for (const src of source) {
@@ -290,6 +306,10 @@ describe('urlencoded', () => {
 
         bb.on('field', (key, val, info) => results.push([key, val, info]));
         bb.on('file', () => reject(new Error('Unexpected file')));
+        bb.on('error', (err) => results.push({ error: err.message }));
+        bb.on('partsLimit', () => results.push('partsLimit'));
+        bb.on('filesLimit', () => results.push('filesLimit'));
+        bb.on('fieldsLimit', () => results.push('fieldsLimit'));
         bb.on('close', () => resolve(results));
 
         for (const src of source) {

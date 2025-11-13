@@ -63,8 +63,16 @@ function write(
   chunk: Buffer,
   _: BufferEncoding,
   cb: (error?: Error | null) => void,
+  isFinal = false,
 ) {
-  if (this._fields >= this._fieldsLimit || !chunk.byteLength) {
+  if (!chunk.byteLength) {
+    return cb();
+  }
+  if (this._fields >= this._fieldsLimit) {
+    if (!this._fields && !isFinal) {
+      ++this._fields;
+      this.emit('fieldsLimit');
+    }
     return cb();
   }
 
@@ -189,7 +197,7 @@ function write(
         this._current = '';
         this._currentLimit = this._fieldNameSizeLimit;
         this._currentHighNibble = 0;
-        if (++this._fields === this._fieldsLimit) {
+        if (++this._fields === this._fieldsLimit && !isFinal) {
           this.emit('fieldsLimit');
           return cb();
         }
@@ -224,7 +232,7 @@ function write(
 }
 
 function final(this: URLEncoded, cb: (error?: Error | null) => void) {
-  write.call(this, AMP_BUFFER, '' as BufferEncoding, cb);
+  write.call(this, AMP_BUFFER, '' as BufferEncoding, cb, true);
 }
 
 const PCT = 37; // %
