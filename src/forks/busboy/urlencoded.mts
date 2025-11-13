@@ -61,15 +61,14 @@ export class URLEncoded extends Writable {
 function write(
   this: URLEncoded,
   chunk: Buffer,
-  _: BufferEncoding,
+  _: BufferEncoding | undefined,
   cb: (error?: Error | null) => void,
-  isFinal = false,
 ) {
   if (!chunk.byteLength) {
     return cb();
   }
   if (this._fields >= this._fieldsLimit) {
-    if (!this._fields && !isFinal) {
+    if (!this._fields && chunk !== AMP_BUFFER) {
       ++this._fields;
       this.emit('fieldsLimit');
     }
@@ -197,7 +196,7 @@ function write(
         this._current = '';
         this._currentLimit = this._fieldNameSizeLimit;
         this._currentHighNibble = 0;
-        if (++this._fields === this._fieldsLimit && !isFinal) {
+        if (++this._fields === this._fieldsLimit && chunk !== AMP_BUFFER) {
           this.emit('fieldsLimit');
           return cb();
         }
@@ -232,7 +231,7 @@ function write(
 }
 
 function final(this: URLEncoded, cb: (error?: Error | null) => void) {
-  write.call(this, AMP_BUFFER, '' as BufferEncoding, cb, true);
+  write.call(this, AMP_BUFFER, undefined, cb);
 }
 
 const PCT = 37; // %
