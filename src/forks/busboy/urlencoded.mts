@@ -184,7 +184,7 @@ function write(
           this._keyTrunc = false;
           this._inKey = true;
           SPECIALS[EQ] = 1;
-        } else if (current) {
+        } else if (current || this._currentLimit < 0) {
           this.emit('field', this._current, '', {
             nameTruncated: this._currentLimit < 0,
             valueTruncated: false,

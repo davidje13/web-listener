@@ -9,266 +9,241 @@ const COMMON_INFO = {
   mimeType: 'text/plain',
 };
 
-interface TestDef {
-  name: string;
-  charset?: string;
-  source: string[];
-  options?: BusboyOptions;
-  expected: unknown[];
-}
-
 const tests: TestDef[] = [
+  // simple keys and values
+  { name: 'foo', expected: [['foo', '', COMMON_INFO]] },
+  { name: 'foo=bar', expected: [['foo', 'bar', COMMON_INFO]] },
+  { name: 'foo=', expected: [['foo', '', COMMON_INFO]] },
+  { name: '=bar', expected: [['', 'bar', COMMON_INFO]] },
+  { name: '=', expected: [['', '', COMMON_INFO]] },
   {
-    name: 'Unassigned value',
-    source: ['foo'],
-    expected: [['foo', '', COMMON_INFO]],
-  },
-  {
-    name: 'Assigned value',
-    source: ['foo=bar'],
-    expected: [['foo', 'bar', COMMON_INFO]],
-  },
-  {
-    name: 'Value with unencoded equals symbol',
-    source: ['foo=bar=baz'],
-    expected: [['foo', 'bar=baz', COMMON_INFO]],
-  },
-  {
-    name: 'Unassigned and assigned value',
-    source: ['foo&bar=baz'],
+    name: 'foo&bar=baz',
     expected: [
       ['foo', '', COMMON_INFO],
       ['bar', 'baz', COMMON_INFO],
     ],
   },
   {
-    name: 'Assigned and unassigned value',
-    source: ['foo=bar&baz'],
+    name: 'foo=bar&baz',
     expected: [
       ['foo', 'bar', COMMON_INFO],
       ['baz', '', COMMON_INFO],
     ],
   },
   {
-    name: 'Two assigned values',
-    source: ['foo=bar&baz=bla'],
+    name: 'foo=bar&baz=bla',
     expected: [
       ['foo', 'bar', COMMON_INFO],
       ['baz', 'bla', COMMON_INFO],
     ],
   },
   {
-    name: 'Two unassigned values',
-    source: ['foo&bar'],
+    name: 'foo&bar',
     expected: [
       ['foo', '', COMMON_INFO],
       ['bar', '', COMMON_INFO],
     ],
   },
   {
-    name: 'Two unassigned values and ampersand',
-    source: ['foo&bar&'],
+    name: 'foo&bar&',
     expected: [
       ['foo', '', COMMON_INFO],
       ['bar', '', COMMON_INFO],
     ],
   },
   {
-    name: 'Assigned key and value with (plus) space',
-    source: ['foo+1=bar+baz%2Bquux'],
-    expected: [['foo 1', 'bar baz+quux', COMMON_INFO]],
+    name: '=&baz',
+    expected: [
+      ['', '', COMMON_INFO],
+      ['baz', '', COMMON_INFO],
+    ],
   },
   {
-    name: 'Assigned value with encoded bytes',
-    source: ['foo=bar%20baz%21'],
-    expected: [['foo', 'bar baz!', COMMON_INFO]],
+    name: '=bar&baz',
+    expected: [
+      ['', 'bar', COMMON_INFO],
+      ['baz', '', COMMON_INFO],
+    ],
   },
   {
-    name: 'Assigned value with encoded bytes #2',
-    source: ['foo%20bar=baz%20bla%21'],
+    name: 'foo=&baz',
+    expected: [
+      ['foo', '', COMMON_INFO],
+      ['baz', '', COMMON_INFO],
+    ],
+  },
+
+  // blank fields
+  { name: 'blank', source: '', expected: [] },
+  { name: '&', expected: [] },
+  { name: '&&&&&', expected: [] },
+  { name: '&&foo=bar&&', expected: [['foo', 'bar', COMMON_INFO]] },
+
+  // character escapes
+  {
+    name: 'encoded bytes',
+    source: 'foo%20bar=baz%20bla%21',
     expected: [['foo bar', 'baz bla!', COMMON_INFO]],
   },
   {
-    name: 'Two assigned values, one with encoded bytes',
-    source: ['foo=bar%20baz%21&num=1000'],
+    name: 'plus maps to space',
+    source: 'foo+1=bar+baz%2Bquux',
+    expected: [['foo 1', 'bar baz+quux', COMMON_INFO]],
+  },
+  {
+    name: 'foo=bar%20%21&num=1000',
     expected: [
-      ['foo', 'bar baz!', COMMON_INFO],
+      ['foo', 'bar !', COMMON_INFO],
       ['num', '1000', COMMON_INFO],
     ],
   },
   {
-    name: 'Encoded value with multi-byte charset',
+    name: 'unencoded equals symbol',
+    source: 'foo=bar=baz',
+    expected: [['foo', 'bar=baz', COMMON_INFO]],
+  },
+
+  // character sets
+  {
+    name: 'multi-byte charset',
     charset: 'UTF-16LE',
-    source: [
-      percentEncode(Buffer.from('foo', 'utf-16le')),
-      '=',
-      percentEncode(Buffer.from('😀!', 'utf-16le')),
-    ],
+    source: `${percentEncode('foo', 'utf-16le')}=${percentEncode('😀!', 'utf-16le')}`,
     expected: [['foo', '😀!', { ...COMMON_INFO, encoding: 'UTF-16LE' }]],
   },
   {
-    name: 'Encoded value with single-byte, ASCII-compatible, non-UTF8 charset',
+    name: 'single-byte, ASCII-compatible, non-UTF-8 charset',
     charset: 'ISO-8859-1',
-    source: ['foo=<', percentEncode(Buffer.from('©:^þ', 'latin1'))],
+    source: `foo=<${percentEncode('©:^þ', 'latin1')}`,
     expected: [['foo', '<©:^þ', { ...COMMON_INFO, encoding: 'ISO-8859-1' }]],
   },
+
+  // limits
   {
-    name: 'Limits: zero fields',
-    source: [''],
+    name: 'fields=0 reached',
+    source: '',
     options: { limits: { fields: 0 } },
     expected: [],
   },
   {
-    name: 'Limits: zero fields exceeded',
-    source: ['foo=bar&baz=bla'],
+    name: 'fields=0 exceeded',
+    source: 'foo',
     options: { limits: { fields: 0 } },
     expected: ['fieldsLimit'],
   },
   {
-    name: 'Limits: one field reached',
-    source: ['foo=bar'],
+    name: 'fields=1 reached',
+    source: 'foo=bar',
     options: { limits: { fields: 1 } },
     expected: [['foo', 'bar', COMMON_INFO]],
   },
   {
-    name: 'Limits: one field exceeded',
-    source: ['foo=bar&baz=bla'],
+    name: 'fields=1 exceeded',
+    source: 'foo=bar&baz=bla',
     options: { limits: { fields: 1 } },
     expected: [['foo', 'bar', COMMON_INFO], 'fieldsLimit'],
   },
   {
-    name: 'Limits: one field exceeded with multiple batches',
-    source: ['foo=bar&baz=bla', '&x=y'],
-    options: { limits: { fields: 1 } },
-    expected: [['foo', 'bar', COMMON_INFO], 'fieldsLimit'],
-  },
-  {
-    name: 'Limits: field part lengths match limits',
-    source: ['foo=bar&baz=bla'],
-    options: { limits: { fieldNameSize: 3, fieldSize: 3 } },
+    name: 'fields=2 reached',
+    source: 'foo=bar&baz=bla',
+    options: { limits: { fields: 2 } },
     expected: [
       ['foo', 'bar', COMMON_INFO],
       ['baz', 'bla', COMMON_INFO],
     ],
   },
   {
-    name: 'Limits: truncated field name',
-    source: ['foo=bar&baz=bla'],
+    name: 'fields=2 exceeded',
+    source: 'foo=bar&baz=bla&more',
+    options: { limits: { fields: 2 } },
+    expected: [['foo', 'bar', COMMON_INFO], ['baz', 'bla', COMMON_INFO], 'fieldsLimit'],
+  },
+  {
+    name: 'subsequent chunks are ignored after reaching the field limit',
+    source: 'foo=bar&baz=bla|bla&x=y',
+    options: { limits: { fields: 1 } },
+    expected: [['foo', 'bar', COMMON_INFO], 'fieldsLimit'],
+  },
+  {
+    name: 'fieldSize limit',
+    source: 'a&b=&c=ab&d=abc&e=abcd&long=ab&percent=%25%25%25%25&plus=++++',
+    options: { limits: { fieldSize: 2 } },
+    expected: [
+      ['a', '', COMMON_INFO],
+      ['b', '', COMMON_INFO],
+      ['c', 'ab', COMMON_INFO],
+      ['d', 'ab', { ...COMMON_INFO, valueTruncated: true }],
+      ['e', 'ab', { ...COMMON_INFO, valueTruncated: true }],
+      ['long', 'ab', COMMON_INFO],
+      ['percent', '%%', { ...COMMON_INFO, valueTruncated: true }],
+      ['plus', '  ', { ...COMMON_INFO, valueTruncated: true }],
+    ],
+  },
+  {
+    name: 'fieldNameSize limit',
+    source: '=baz&ab=baz&abc=baz&abcd=baz&also&cd=bazar&%25%25%25%25&++++',
     options: { limits: { fieldNameSize: 2 } },
     expected: [
-      ['fo', 'bar', { ...COMMON_INFO, nameTruncated: true }],
-      ['ba', 'bla', { ...COMMON_INFO, nameTruncated: true }],
+      ['', 'baz', COMMON_INFO],
+      ['ab', 'baz', COMMON_INFO],
+      ['ab', 'baz', { ...COMMON_INFO, nameTruncated: true }],
+      ['ab', 'baz', { ...COMMON_INFO, nameTruncated: true }],
+      ['al', '', { ...COMMON_INFO, nameTruncated: true }],
+      ['cd', 'bazar', COMMON_INFO],
+      ['%%', '', { ...COMMON_INFO, nameTruncated: true }],
+      ['  ', '', { ...COMMON_INFO, nameTruncated: true }],
     ],
   },
   {
-    name: 'Limits: truncated field value',
-    source: ['foo=bar&baz=bla'],
-    options: { limits: { fieldSize: 2 } },
+    name: 'fieldSize=0',
+    source: 'a=foo&b&c=&=bar&=',
+    options: { limits: { fieldSize: 0 } },
     expected: [
-      ['foo', 'ba', { ...COMMON_INFO, valueTruncated: true }],
-      ['baz', 'bl', { ...COMMON_INFO, valueTruncated: true }],
+      ['a', '', { ...COMMON_INFO, valueTruncated: true }],
+      ['b', '', COMMON_INFO],
+      ['c', '', COMMON_INFO],
+      ['', '', { ...COMMON_INFO, valueTruncated: true }],
+      ['', '', COMMON_INFO],
     ],
   },
   {
-    name: 'Limits: truncated field value with percent encoding',
-    source: ['foo=%25%25%25'],
-    options: { limits: { fieldSize: 2 } },
-    expected: [['foo', '%%', { ...COMMON_INFO, valueTruncated: true }]],
-  },
-  {
-    name: 'Limits: truncated field value with encoded spaces',
-    source: ['foo=+++'],
-    options: { limits: { fieldSize: 2 } },
-    expected: [['foo', '  ', { ...COMMON_INFO, valueTruncated: true }]],
-  },
-  {
-    name: 'Limits: truncated field name and value',
-    source: ['foo=bar&baz=bla'],
-    options: { limits: { fieldNameSize: 2, fieldSize: 2 } },
+    name: 'fieldNameSize=0',
+    source: 'a=foo&b&c=&=bar&=',
+    options: { limits: { fieldNameSize: 0 } },
     expected: [
-      ['fo', 'ba', { ...COMMON_INFO, nameTruncated: true, valueTruncated: true }],
-      ['ba', 'bl', { ...COMMON_INFO, nameTruncated: true, valueTruncated: true }],
+      ['', 'foo', { ...COMMON_INFO, nameTruncated: true }],
+      ['', '', { ...COMMON_INFO, nameTruncated: true }],
+      ['', '', { ...COMMON_INFO, nameTruncated: true }],
+      ['', 'bar', COMMON_INFO],
+      ['', '', COMMON_INFO],
     ],
   },
   {
-    name: 'Limits: truncated field name and zero value limit',
-    source: ['foo=bar&baz=bla'],
-    options: { limits: { fieldNameSize: 2, fieldSize: 0 } },
-    expected: [
-      ['fo', '', { ...COMMON_INFO, nameTruncated: true, valueTruncated: true }],
-      ['ba', '', { ...COMMON_INFO, nameTruncated: true, valueTruncated: true }],
-    ],
-  },
-  {
-    name: 'Limits: truncated zero field name and zero value limit',
-    source: ['foo=bar&baz=bla'],
+    name: 'fieldSize=0, fieldNameSize=0',
+    source: 'a=foo&b&c=&=bar&=',
     options: { limits: { fieldNameSize: 0, fieldSize: 0 } },
     expected: [
       ['', '', { ...COMMON_INFO, nameTruncated: true, valueTruncated: true }],
-      ['', '', { ...COMMON_INFO, nameTruncated: true, valueTruncated: true }],
-    ],
-  },
-  {
-    name: 'Ampersand',
-    source: ['&'],
-    expected: [],
-  },
-  {
-    name: 'Many ampersands',
-    source: ['&&&&&'],
-    expected: [],
-  },
-  {
-    name: 'Assigned value, empty name and value, not last',
-    source: ['=&a=b'],
-    expected: [
+      ['', '', { ...COMMON_INFO, nameTruncated: true }],
+      ['', '', { ...COMMON_INFO, nameTruncated: true }],
+      ['', '', { ...COMMON_INFO, valueTruncated: true }],
       ['', '', COMMON_INFO],
-      ['a', 'b', COMMON_INFO],
     ],
-  },
-  {
-    name: 'Empty key, not last',
-    source: ['=foo&a=b'],
-    expected: [
-      ['', 'foo', COMMON_INFO],
-      ['a', 'b', COMMON_INFO],
-    ],
-  },
-  {
-    name: 'Empty value, not last',
-    source: ['foo=&a=b'],
-    expected: [
-      ['foo', '', COMMON_INFO],
-      ['a', 'b', COMMON_INFO],
-    ],
-  },
-  {
-    name: 'Assigned value, empty name and value, last',
-    source: ['='],
-    expected: [['', '', COMMON_INFO]],
-  },
-  {
-    name: 'Empty key, last',
-    source: ['=foo'],
-    expected: [['', 'foo', COMMON_INFO]],
-  },
-  {
-    name: 'Empty value, last',
-    source: ['foo='],
-    expected: [['foo', '', COMMON_INFO]],
-  },
-  {
-    name: 'Nothing',
-    source: [''],
-    expected: [],
   },
 ];
+
+interface TestDef {
+  name: string;
+  source?: string;
+  charset?: string;
+  options?: BusboyOptions;
+  expected: unknown[];
+}
 
 describe('urlencoded', () => {
   it(
     'reads URL encoded content',
     { parameters: tests },
-    async ({ source, expected, options, charset = 'utf-8' }: any) => {
+    async ({ name, source = name, expected, options, charset = 'utf-8' }: any) => {
       const results = await new Promise<unknown[]>((resolve, reject) => {
         const results: unknown[] = [];
         const bb = busboy(
@@ -284,7 +259,7 @@ describe('urlencoded', () => {
         bb.on('fieldsLimit', () => results.push('fieldsLimit'));
         bb.on('close', () => resolve(results));
 
-        for (const src of source) {
+        for (const src of source.split('|')) {
           bb.write(typeof src === 'string' ? Buffer.from(src, 'utf-8') : src);
         }
         bb.end();
@@ -296,7 +271,7 @@ describe('urlencoded', () => {
   it(
     'works when given one byte at a time',
     { parameters: tests },
-    async ({ source, expected, options, charset = 'utf-8' }: any) => {
+    async ({ name, source = name, expected, options, charset = 'utf-8' }: any) => {
       const results = await new Promise<unknown[]>((resolve, reject) => {
         const results: unknown[] = [];
         const bb = busboy(
@@ -312,7 +287,7 @@ describe('urlencoded', () => {
         bb.on('fieldsLimit', () => results.push('fieldsLimit'));
         bb.on('close', () => resolve(results));
 
-        for (const src of source) {
+        for (const src of source.split('|')) {
           const buf = typeof src === 'string' ? Buffer.from(src, 'utf-8') : src;
           for (let i = 0; i < buf.length; ++i) {
             bb.write(buf.subarray(i, i + 1));
@@ -325,6 +300,8 @@ describe('urlencoded', () => {
   );
 });
 
-function percentEncode(content: Buffer): string {
-  return [...content].map((n) => `%${n.toString(16).padStart(2, '0')}`).join('');
+function percentEncode(content: string, encoding: BufferEncoding): string {
+  return [...Buffer.from(content, encoding)]
+    .map((n) => `%${n.toString(16).padStart(2, '0')}`)
+    .join('');
 }
