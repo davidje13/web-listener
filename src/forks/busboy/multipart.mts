@@ -38,7 +38,10 @@ export class Multipart extends Writable {
 
     const boundary = conTypeParams.get('boundary');
     if (!boundary) {
-      throw new HTTPError(400, { body: 'Multipart: Boundary not found' });
+      throw new HTTPError(400, { body: 'multipart boundary not found' });
+    }
+    if (boundary.length > 70) {
+      throw new HTTPError(400, { body: 'multipart boundary too long' });
     }
     const paramDecoder = getTextDecoder(defParamCharset);
     const fileOpts = { autoDestroy: true, emitClose: true, highWaterMark: fileHwm };
@@ -179,7 +182,7 @@ export class Multipart extends Writable {
           if (ret === -1) {
             this._hparser = undefined;
             hparser.reset();
-            this.emit('error', new Error('Malformed part header'));
+            this.emit('error', new HTTPError(400, { body: 'malformed part header' }));
             return;
           }
           if (ret === end) {
@@ -215,7 +218,7 @@ export class Multipart extends Writable {
       } finally {
         if (isMatch) {
           if (this._hparser) {
-            this.emit('error', new Error('Unexpected end of headers'));
+            this.emit('error', new HTTPError(400, { body: 'unexpected end of headers' }));
             this._hparser = undefined;
           } else if (this._fileStream) {
             // End the active file stream if the previous part was a file
@@ -243,15 +246,15 @@ export class Multipart extends Writable {
   /** @internal */
   _checkEndState() {
     if (this._hparser) {
-      return new Error('Malformed part header');
+      return new HTTPError(400, { body: 'malformed part header' });
     }
     const fileStream = this._fileStream;
     if (fileStream) {
       this._fileStream = undefined;
-      fileStream.destroy(new Error('Unexpected end of file'));
+      fileStream.destroy(new HTTPError(400, { body: 'unexpected end of file' }));
     }
     if (!this._complete) {
-      return new Error('Unexpected end of form');
+      return new HTTPError(400, { body: 'unexpected end of form' });
     }
     return null;
   }
@@ -287,7 +290,7 @@ function destroy(this: Multipart, err: Error | null, cb: (err?: Error | null) =>
 function final(this: Multipart, cb: (err?: Error | null) => void) {
   this._bparser.destroy();
   if (!this._complete) {
-    return cb(new Error('Unexpected end of form'));
+    return cb(new HTTPError(400, { body: 'unexpected end of form' }));
   }
   if (this._fileEndsLeft) {
     this._finalcb = () => cb(this._checkEndState());

@@ -139,7 +139,7 @@ export async function getFormData(
     getTempFilePath(file: Blob) {
       const path = pathLookup.get(file);
       if (!path) {
-        throw new Error('unknown file');
+        throw new RangeError('unknown file');
       }
       return path;
     },

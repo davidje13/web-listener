@@ -58,21 +58,48 @@ export const anyHandler = <Req,>(
   shouldUpgrade: shouldUpgrade,
 });
 
+type ErrorOutput =
+  | { response: ServerResponse; socket?: never; head?: never }
+  | { response?: never; socket: Duplex; head: Buffer };
+
 export type ErrorHandlerFn<Req = {}> = (
   error: unknown,
   req: IncomingMessage & Req,
-  output:
-    | { response: ServerResponse; socket?: never; head?: never }
-    | { response?: never; socket: Duplex; head: Buffer },
+  output: ErrorOutput,
 ) => MaybePromise<HandlerResult>;
 
 export interface ErrorHandler<Req = {}> {
   handleError: ErrorHandlerFn<Req>;
+  shouldHandleError?: (error: unknown, req: IncomingMessage & Req, output: ErrorOutput) => boolean;
 }
 
 export const errorHandler = <Req,>(
   handler: ErrorHandler<Req> | ErrorHandlerFn<Req>,
 ): ErrorHandler<Req> => (typeof handler === 'function' ? { handleError: handler } : handler);
+
+type TypedErrorHandlerFn<Error, Req = {}> = (
+  error: Error,
+  req: IncomingMessage & Req,
+  response: ServerResponse,
+) => MaybePromise<HandlerResult>;
+
+export const typedErrorHandler = <Error, Req>(
+  ErrorClass: abstract new (...args: any[]) => Error,
+  handler: TypedErrorHandlerFn<Error, Req>,
+) => conditionalErrorHandler((x): x is Error => x instanceof ErrorClass, handler);
+
+export const conditionalErrorHandler = <Error, Req>(
+  test: (x: unknown) => x is Error,
+  handler: TypedErrorHandlerFn<Error, Req>,
+): ErrorHandler<Req> => ({
+  handleError: (error, req, output) => {
+    if (output.response && test(error)) {
+      return handler(error, req, output.response);
+    }
+    throw error;
+  },
+  shouldHandleError: (error, _, output) => Boolean(output.response) && test(error),
+});
 
 export type Handler<Req = {}> = Partial<
   RequestHandler<Req> & UpgradeHandler<Req> & ErrorHandler<Req>

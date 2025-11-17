@@ -15,8 +15,21 @@ import { getCharset, readHTTPInteger, readHTTPUnquotedCommaSeparated } from './h
 import { acceptBody } from './continue.mts';
 
 interface GetBodyOptions {
-  maxExpandedLength?: number;
-  maxContentLength?: number;
+  /**
+   * The maximum content length after applying all decoding steps
+   * @default Infinity
+   */
+  maxContentBytes?: number;
+  /**
+   * The maximum content length as sent (before applying any decoding steps)
+   * @default maxContentBytes
+   */
+  maxNetworkBytes?: number;
+  /**
+   * The maximum number of content-encoding steps the client can specify.
+   * Browsers typically do not use any content-encoding in requests, and it is unlikely that this would need to be set greater than 1 for any standard client.
+   * @default 1
+   */
   maxEncodingSteps?: number;
 }
 
@@ -29,15 +42,15 @@ interface GetBodyJsonOptions extends GetBodyOptions, TextDecoderOptions {}
 export function getBodyStream(
   req: IncomingMessage,
   {
-    maxExpandedLength = Number.POSITIVE_INFINITY,
-    maxContentLength = maxExpandedLength,
+    maxContentBytes = Number.POSITIVE_INFINITY,
+    maxNetworkBytes = maxContentBytes,
     maxEncodingSteps = 1,
   }: GetBodyOptions = {},
 ): ReadableStream<Uint8Array> {
   // Node.js ensures we have EITHER content-length OR chunked content, so it is not possible
   // for the body to contain more data than the content-length header claims, if it is present.
   const contentLength = readHTTPInteger(req.headers['content-length']);
-  if (contentLength !== undefined && contentLength > maxContentLength) {
+  if (contentLength !== undefined && contentLength > maxNetworkBytes) {
     throw new HTTPError(413);
   }
   const encodings = readHTTPUnquotedCommaSeparated(req.headers['content-encoding']) ?? [];
@@ -46,16 +59,16 @@ export function getBodyStream(
   }
   acceptBody(req);
   let readable: ReadableStream<Uint8Array> = Readable.toWeb(req);
-  if (contentLength === undefined && Number.isFinite(maxContentLength)) {
-    readable = readable.pipeThrough(new ByteLimitStream(maxContentLength, new HTTPError(413)));
+  if (contentLength === undefined && Number.isFinite(maxNetworkBytes)) {
+    readable = readable.pipeThrough(new ByteLimitStream(maxNetworkBytes, new HTTPError(413)));
   }
   for (const encoding of encodings.reverse()) {
     readable = readable.pipeThrough(internalGetDecoder(encoding));
   }
-  if (Number.isFinite(maxExpandedLength)) {
+  if (Number.isFinite(maxContentBytes)) {
     readable = readable.pipeThrough(
       new ByteLimitStream(
-        maxExpandedLength,
+        maxContentBytes,
         new HTTPError(413, { body: 'decoded content too large' }),
       ),
     );

@@ -251,6 +251,28 @@ describe('WebListener', () => {
     });
   });
 
+  describe('createServer', () => {
+    it('creates a server with listeners attached', { timeout: 3000 }, async () => {
+      const handler = requestHandler((req, res) => {
+        res.end(`reply for ${req.url}`);
+      });
+      const weblistener = new WebListener(handler);
+      const server = weblistener.createServer();
+      expect(server.address()).isNull();
+
+      await new Promise<void>((resolve) => server.listen(0, 'localhost', resolve));
+      const url = getAddressURL(server.address());
+      try {
+        await expect(
+          fetch(url + '/foo/bar'),
+          responds({ status: 200, body: 'reply for /foo/bar' }),
+        );
+      } finally {
+        await server.closeWithTimeout('end of test', 0);
+      }
+    });
+  });
+
   describe('attach', () => {
     it('attaches the WebListener to an existing server', { timeout: 3000 }, async () => {
       const server = createServer();

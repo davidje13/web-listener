@@ -75,7 +75,7 @@ export class WebSocketMessages implements AsyncIterable<WebSocketMessage, unknow
     };
     this.detach = () => {};
     if (signal?.aborted) {
-      this._queue.close(new Error('signal aborted'));
+      this._queue.close(signal.reason);
     } else if (ws.readyState === 2 || ws.readyState === 3) {
       this._queue.close(new Error('connection closed'));
     } else {

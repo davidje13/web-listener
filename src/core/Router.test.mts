@@ -3,7 +3,13 @@ import { withServer } from '../test-helpers/withServer.mts';
 import { rawRequest } from '../test-helpers/rawRequest.mts';
 import { responds } from '../test-helpers/responds.mts';
 import { Router } from './Router.mts';
-import { errorHandler, requestHandler, upgradeHandler, type HandlerResult } from './handler.mts';
+import {
+  errorHandler,
+  conditionalErrorHandler,
+  requestHandler,
+  upgradeHandler,
+  type HandlerResult,
+} from './handler.mts';
 import { CONTINUE, NEXT_ROUTE, NEXT_ROUTER, STOP } from './RoutingInstruction.mts';
 import { HTTPError } from './HTTPError.mts';
 import 'lean-test';
@@ -294,6 +300,24 @@ describe('router', () => {
     });
   });
 
+  it('filters errors', { timeout: 3000 }, () => {
+    const router = new Router();
+    router.at('/foo', doThrow('nope'));
+    router.at('/bar', doThrow('match'));
+    router.use(
+      conditionalErrorHandler(
+        (x) => x === 'match',
+        (error, _, out) => out.end(`error-handler:${error};`),
+      ),
+    );
+
+    return withServer(router, async (url, { expectError }) => {
+      await expect(fetch(url + '/foo'), responds({ status: 500, body: '' }));
+      expectError('handling request /foo: nope');
+      await expect(fetch(url + '/bar'), responds({ status: 200, body: 'error-handler:match;' }));
+    });
+  });
+
   it('provides convenience methods for common HTTP verbs', { timeout: 3000 }, () => {
     const router = new Router();
     router.delete('/', writeAndReturn('deleted'));
@@ -361,6 +385,14 @@ describe('router', () => {
       await expect(fetch(url + '/foo'), responds({ body: 'got /foo' }));
       await expect(fetch(url + '/foo', { method: 'POST' }), responds({ body: 'posted /foo' }));
     });
+  });
+
+  it('rejects invalid config in .on', () => {
+    const router = new Router();
+    expect(() => router.on('get /' as any, () => {})).throws('invalid method + path spec');
+    expect(() => router.on('GET' as any, () => {})).throws('invalid method + path spec');
+    expect(() => router.on(' /' as any, () => {})).throws('invalid method + path spec');
+    expect(() => router.on('GET ' as any, () => {})).throws('invalid method + path spec');
   });
 
   it('registers sub-routers with .within', { timeout: 3000 }, () => {
@@ -516,7 +548,14 @@ describe('router', () => {
         headers: { connection: 'upgrade', upgrade: 'custom' },
       });
       expect(response).equals(
-        'HTTP/1.1 404 Not Found\r\ncontent-length: 0\r\nconnection: close\r\n\r\n',
+        [
+          'HTTP/1.1 404 Not Found',
+          'content-type: text/plain; charset=utf-8',
+          'content-length: 0',
+          'connection: close',
+          '',
+          '',
+        ].join('\r\n'),
       );
     });
   });

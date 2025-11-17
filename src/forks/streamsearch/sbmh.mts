@@ -27,7 +27,7 @@ export class StreamSearch {
   constructor(needle: Buffer, callback: StreamSearchCallback) {
     const needleLen = needle.byteLength;
     if (!needleLen || needleLen > 65535) {
-      throw new Error('invalid needle');
+      throw new RangeError('invalid needle');
     }
     this._needle = needle;
     this._cb = callback;

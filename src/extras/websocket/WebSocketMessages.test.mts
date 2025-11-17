@@ -97,7 +97,7 @@ describe('WebSocketMessages', () => {
     return withServer(router, async (url) => {
       const { ws, next, closed } = makeWebSocketConnection(url);
       expect(await next()).equals('OPEN');
-      expect(await received!).equals('caught Error: Timeout after 100ms');
+      expect(await received!).equals('caught Error: timeout after 100ms');
       ws.close();
       await closed();
     });
@@ -241,7 +241,7 @@ describe('nextWebSocketMessage', () => {
     return withServer(router, async (url) => {
       const { ws, next, closed } = makeWebSocketConnection(url);
       expect(await next()).equals('OPEN');
-      expect(await next()).equals('MESSAGE: Error: Timeout after 50ms');
+      expect(await next()).equals('MESSAGE: Error: timeout after 50ms');
       ws.send('one');
       expect(await next()).equals('MESSAGE: echo one');
       await closed();

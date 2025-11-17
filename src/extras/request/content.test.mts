@@ -95,7 +95,7 @@ describe('getBodyStream', () => {
 
   it('throws if the content is too large', { timeout: 3000 }, () => {
     const handler = requestHandler(async (req, res) => {
-      await buffer(getBodyStream(req, { maxContentLength: 5 }));
+      await buffer(getBodyStream(req, { maxNetworkBytes: 5 }));
       res.end('success');
     });
 
@@ -109,7 +109,7 @@ describe('getBodyStream', () => {
 
   it('throws if chunked content is too large', { timeout: 3000 }, () => {
     const handler = requestHandler(async (req, res) => {
-      await buffer(getBodyStream(req, { maxContentLength: 5 }));
+      await buffer(getBodyStream(req, { maxNetworkBytes: 5 }));
       res.end('success');
     });
 
@@ -229,7 +229,7 @@ describe('getBodyStream', () => {
 
   it('throws if the decoded content is too large', { timeout: 3000 }, () => {
     const handler = requestHandler(async (req, res) => {
-      await buffer(getBodyStream(req, { maxExpandedLength: 500 }));
+      await buffer(getBodyStream(req, { maxContentBytes: 500 }));
       res.end();
     });
 

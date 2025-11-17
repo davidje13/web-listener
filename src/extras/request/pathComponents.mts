@@ -1,6 +1,7 @@
 import type { IncomingMessage } from 'node:http';
 import { sep } from 'node:path';
 import { platform } from 'node:os';
+import { HTTPError } from '../../core/HTTPError.mts';
 import { internalGetProps } from '../../core/messages.mts';
 import { internalParseURL } from '../../util/parseURL.mts';
 
@@ -25,16 +26,16 @@ export function getRemainingPathComponents(
     components = path.split('/').map(decodeURIComponent);
   }
   if (components[0] !== '') {
-    throw new Error('invalid path');
+    throw new HTTPError(400, { body: 'invalid path' });
   }
   components.shift();
   if (rejectPotentiallyUnsafe) {
     const tester = IS_WINDOWS ? BAD_WINDOWS_NAME : BAD_UNIX_NAME;
     if (components.some((p) => tester.test(p) || p.includes(sep))) {
-      throw new Error('invalid path');
+      throw new HTTPError(400, { body: 'invalid path' });
     }
     if (components.slice(0, components.length - 1).includes('')) {
-      throw new Error('invalid path');
+      throw new HTTPError(400, { body: 'invalid path' });
     }
   }
   return components;

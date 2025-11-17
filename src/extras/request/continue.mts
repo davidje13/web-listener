@@ -9,7 +9,7 @@ interface ContinueProps {
 export function acceptBody(req: IncomingMessage) {
   const props = internalMustGetProps<ContinueProps>(req);
   if (!props._output) {
-    throw new Error('cannot call acceptBody from shouldUpgrade');
+    throw new TypeError('cannot call acceptBody from shouldUpgrade');
   }
   if (props._ac.signal.aborted) {
     throw STOP;

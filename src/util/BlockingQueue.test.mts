@@ -34,7 +34,7 @@ describe('BlockingQueue', () => {
     // ensure we are not running alongside lots of slow synchronous tests that will slow us down.
     await new Promise((resolve) => setTimeout(resolve, 0));
     const begin = Date.now();
-    await expect(() => queue.shift(10)).throws('Timeout after 10ms');
+    await expect(() => queue.shift(10)).throws('timeout after 10ms');
     const end = Date.now();
     expect(end - begin).isLessThan(500);
   });

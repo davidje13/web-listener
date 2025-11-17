@@ -1,8 +1,8 @@
 import {
+  ServerResponse,
   STATUS_CODES,
   type IncomingMessage,
   type RequestListener,
-  type ServerResponse,
 } from 'node:http';
 import type {
   ClientErrorListener,
@@ -22,11 +22,59 @@ import {
   internalUpgradeErrorHandler,
   type ServerGeneralErrorCallback,
   type ServerErrorCallback,
+  type RequestErrorHandler,
+  type UpgradeErrorHandler,
 } from './errorHandler.mts';
 import { internalHardClose, internalSoftClose } from './close.mts';
 
 export interface NativeListenersOptions {
+  /**
+   * Function to call when:
+   * - a request or upgrade cannot be parsed; or
+   * - a request or upgrade error reaches the end of the chain without being handled; or
+   * - an error occurs during a teardown; or
+   * - an error occurs in a shouldUpgrade function.
+   *
+   * The default implementation logs the error via `console.error` unless it is a `HTTPError` with `statusCode` < 500
+   */
   onError?: ServerGeneralErrorCallback;
+
+  /**
+   * Fallback error handler when a request cannot be parsed, or an error reaches the end of the chain without being handled.
+   * This is responsible for sending a reply to the client and closing the response.
+   *
+   * You may wish to override it to provide an alternative error format (e.g. to encode errors as JSON).
+   * Unlike registering error middleware, this will be called even if the request could not be parsed.
+   *
+   * The default implementation is:
+   *
+   * ```js
+   * if (!res.headersSent) {
+   *   const httpError = findCause(error, HTTPError) ?? new HTTPError(500);
+   *   res.setHeader('content-type', 'text/plain; charset=utf-8');
+   *   res.setHeaders(httpError.headers);
+   *   res.setHeader('content-length', String(Buffer.byteLength(httpError.body, 'utf-8')));
+   *   res.writeHead(httpError.statusCode, httpError.statusMessage);
+   *   res.end(httpError.body, 'utf-8');
+   * } else {
+   *   res.end();
+   * }
+   * ```
+   */
+  requestErrorHandler?: RequestErrorHandler;
+
+  /**
+   * Fallback error handler when an upgrade error reaches the end of the chain without being handled.
+   * This is responsible for sending a reply to the client and closing the response.
+   *
+   * The default implementation is equivalent to the default `requestErrorHandler`.
+   */
+  upgradeErrorHandler?: UpgradeErrorHandler;
+
+  /**
+   * Number of milliseconds to wait before forcibly closing sockets which are left half-open by the client.
+   * @default 500
+   */
   socketCloseTimeout?: number;
 }
 
@@ -42,7 +90,12 @@ export interface NativeListeners {
 
 export function toListeners(
   handler: Handler,
-  { onError = internalLogError, socketCloseTimeout = 500 }: NativeListenersOptions = {},
+  {
+    onError = internalLogError,
+    requestErrorHandler = internalRequestErrorHandler,
+    upgradeErrorHandler = internalUpgradeErrorHandler,
+    socketCloseTimeout = 500,
+  }: NativeListenersOptions = {},
 ): NativeListeners {
   const allClosedCallbacks: (() => void)[] = [];
   const active = new Set<MessageProps>();
@@ -81,7 +134,7 @@ export function toListeners(
         props = internalBeginRequest(req, false);
       } catch (error: unknown) {
         onError(error, 'parsing request', req);
-        internalRequestErrorHandler(new HTTPError(400), req, res);
+        requestErrorHandler(new HTTPError(400), req, res);
         return undefined;
       }
       internalBeginResponse(props, false, { _target: res }, teardownError);
@@ -90,9 +143,9 @@ export function toListeners(
       const r = await internalRunHandler(handler, props, currentError);
       if (currentError._hasError) {
         onError(currentError._error, 'handling request', req);
-        internalRequestErrorHandler(currentError._error, req, res);
+        requestErrorHandler(currentError._error, req, res);
       } else if (r === CONTINUE || r === NEXT_ROUTE || r === NEXT_ROUTER) {
-        internalRequestErrorHandler(new HTTPError(404), req, res);
+        requestErrorHandler(new HTTPError(404), req, res);
       }
     },
 
@@ -108,7 +161,7 @@ export function toListeners(
         props = internalBeginRequest(req, true);
       } catch (error: unknown) {
         onError(error, 'parsing upgrade', req);
-        internalUpgradeErrorHandler(new HTTPError(400), req, socket);
+        upgradeErrorHandler(new HTTPError(400), req, socket);
         return undefined;
       }
       internalBeginResponse(props, true, { _target: socket, _head: head }, teardownError);
@@ -118,14 +171,14 @@ export function toListeners(
       const r = await internalRunHandler(handler, props, currentError);
       if (currentError._hasError) {
         onError(currentError._error, 'handling upgrade', req);
-        props._fallbackUpgradeErrorHandler(currentError._error, req, socket);
+        (props._upgradeErrorHandler ?? upgradeErrorHandler)(currentError._error, req, socket);
       } else if (r === CONTINUE || r === NEXT_ROUTE || r === NEXT_ROUTER) {
         // ideally we would automatically fall-back to a standard request here, but the Node.js
         // Server API doesn't support that, so we warn the user about a possible misconfiguration:
         console.warn(
           `Upgrade ${req.headers.upgrade} request for ${req.url} fell-through. This probably means you need to add shouldUpgrade to one of your upgrade handlers, or if this is intentional, explicitly reject the request (throw new HTTPError(404)) instead of using CONTINUE.`,
         );
-        props._fallbackUpgradeErrorHandler(new HTTPError(404), req, socket);
+        (props._upgradeErrorHandler ?? upgradeErrorHandler)(new HTTPError(404), req, socket);
       }
     },
 

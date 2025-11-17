@@ -1,6 +1,7 @@
 import { Writable, type WritableOptions } from 'node:stream';
 import type { Decoder } from '../../util/DecoderStream.mts';
 import { getTextDecoder } from '../../extras/registries/charset.mts';
+import { HTTPError } from '../../core/HTTPError.mts';
 import { HEX_VALUES, type ContentTypeParams } from './utils.mts';
 import type { BusboyOptions } from './types.mts';
 
@@ -84,7 +85,7 @@ function write(
     if (pes === -1) {
       // first hex character
       if ((pes = HEX_VALUES[chunk[pos++]!]!) === 16) {
-        return cb(new Error('Malformed urlencoded form'));
+        return cb(new HTTPError(400, { body: 'malformed urlencoded form' }));
       }
       this._currentHighNibble |= pes;
       if (pos === len) {
@@ -96,7 +97,7 @@ function write(
     // second hex character
     const hexLower = HEX_VALUES[chunk[pos++]!]!;
     if (hexLower === 16) {
-      return cb(new Error('Malformed urlencoded form'));
+      return cb(new HTTPError(400, { body: 'malformed urlencoded form' }));
     }
     this._current += String.fromCharCode((pes << 4) + hexLower);
     this._percentEncodedState = -2;
@@ -144,7 +145,7 @@ function write(
           // first hex character
           const hexUpper = HEX_VALUES[chunk[pos++]!]!;
           if (hexUpper === 16) {
-            return cb(new Error('Malformed urlencoded form'));
+            return cb(new HTTPError(400, { body: 'malformed urlencoded form' }));
           }
           this._currentHighNibble |= hexUpper;
           if (pos === len) {
@@ -155,7 +156,7 @@ function write(
           // second hex character
           const hexLower = HEX_VALUES[chunk[pos++]!]!;
           if (hexLower === 16) {
-            return cb(new Error('Malformed urlencoded form'));
+            return cb(new HTTPError(400, { body: 'malformed urlencoded form' }));
           }
           this._current += String.fromCharCode((hexUpper << 4) + hexLower);
           if (pos === len) {

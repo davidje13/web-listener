@@ -107,7 +107,7 @@ const tests: TestDef[] = [
     name: 'No fields and no files',
     source: [[]],
     boundary: '----WebKitFormBoundaryTB2MiQ36fnSJlrhY',
-    expected: [{ error: 'Unexpected end of form' }],
+    expected: [{ error: 'unexpected end of form' }],
   },
   {
     name: 'Blank field name',
@@ -486,7 +486,7 @@ const tests: TestDef[] = [
     name: 'Invalid part header',
     source: [[`--${COMMON_BOUNDARY}`, ': oops', '', '', `--${COMMON_BOUNDARY}--`]],
     boundary: COMMON_BOUNDARY,
-    expected: [{ error: 'Malformed part header' }],
+    expected: [{ error: 'malformed part header' }],
   },
   {
     name: 'Stopped during a broken header',
@@ -499,7 +499,7 @@ const tests: TestDef[] = [
       ],
     ],
     boundary: COMMON_BOUNDARY,
-    expected: [{ error: 'Malformed part header' }, { error: 'Unexpected end of form' }],
+    expected: [{ error: 'malformed part header' }, { error: 'unexpected end of form' }],
   },
   {
     name: 'Stopped before end of last headers',
@@ -512,7 +512,7 @@ const tests: TestDef[] = [
       ],
     ],
     boundary: COMMON_BOUNDARY,
-    expected: [{ error: 'Unexpected end of headers' }],
+    expected: [{ error: 'unexpected end of headers' }],
   },
   {
     name: 'Stopped before end of headers',
@@ -530,7 +530,7 @@ const tests: TestDef[] = [
       ],
     ],
     boundary: COMMON_BOUNDARY,
-    expected: [{ error: 'Unexpected end of headers' }],
+    expected: [{ error: 'unexpected end of headers' }],
   },
   {
     name: 'content-type for fields',
@@ -581,9 +581,9 @@ const tests: TestDef[] = [
         info: { ...COMMON_FILE_INFO, filename: '1k_a.dat', encoding: 'binary' },
         limited: false,
         truncated: false,
-        err: 'Unexpected end of form',
+        err: 'unexpected end of form',
       },
-      { error: 'Unexpected end of form' },
+      { error: 'unexpected end of form' },
     ],
   },
   {
@@ -606,9 +606,9 @@ const tests: TestDef[] = [
         info: { ...COMMON_FILE_INFO, filename: '1k_a.dat' },
         limited: false,
         truncated: false,
-        err: 'Unexpected end of form',
+        err: 'unexpected end of form',
       },
-      { error: 'Unexpected end of form' },
+      { error: 'unexpected end of form' },
     ],
   },
   {
@@ -929,7 +929,7 @@ const tests: TestDef[] = [
     ],
     boundary: COMMON_BOUNDARY,
     expected: [
-      { error: 'Malformed part header' },
+      { error: 'malformed part header' },
       {
         type: 'file',
         name: 'upload_file_1',
@@ -1176,7 +1176,7 @@ describe('Multipart', () => {
 
   it('rejects an empty boundary', () => {
     expect(() => busboy({ 'content-type': 'multipart/form-data; boundary=""' })).throws(
-      'Multipart: Boundary not found',
+      'multipart boundary not found',
     );
   });
 

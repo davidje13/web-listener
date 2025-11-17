@@ -5,7 +5,7 @@ import { makeWebSocketConnection } from '../../test-helpers/makeWebSocketConnect
 import { versionIsGreaterOrEqual } from '../../test-helpers/versionIsGreaterOrEqual.mts';
 import { anyHandler, requestHandler } from '../../core/handler.mts';
 import { Router } from '../../core/Router.mts';
-import { getAuthData, requireBearerAuth } from '../auth/bearer.mts';
+import { requireBearerAuth } from '../auth/bearer.mts';
 import { makeAcceptWebSocket } from './acceptWebSocket.mts';
 import {
   getWebSocketOrigin,
@@ -118,24 +118,21 @@ describe('getWebSocketOrigin', () => {
 describe('makeWebSocketFallbackTokenFetcher', () => {
   it('returns a function compatible with requireBearerAuth', { timeout: 3000 }, () => {
     const acceptWebSocket = makeAcceptWebSocket(WebSocketServer);
+    const testAuth = requireBearerAuth({
+      realm: 'some-realm',
+      extractAndValidateToken: testTokenValidator,
+      fallbackTokenFetcher: makeWebSocketFallbackTokenFetcher(acceptWebSocket),
+    });
 
     const router = new Router();
-    router.ws(
-      '/',
-      requireBearerAuth({
-        realm: 'some-realm',
-        extractAndValidateToken: testTokenValidator,
-        fallbackTokenFetcher: makeWebSocketFallbackTokenFetcher(acceptWebSocket),
-      }),
-      async (req) => {
-        const ws = await acceptWebSocket(req);
-        ws.on('message', (data) => {
-          const message = data.toString('utf-8');
-          ws.send(`echo ${message}`);
-        });
-        ws.send('hello ' + JSON.stringify(getAuthData(req)));
-      },
-    );
+    router.ws('/', testAuth.handler, async (req) => {
+      const ws = await acceptWebSocket(req);
+      ws.on('message', (data) => {
+        const message = data.toString('utf-8');
+        ws.send(`echo ${message}`);
+      });
+      ws.send('hello ' + JSON.stringify(testAuth.getTokenData(req)));
+    });
 
     return withServer(router, async (url) => {
       const { ws, next, closed } = makeWebSocketConnection(url);
@@ -151,20 +148,17 @@ describe('makeWebSocketFallbackTokenFetcher', () => {
 
   it('does not error if the connection closes before details are sent', { timeout: 3000 }, () => {
     const acceptWebSocket = makeAcceptWebSocket(WebSocketServer);
+    const testAuth = requireBearerAuth({
+      realm: 'some-realm',
+      extractAndValidateToken: testTokenValidator,
+      fallbackTokenFetcher: makeWebSocketFallbackTokenFetcher(acceptWebSocket),
+    });
 
     const router = new Router();
-    router.ws(
-      '/',
-      requireBearerAuth({
-        realm: 'some-realm',
-        extractAndValidateToken: testTokenValidator,
-        fallbackTokenFetcher: makeWebSocketFallbackTokenFetcher(acceptWebSocket),
-      }),
-      async (req) => {
-        const ws = await acceptWebSocket(req);
-        ws.send('hello ' + JSON.stringify(getAuthData(req)));
-      },
-    );
+    router.ws('/', testAuth.handler, async (req) => {
+      const ws = await acceptWebSocket(req);
+      ws.send('hello ' + JSON.stringify(testAuth.getTokenData(req)));
+    });
 
     return withServer(router, async (url) => {
       const { ws, next, closed } = makeWebSocketConnection(url);
@@ -176,21 +170,18 @@ describe('makeWebSocketFallbackTokenFetcher', () => {
 
   it('times out if the client does not authenticate quickly enough', { timeout: 3000 }, () => {
     const acceptWebSocket = makeAcceptWebSocket(WebSocketServer);
+    const testAuth = requireBearerAuth({
+      realm: 'some-realm',
+      extractAndValidateToken: testTokenValidator,
+      fallbackTokenFetcher: makeWebSocketFallbackTokenFetcher(acceptWebSocket, 100),
+    });
 
     const router = new Router();
-    router.ws(
-      '/',
-      requireBearerAuth({
-        realm: 'some-realm',
-        extractAndValidateToken: testTokenValidator,
-        fallbackTokenFetcher: makeWebSocketFallbackTokenFetcher(acceptWebSocket, 100),
-      }),
-      async (req) => {
-        const ws = await acceptWebSocket(req);
-        ws.send('hello ' + JSON.stringify(getAuthData(req)));
-        ws.close();
-      },
-    );
+    router.ws('/', testAuth.handler, async (req) => {
+      const ws = await acceptWebSocket(req);
+      ws.send('hello ' + JSON.stringify(testAuth.getTokenData(req)));
+      ws.close();
+    });
 
     return withServer(router, async (url, { expectError }) => {
       const { next, closed } = makeWebSocketConnection(url);
@@ -204,7 +195,7 @@ describe('makeWebSocketFallbackTokenFetcher', () => {
   });
 });
 
-const testTokenValidator = (token: string) => {
+const testTokenValidator = (token: string): unknown => {
   if (token.startsWith('valid-')) {
     return JSON.parse(token.substring(6));
   }

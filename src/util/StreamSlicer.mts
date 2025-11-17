@@ -23,13 +23,13 @@ export class StreamSlicer {
 
   getRange(start: number, end: number): ReadableStream<Uint8Array> {
     if (end < start) {
-      throw new Error('invalid range');
+      throw new RangeError('invalid range');
     }
     if (start < this._pos) {
-      throw new Error('non-sequential range');
+      throw new RangeError('non-sequential range');
     }
     if (this._state) {
-      throw new Error('previous range still active');
+      throw new TypeError('previous range still active');
     }
     let limit = end - start + 1;
     let skip = start - this._pos;
@@ -73,14 +73,16 @@ export class StreamSlicer {
         }
         const next = await self._reader.read();
         if (next.done) {
-          controller.error(new Error('range exceeds content'));
+          controller.error(new RangeError('range exceeds content'));
         } else {
           if (typeof next.value === 'string') {
             handleChunk(Buffer.from(next.value, 'utf-8'), controller);
           } else if (next.value instanceof Uint8Array) {
             handleChunk(next.value, controller);
           } else {
-            controller.error(new Error('invalid stream type: must contain bytes or UTF-8 text'));
+            controller.error(
+              new TypeError('invalid stream type: must contain bytes or UTF-8 text'),
+            );
           }
         }
       },

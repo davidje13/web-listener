@@ -141,7 +141,7 @@ describe('acceptUpgrade', () => {
     return withServer(handler, async (url, { expectError }) => {
       const response = await rawRequest(url);
       expect(response).contains('500 Internal Server Error');
-      expectError('handling request /: Error: not an upgrade request');
+      expectError('handling request /: TypeError: not an upgrade request');
     });
   });
 });

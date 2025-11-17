@@ -1,4 +1,4 @@
-import type { IncomingMessage, ServerResponse } from 'node:http';
+import type { IncomingMessage, ServerResponse, OutgoingHttpHeaders } from 'node:http';
 import type { Duplex } from 'node:stream';
 import { SocketServerResponse } from '../polyfill/SocketServerResponse.mts';
 import { findCause } from '../util/findCause.mts';
@@ -10,10 +10,31 @@ export type RequestErrorHandler = (
   res: ServerResponse,
 ) => void;
 
-export const internalRequestErrorHandler: RequestErrorHandler = (error, _, res) => {
+interface PartialServerResponse {
+  get headersSent(): boolean;
+  setHeaders(headers: Headers): void;
+  setHeader(name: string, value: string): void;
+  writeHead(
+    status: number,
+    message: string | undefined,
+    extraHeaders?: OutgoingHttpHeaders | undefined,
+  ): void;
+  end(chunk?: string, encoding?: BufferEncoding): void;
+}
+
+export const internalRequestErrorHandler = (
+  error: unknown,
+  _: IncomingMessage,
+  res: PartialServerResponse,
+  extraHeaders?: OutgoingHttpHeaders,
+) => {
   if (!res.headersSent) {
-    const httpError = findCause(error, HTTPError) ?? HTTPError.INTERNAL_SERVER_ERROR;
-    httpError.send(res);
+    const httpError = findCause(error, HTTPError) ?? new HTTPError(500);
+    res.setHeader('content-type', 'text/plain; charset=utf-8');
+    res.setHeaders(httpError.headers);
+    res.setHeader('content-length', String(Buffer.byteLength(httpError.body, 'utf-8')));
+    res.writeHead(httpError.statusCode, httpError.statusMessage, extraHeaders);
+    res.end(httpError.body, 'utf-8');
   } else {
     res.end();
   }
@@ -21,12 +42,11 @@ export const internalRequestErrorHandler: RequestErrorHandler = (error, _, res) 
 
 export type UpgradeErrorHandler = (error: unknown, req: IncomingMessage, socket: Duplex) => void;
 
-export const internalUpgradeErrorHandler: UpgradeErrorHandler = (error, _, socket) => {
+export const internalUpgradeErrorHandler: UpgradeErrorHandler = (error, req, socket) => {
   if (socket.writable) {
     socket.addListener('finish', () => socket.destroy());
     const res = new SocketServerResponse(socket);
-    const httpError = findCause(error, HTTPError) ?? HTTPError.INTERNAL_SERVER_ERROR;
-    httpError.send(res, { connection: 'close' });
+    internalRequestErrorHandler(error, req, res, { connection: 'close' });
   } else {
     socket.destroy();
   }

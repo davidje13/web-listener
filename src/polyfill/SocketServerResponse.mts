@@ -1,5 +1,6 @@
 import { STATUS_CODES, type OutgoingHttpHeader, type OutgoingHttpHeaders } from 'node:http';
 import type { Writable } from 'node:stream';
+import { throwCodedError } from '../util/throwCodedError.mts';
 
 // This class exists because it is not possible to construct a built-in ServerResponse
 // on an arbitrary socket. It attempts to mimic a subset of the ServerResponse API.
@@ -21,11 +22,14 @@ export class SocketServerResponse {
 
   writeHead(
     statusCode: number,
-    statusMessage?: string,
-    headers?: OutgoingHttpHeaders | OutgoingHttpHeader[],
+    statusMessage = STATUS_CODES[statusCode] ?? '-',
+    headers?: OutgoingHttpHeaders | OutgoingHttpHeader[] | undefined,
   ): this {
     if (this._headersSent) {
-      throw new Error('headers already sent');
+      throwCodedError(
+        new Error('Cannot write headers after they are sent to the client'),
+        'ERR_HTTP_HEADERS_SENT',
+      );
     }
     const finalHeaders = { ...this._headers };
     for (const [k, v] of internalNormaliseOutgoingHeaders(headers)) {
@@ -33,7 +37,7 @@ export class SocketServerResponse {
     }
     this._socket.write(
       [
-        `HTTP/1.1 ${statusCode} ${safe(statusMessage ?? STATUS_CODES[statusCode] ?? '-')}`,
+        `HTTP/1.1 ${statusCode} ${safe(statusMessage)}`,
         ...internalEncodeHeaders(finalHeaders),
         '',
         '',
@@ -101,13 +105,21 @@ function internalNormaliseOutgoingHeaders(
   if (Array.isArray(headers)) {
     const size = headers.length;
     if (size & 1) {
-      throw new Error('headers must be a list of alternating keys and values');
+      throwCodedError(
+        new TypeError("The argument 'headers' is invalid"),
+        'ERR_INVALID_ARG_VALUE',
+        internalNormaliseOutgoingHeaders,
+      );
     }
     for (let i = 0; i < size; i += 2) {
       const k = headers[i];
       const v = headers[i + 1];
       if (typeof k !== 'string') {
-        throw new Error('invalid header name');
+        throwCodedError(
+          new TypeError("The argument 'headers' is invalid"),
+          'ERR_INVALID_ARG_VALUE',
+          internalNormaliseOutgoingHeaders,
+        );
       }
       if (v !== undefined) {
         r.push([k.toLowerCase(), v]);

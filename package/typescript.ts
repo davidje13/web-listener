@@ -16,6 +16,7 @@ import {
   type WithPathParameters,
   ServerSentEvents,
   upgradeHandler,
+  typedErrorHandler,
 } from 'web-listener';
 
 // this file just checks types; the code is not executed
@@ -72,26 +73,26 @@ r.ws('/ws2', async (req) => {
   messages.detach();
 });
 
-r.use(
-  requireBearerAuth({
-    realm: 'my realm',
-    extractAndValidateToken(token, realm, req) {
-      assertType(token)<string>();
-      assertType(realm)<string>();
-      assertType(req)<IncomingMessage>();
-      return { nbf: 1000, exp: 8000, scopes: ['foo', 'bar'] };
-    },
-    fallbackTokenFetcher: makeWebSocketFallbackTokenFetcher(acceptWebSocket),
-    closeOnExpiry: true,
-    softCloseBufferTime: 5000,
-    onSoftCloseError(err, action, req) {
-      assertType(err)<unknown>();
-      assertType(action)<string>();
-      assertType(req)<IncomingMessage>();
-    },
-  }),
-  requireAuthScope('foo'),
-);
+const auth = requireBearerAuth({
+  realm: 'my realm',
+  extractAndValidateToken(token, realm, req) {
+    assertType(token)<string>();
+    assertType(realm)<string>();
+    assertType(req)<IncomingMessage>();
+    return { nbf: 1000, exp: 8000, scopes: ['foo', 'bar'], extra: {} };
+  },
+  fallbackTokenFetcher: makeWebSocketFallbackTokenFetcher(acceptWebSocket),
+  closeOnExpiry: true,
+  softCloseBufferTime: 5000,
+  onSoftCloseError(err, action, req) {
+    assertType(err)<unknown>();
+    assertType(action)<string>();
+    assertType(req)<IncomingMessage>();
+  },
+});
+r.use(auth.handler, requireAuthScope('foo'), (req) => {
+  assertType(auth.getTokenData(req))<{ nbf: number; exp: number; scopes: string[]; extra: {} }>();
+});
 
 r.use((req, res) => {
   assertType(req)<IncomingMessage>();
@@ -102,6 +103,17 @@ r.use(
   upgradeHandler((req, socket) => {
     assertType(req)<IncomingMessage>();
     assertType(socket)<Duplex>();
+  }),
+);
+
+r.use(
+  typedErrorHandler(TypeError, (err, _, res) => {
+    assertType(err)<TypeError>();
+    res.end('type error');
+  }),
+  typedErrorHandler(RangeError, (err, _, res) => {
+    assertType(err)<RangeError>();
+    res.end('range error');
   }),
 );
 

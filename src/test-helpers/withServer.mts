@@ -74,11 +74,13 @@ export async function withServer(
       await new Promise((resolve) => setTimeout(resolve, 1));
     }
     if (errors.length > 0) {
-      throw new Error('unexpected errors:\n' + errors.join('\n'));
+      const error = new Error('unexpected errors:\n' + errors.join('\n'));
+      errors.length = 0;
+      throw error;
     }
   } catch (err) {
     if (errors.length > 0) {
-      console.log('unexpected errors:', errors);
+      console.log('unexpected errors:\n%s', errors.join('\n'));
     }
     throw err;
   } finally {

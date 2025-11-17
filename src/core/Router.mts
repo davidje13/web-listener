@@ -75,7 +75,7 @@ interface RegisteredRoute {
   _handlerChain: Handler<unknown>[];
 }
 
-export class Router<Req = {}> implements Required<Handler<Req>> {
+export class Router<Req = {}> implements Handler<Req> {
   /** @internal */ declare private readonly _routes: RegisteredRoute[];
   /** @internal */ declare private readonly _returnHandlers: RequestReturnHandlerFn<unknown>[];
 
@@ -231,7 +231,7 @@ export class Router<Req = {}> implements Required<Handler<Req>> {
   ): this {
     const parts = /^([A-Z]+) (\/.*)$/.exec(path);
     if (!parts) {
-      throw new Error('invalid method + path spec: ' + JSON.stringify(path));
+      throw new TypeError('invalid method + path spec: ' + JSON.stringify(path));
     }
     return this._add(parts[1]!, HTTP_PROTOCOL, parts[2]!, false, handlers.map(wrapHandlerRequest));
   }
@@ -498,14 +498,13 @@ export async function internalRunHandler(
     if (currentError._hasError) {
       if (handler.handleError) {
         const err = currentError._error;
-        currentError._clear(); // clear before calling handler in case handler throws a routing instruction
-        result = await handler.handleError(
-          err,
-          props._request,
-          props._upgradeProtocols
-            ? { socket: props._output!._target, head: props._output!._head }
-            : { response: props._output!._target },
-        );
+        const output = props._upgradeProtocols
+          ? { socket: props._output!._target, head: props._output!._head }
+          : { response: props._output!._target };
+        if (!handler.shouldHandleError || handler.shouldHandleError(err, props._request, output)) {
+          currentError._clear(); // clear before calling handler in case handler throws a routing instruction
+          result = await handler.handleError(err, props._request, output);
+        }
       }
     } else if (props._upgradeProtocols) {
       if (handler.handleUpgrade) {
@@ -522,7 +521,9 @@ export async function internalRunHandler(
       currentError._add(error);
     }
   } finally {
-    await internalRunDeferred(props, currentError);
+    if (props._deferred.length) {
+      await internalRunDeferred(props, currentError);
+    }
   }
   return result === STOP ? undefined : result;
 }

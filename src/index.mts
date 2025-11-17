@@ -13,6 +13,7 @@ export {
 } from './core/acceptUpgrade.mts';
 export {
   WebListener,
+  type AugmentedServer,
   type ListenOptions,
   type ListenerOptions,
   type CombinedServerOptions,
@@ -29,6 +30,8 @@ export {
   requestHandler,
   upgradeHandler,
   errorHandler,
+  typedErrorHandler,
+  conditionalErrorHandler,
   anyHandler,
   type RequestHandler,
   type UpgradeHandler,
@@ -49,12 +52,7 @@ export { Router, type CommonMethod, type CommonUpgrade } from './core/Router.mts
 export { STOP, CONTINUE, NEXT_ROUTE, NEXT_ROUTER } from './core/RoutingInstruction.mts';
 export { toListeners, type NativeListeners } from './core/toListeners.mts';
 
-export {
-  requireBearerAuth,
-  requireAuthScope,
-  hasAuthScope,
-  getAuthData,
-} from './extras/auth/bearer.mts';
+export { requireBearerAuth, requireAuthScope, hasAuthScope } from './extras/auth/bearer.mts';
 
 export { generateWeakETag, generateStrongETag } from './extras/cache/etag.mts';
 
@@ -119,6 +117,7 @@ export {
 export {
   makeGetClient,
   type GetClientOptions,
+  type GetClient,
   type ProxyNode,
   type ProxyChain,
 } from './extras/request/getClient.mts';

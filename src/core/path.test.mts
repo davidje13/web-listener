@@ -69,6 +69,14 @@ describe('compilePathPattern', () => {
     expect(path._pattern.test('/foo')).isFalse();
   });
 
+  it('escapes special characters with backslash', () => {
+    const path = internalCompilePathPattern('/foo\\*', false);
+    expect(path._pattern.test('/foo*')).isTrue();
+    expect(path._pattern.test('/foo')).isFalse();
+    expect(path._pattern.test('/foo/')).isFalse();
+    expect(path._pattern.test('/foo.')).isFalse();
+  });
+
   it('allows sub-routes after optional trailing slashes', () => {
     const path = internalCompilePathPattern('/foo/bar{/}', true);
     expect(path._pattern.test('/foo/bar')).isTrue();
@@ -145,6 +153,24 @@ describe('compilePathPattern', () => {
   it('rejects unbalanced brackets', () => {
     expect(() => internalCompilePathPattern('/foo{/bar', false)).throws(
       'unbalanced optional braces in path',
+    );
+
+    expect(() => internalCompilePathPattern('/foo/bar}', false)).throws(
+      'unbalanced optional braces in path',
+    );
+  });
+
+  it('rejects invalid paths', () => {
+    expect(() => internalCompilePathPattern('nope/foo', false)).throws(
+      "path must begin with '/' or flags",
+    );
+
+    expect(() => internalCompilePathPattern('/foo/:/', false)).throws(
+      "unnamed parameter or unescaped ':' at 5",
+    );
+
+    expect(() => internalCompilePathPattern('/x/*/', false)).throws(
+      "unnamed parameter or unescaped '*' at 3",
     );
   });
 

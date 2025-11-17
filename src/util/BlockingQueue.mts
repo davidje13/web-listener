@@ -46,7 +46,7 @@ export class BlockingQueue<T> {
       if (timeout !== undefined) {
         pending._tm = setTimeout(() => {
           this._pendingShift.remove(pending);
-          reject(new Error(`Timeout after ${timeout}ms`));
+          reject(new Error(`timeout after ${timeout}ms`));
         }, timeout);
       }
     });

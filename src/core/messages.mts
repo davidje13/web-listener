@@ -3,7 +3,7 @@ import type { Duplex } from 'node:stream';
 import type { MaybePromise } from '../util/MaybePromise.mts';
 import { internalParseURL } from '../util/parseURL.mts';
 import { ErrorAccumulator } from '../util/ErrorAccumulator.mts';
-import { internalUpgradeErrorHandler, type UpgradeErrorHandler } from './errorHandler.mts';
+import type { UpgradeErrorHandler } from './errorHandler.mts';
 
 export type TeardownFn = () => MaybePromise<void>;
 
@@ -31,7 +31,7 @@ export type MessageProps = {
   _originalURL: URL;
   _decodedPathname: string;
   _shouldUpgradeErrorHandler?: (error: unknown) => void;
-  _fallbackUpgradeErrorHandler: UpgradeErrorHandler;
+  _upgradeErrorHandler?: UpgradeErrorHandler;
   _ac: AbortController;
   _deferred: TeardownFn[];
   _teardowns: TeardownFn[];
@@ -53,7 +53,6 @@ export function internalBeginRequest(req: IncomingMessage, isUpgrade: boolean): 
     _request: req,
     _originalURL: url,
     _decodedPathname: decodeURIComponent(url.pathname), // must decode URI upfront to avoid path confusion vulnerabilities
-    _fallbackUpgradeErrorHandler: internalUpgradeErrorHandler,
     _ac: new AbortController(),
     _deferred: [],
     _teardowns: [],
@@ -150,7 +149,7 @@ export const internalGetProps = <T = {},>(req: IncomingMessage) =>
 export function internalMustGetProps<T = {}>(req: IncomingMessage) {
   const props = internalGetProps<T>(req);
   if (!props) {
-    throw new Error('unknown request');
+    throw new RangeError('unknown request');
   }
   return props;
 }

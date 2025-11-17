@@ -77,9 +77,7 @@ export class ServerSentEvents {
   }
 
   async sendFields(parts: [string, string | undefined][]): Promise<void> {
-    if (this._ac.signal.aborted) {
-      throw new Error('ServerSentEvents closed');
-    }
+    this._ac.signal.throwIfAborted();
     let done: () => void;
     this._res.cork();
     try {
@@ -132,7 +130,7 @@ export class ServerSentEvents {
     }
     this._keepaliveInterval = 0;
     clearTimeout(this._keepalive);
-    this._ac.abort();
+    this._ac.abort(new Error('ServerSentEvents closed'));
     await new Promise<void>((resolve) => {
       if (this._res.writable && (reconnectDelay > 0 || reconnectStagger > 0)) {
         const delay = reconnectDelay + Math.random() * reconnectStagger;

@@ -1,3 +1,4 @@
+import { throwCodedError } from './throwCodedError.mts';
 import type { Decoder } from './DecoderStream.mts';
 
 export class UTF32Decoder implements Decoder {
@@ -44,13 +45,31 @@ export class UTF32Decoder implements Decoder {
       this._carryN = 0;
       if (pos < n) {
         if (this._fatal) {
-          throw new Error('invalid byte length for utf-32 content');
+          throwCodedError(
+            new TypeError('The encoded data was not valid for encoding utf-32'),
+            'ERR_ENCODING_INVALID_ENCODED_DATA',
+          );
         } else {
           codepoints.push(0xfffd);
         }
       }
     }
     if (codepoints.length > 0) {
+      try {
+        return String.fromCodePoint(...codepoints);
+      } catch {
+        if (this._fatal) {
+          throwCodedError(
+            new TypeError('The encoded data was not valid for encoding utf-32'),
+            'ERR_ENCODING_INVALID_ENCODED_DATA',
+          );
+        }
+      }
+      for (let i = 0; i < codepoints.length; ++i) {
+        if (codepoints[i]! > 0x10ffff) {
+          codepoints[i] = 0xfffd;
+        }
+      }
       return String.fromCodePoint(...codepoints);
     } else {
       return '';

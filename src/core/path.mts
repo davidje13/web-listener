@@ -62,7 +62,7 @@ export function internalCompilePathPattern(
   const part = /[{}]|\/+|\\(.)|[:*]([a-zA-Z0-9_]*)/g;
   const [{ _caseInsensitive, _noMergeSlashes }, path] = internalPathFlags(flagsAndPath);
   if (path[0] !== '/') {
-    throw new Error(`path must begin with '/' or flags`);
+    throw new TypeError("path must begin with '/' or flags");
   }
   let p = 0;
   let optionalNesting = 0;
@@ -76,7 +76,7 @@ export function internalCompilePathPattern(
       ++optionalNesting;
     } else if (token === '}') {
       if (optionalNesting === 0) {
-        throw new Error(`unbalanced optional braces in path at ${match.index}`);
+        throw new TypeError(`unbalanced optional braces in path at ${match.index}`);
       }
       --optionalNesting;
       patternParts.push(')?');
@@ -91,7 +91,7 @@ export function internalCompilePathPattern(
       const type = token[0];
       const name = match[2];
       if (!name) {
-        throw new Error(`unnamed parameter or unescaped '${type}' at ${match.index}`);
+        throw new TypeError(`unnamed parameter or unescaped '${type}' at ${match.index}`);
       }
       if (type === '*') {
         patternParts.push('(.*?)');
@@ -110,7 +110,7 @@ export function internalCompilePathPattern(
     patternParts.push(internalRegExpEscape(path.substring(p)));
   }
   if (optionalNesting > 0) {
-    throw new Error('unbalanced optional braces in path');
+    throw new TypeError('unbalanced optional braces in path');
   }
   if (allowSubRoutes) {
     // always require a slash before sub-routes, but this may have been consumed by a part of the pattern already, so allow a lookbehind

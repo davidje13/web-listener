@@ -27,10 +27,10 @@ export async function acceptUpgrade<T>(
 ): Promise<T> {
   const props = internalMustGetProps<UpgradeMessageProps>(req);
   if (!props._output) {
-    throw new Error('cannot call acceptUpgrade from shouldUpgrade');
+    throw new TypeError('cannot call acceptUpgrade from shouldUpgrade');
   }
   if (!props._upgradeProtocols) {
-    throw new Error('not an upgrade request');
+    throw new TypeError('not an upgrade request');
   }
   if (props._hasUpgraded) {
     // note: if a single request triggers multiple acceptUpgrade calls,
@@ -45,7 +45,7 @@ export async function acceptUpgrade<T>(
   }
   const upgraded = await upgrade(req, socket, props._output._head);
   props._output._head = VOID_BUFFER; // allow GC of head data after upgrade is complete
-  props._fallbackUpgradeErrorHandler = upgraded.onError;
+  props._upgradeErrorHandler = upgraded.onError;
   internalSetSoftCloseHandler(props, upgraded.softCloseHandler);
   props._upgradeReturn = upgraded.return;
   props._hasUpgraded = true;

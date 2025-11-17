@@ -47,7 +47,7 @@ export async function rawRequestStream(
 ) {
   const parts = /^(http:\/\/[^\/]+)(\/.*)?$/.exec(target);
   if (!parts) {
-    throw new Error('unsupported url');
+    throw new TypeError('unsupported url');
   }
   const url = new URL(parts[1]!);
   const socket = await openRawSocket(url);
@@ -120,7 +120,7 @@ export function makeRequestOnSocket(
   } else if (body instanceof Readable || body instanceof Duplex) {
     bodyStream = body;
   } else {
-    throw new Error('unsupported body type');
+    throw new TypeError('unsupported body type');
   }
   (async () => {
     for await (const chunk of bodyStream) {

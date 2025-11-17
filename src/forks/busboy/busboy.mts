@@ -13,12 +13,12 @@ import { URLEncoded } from './urlencoded.mts';
 export function busboy(headers: IncomingHttpHeaders, cfg: BusboyOptions = {}): BusboyInstance {
   const contentType = headers['content-type'];
   if (!contentType) {
-    throw new HTTPError(400, { body: 'Missing Content-Type' });
+    throw new HTTPError(400, { body: 'missing content-type' });
   }
 
   const conType = parseContentType(contentType);
   if (!conType) {
-    throw new HTTPError(400, { body: 'Malformed content type' });
+    throw new HTTPError(400, { body: 'malformed content-type' });
   }
 
   const type =

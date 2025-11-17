@@ -42,17 +42,19 @@ describe('getRemainingPathComponents', () => {
     });
 
     return withServer(handler, async (url) => {
-      expect(await fetchJSON(url + '/double//slash')).equals('Error: invalid path');
-      expect(await fetchJSON(url + '/%10')).equals('Error: invalid path');
+      expect(await fetchJSON(url + '/double//slash')).equals(
+        'HTTPError(400 Bad Request): invalid path',
+      );
+      expect(await fetchJSON(url + '/%10')).equals('HTTPError(400 Bad Request): invalid path');
 
       // TODO: this gets filtered out before reaching getRemainingPathComponents
       //const res = await rawRequest(url + '/a/%2e%2e/b');
-      //expect(res).contains('Error: invalid path');
+      //expect(res).contains('HTTPError(400 Bad Request): invalid path');
 
       if (platform() === 'win32') {
-        expect(await fetchJSON(url + '/CON1')).equals('Error: invalid path');
+        expect(await fetchJSON(url + '/CON1')).equals('HTTPError(400 Bad Request): invalid path');
       } else {
-        expect(await fetchJSON(url + '/~')).equals('Error: invalid path');
+        expect(await fetchJSON(url + '/~')).equals('HTTPError(400 Bad Request): invalid path');
       }
     });
   });

@@ -61,10 +61,13 @@ export class WebListener extends (EventTarget as TypedEventTarget<
   }
 
   attach(server: Server, options: ListenerOptions = {}) {
-    const listeners = toListeners(this._handler, {
-      ...options,
-      onError: this._dispatchError.bind(this, server),
-    });
+    const onError = (error: unknown, action: string, request?: IncomingMessage) => {
+      const detail = { error, server, action, request };
+      if (this.dispatchEvent(new CustomEvent<RequestErrorDetail>('error', { detail }))) {
+        internalLogError(error, action, request);
+      }
+    };
+    const listeners = toListeners(this._handler, { ...options, onError });
     if (options.autoContinue === false) {
       server.addListener('checkContinue', listeners.request);
     }
@@ -103,7 +106,7 @@ export class WebListener extends (EventTarget as TypedEventTarget<
       };
       if (existingConnectionTimeout > 0) {
         const hardCloseTm = setTimeout(listeners.hardClose, existingConnectionTimeout);
-        listeners.softClose(reason, this._dispatchError.bind(this, server), () => {
+        listeners.softClose(reason, onError, () => {
           clearTimeout(hardCloseTm);
           closePending();
         });
@@ -118,18 +121,11 @@ export class WebListener extends (EventTarget as TypedEventTarget<
     return detach;
   }
 
-  listen(
-    port: number,
-    host: string,
-    options: CombinedServerOptions = {},
-  ): Promise<AugmentedServer> {
+  createServer(options: ServerOptions & ListenerOptions = {}): AugmentedServer {
     if (options.shouldUpgradeCallback) {
       options = { overrideShouldUpgradeCallback: false, ...options };
     }
     const s = createServer(options);
-    if (options.socketTimeout) {
-      s.setTimeout(options.socketTimeout);
-    }
     const detach = this.attach(s, options);
     const augmented = Object.assign(s, {
       closeWithTimeout: (reason: string, timeout: number) =>
@@ -138,26 +134,25 @@ export class WebListener extends (EventTarget as TypedEventTarget<
           detach(reason, timeout, true);
         }),
     });
+    return augmented;
+  }
+
+  listen(
+    port: number,
+    host: string,
+    options: CombinedServerOptions = {},
+  ): Promise<AugmentedServer> {
+    const s = this.createServer(options);
+    if (options.socketTimeout) {
+      s.setTimeout(options.socketTimeout);
+    }
     return new Promise((resolve, reject) => {
       s.once('error', reject);
       s.listen(port, host, options.backlog ?? 511, () => {
         s.off('error', reject);
-        resolve(augmented);
+        resolve(s);
       });
     });
-  }
-
-  /** @internal */
-  private _dispatchError(
-    server: Server,
-    error: unknown,
-    action: string,
-    request?: IncomingMessage,
-  ) {
-    const detail = { error, server, action, request };
-    if (this.dispatchEvent(new CustomEvent<RequestErrorDetail>('error', { detail }))) {
-      internalLogError(error, action, request);
-    }
   }
 }
 

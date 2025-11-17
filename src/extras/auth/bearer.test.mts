@@ -1,16 +1,19 @@
 import { Router } from '../../core/Router.mts';
 import { withServer } from '../../test-helpers/withServer.mts';
-import { getAuthData, hasAuthScope, requireAuthScope, requireBearerAuth } from './bearer.mts';
+import { hasAuthScope, requireAuthScope, requireBearerAuth } from './bearer.mts';
 import 'lean-test';
 
-const testTokenValidator = (token: string) => {
+const testTokenValidator = (token: string): unknown => {
   if (token.startsWith('valid-')) {
     return JSON.parse(token.substring(6));
+  }
+  if (token.startsWith('throw-')) {
+    throw new Error(token.substring(6));
   }
   return null;
 };
 
-const testAuthMiddleware = requireBearerAuth({
+const testAuth = requireBearerAuth({
   realm: 'some-realm',
   extractAndValidateToken: testTokenValidator,
 });
@@ -19,7 +22,7 @@ describe('requireBearerAuth', () => {
   function runTest(fetchInit: RequestInit, expectedStatus: number, expectedCalled = false) {
     let called = false;
     const router = new Router();
-    router.use(testAuthMiddleware);
+    router.use(testAuth.handler);
     router.get('/', (_, res) => {
       called = true;
       res.end('content');
@@ -42,6 +45,9 @@ describe('requireBearerAuth', () => {
 
   it('rejects invalid authentication', () =>
     runTest({ headers: { authorization: 'Bearer invalid-{}' } }, 401));
+
+  it('wraps errors thrown during token validation', () =>
+    runTest({ headers: { authorization: 'Bearer error-oops' } }, 401));
 
   it('accepts valid authentication', () =>
     runTest({ headers: { authorization: 'Bearer valid-{}' } }, 200, true));
@@ -67,7 +73,7 @@ describe('requireBearerAuth', () => {
         realm: 'some-realm',
         extractAndValidateToken: testTokenValidator,
         closeOnExpiry: true,
-      }),
+      }).handler,
       () => {},
     );
 
@@ -89,7 +95,7 @@ describe('requireBearerAuth', () => {
         realm: 'some-realm',
         extractAndValidateToken: testTokenValidator,
         fallbackTokenFetcher: (req) => String(req.headers['x-custom-auth']),
-      }),
+      }).handler,
       (_, res) => void res.end('content'),
     );
 
@@ -119,7 +125,7 @@ describe('requireAuthScope', () => {
   function runTest(fetchInit: RequestInit, expectedStatus: number, expectedCalled = false) {
     let called = false;
     const router = new Router();
-    router.use(testAuthMiddleware);
+    router.use(testAuth.handler);
     router.get('/', requireAuthScope('my-scope'), (_, res) => {
       called = true;
       res.end('content');
@@ -146,28 +152,32 @@ describe('requireAuthScope', () => {
     ));
 });
 
-describe('getAuthData', () => {
-  it('returns the parsed auth data', () => {
+describe('getTokenData', () => {
+  it('returns the parsed token data', () => {
     const router = new Router();
-    router.get('/', testAuthMiddleware, (req, res) => {
-      res.end(`getAuthData: ${JSON.stringify(getAuthData(req))}`);
+    router.get('/', testAuth.handler, (req, res) => {
+      res.end(`getTokenData: ${JSON.stringify(testAuth.getTokenData(req))}`);
     });
 
     return withServer(router, async (url) => {
       const res = await fetch(url, { headers: { authorization: 'Bearer valid-{"foo":"bar"}' } });
-      expect(await res.text()).equals('getAuthData: {"foo":"bar"}');
+      expect(await res.text()).equals('getTokenData: {"foo":"bar"}');
     });
   });
 
-  it('returns null if no auth data is available', () => {
+  it('throws if no token data is available', () => {
     const router = new Router();
     router.get('/', (req, res) => {
-      res.end(`getAuthData: ${JSON.stringify(getAuthData(req))}`);
+      res.end(`getTokenData: ${JSON.stringify(testAuth.getTokenData(req))}`);
     });
 
-    return withServer(router, async (url) => {
+    return withServer(router, async (url, { expectError }) => {
       const res = await fetch(url, { headers: { authorization: 'Bearer valid-{"foo":"bar"}' } });
-      expect(await res.text()).equals('getAuthData: null');
+      expect(res.status).equals(500);
+      expect(await res.text()).equals('');
+      expectError(
+        'handling request /: TypeError: cannot use getTokenData in an unauthenticated endpoint',
+      );
     });
   });
 });
@@ -175,7 +185,7 @@ describe('getAuthData', () => {
 describe('hasAuthScope', () => {
   function runTest(path: string, fetchInit: RequestInit, expectedBody: string) {
     const router = new Router();
-    router.get('/authenticated', testAuthMiddleware, (req, res) => {
+    router.get('/authenticated', testAuth.handler, (req, res) => {
       res.end(`hasAuthScope s1: ${hasAuthScope(req, 's1')}`);
     });
     router.get('/unauthenticated', (req, res) => {

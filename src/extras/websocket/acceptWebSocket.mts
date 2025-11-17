@@ -70,7 +70,7 @@ export function makeAcceptWebSocket<T extends ClosableWebSocket, PassThroughOpti
               ws.close(wsError.statusCode, wsError.statusMessage);
               return;
             }
-            const httpError = findCause(error, HTTPError) ?? HTTPError.INTERNAL_SERVER_ERROR;
+            const httpError = findCause(error, HTTPError) ?? new HTTPError(500);
             const wsStatus =
               httpError.statusCode >= 500
                 ? WebSocketError.INTERNAL_SERVER_ERROR

@@ -55,11 +55,13 @@ export interface GetClientOptions {
   trustedHeaders: ProxyHeader[];
 }
 
+export type GetClient = (req: IncomingMessage) => ProxyChain;
+
 export function makeGetClient({
   trustedProxyCount,
   trustedProxyAddresses,
   trustedHeaders,
-}: GetClientOptions): (req: IncomingMessage) => ProxyChain {
+}: GetClientOptions): GetClient {
   const trustAddress = trustedProxyAddresses
     ? makeAddressTester(trustedProxyAddresses)
     : () => true;

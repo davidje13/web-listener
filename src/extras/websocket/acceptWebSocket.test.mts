@@ -131,7 +131,7 @@ describe('acceptWebSocket', () => {
       const { next, closed } = makeWebSocketConnection(url);
       expect(await next()).equals('ERROR');
       expect(await next()).equals('CLOSED: 1006 ');
-      expectError('handling request /: Error: not an upgrade request');
+      expectError('handling request /: TypeError: not an upgrade request');
       await closed();
     });
   });

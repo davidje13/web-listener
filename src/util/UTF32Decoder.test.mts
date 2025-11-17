@@ -36,8 +36,22 @@ describe('UTF32Decoder', () => {
     it('rejects partial input if fatal is true', async () => {
       const d = new UTF32Decoder(false, { fatal: true });
       expect(() => d.decode(new Uint8Array([0x00, 0x00, 0x01]))).throws(
-        'invalid byte length for utf-32 content',
+        'The encoded data was not valid for encoding utf-32',
       );
+    });
+
+    it('replaces invalid characters with a substitution character', async () => {
+      const d = new UTF32Decoder(false);
+      expect(d.decode(new Uint8Array([0x00, 0x00, 0x00, 0x41, 0x00, 0x11, 0x00, 0x00]))).equals(
+        'A\uFFFD',
+      );
+    });
+
+    it('rejects invalid characters if fatal is true', async () => {
+      const d = new UTF32Decoder(false, { fatal: true });
+      expect(() =>
+        d.decode(new Uint8Array([0x00, 0x00, 0x00, 0x41, 0x00, 0x11, 0x00, 0x00])),
+      ).throws('The encoded data was not valid for encoding utf-32');
     });
 
     it('handles characters split between chunks when stream is true', async () => {
@@ -73,7 +87,7 @@ describe('UTF32Decoder', () => {
     it('rejects partial input if fatal is true', async () => {
       const d = new UTF32Decoder(true, { fatal: true });
       expect(() => d.decode(new Uint8Array([0x41, 0x00, 0x00]))).throws(
-        'invalid byte length for utf-32 content',
+        'The encoded data was not valid for encoding utf-32',
       );
     });
 
