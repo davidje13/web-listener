@@ -17,6 +17,8 @@ import {
   ServerSentEvents,
   upgradeHandler,
   typedErrorHandler,
+  jsonErrorHandler,
+  emitError,
 } from 'web-listener';
 
 // this file just checks types; the code is not executed
@@ -92,6 +94,7 @@ const auth = requireBearerAuth({
 });
 r.use(auth.handler, requireAuthScope('foo'), (req) => {
   assertType(auth.getTokenData(req))<{ nbf: number; exp: number; scopes: string[]; extra: {} }>();
+  emitError(req, 'nope');
 });
 
 r.use((req, res) => {
@@ -114,6 +117,10 @@ r.use(
   typedErrorHandler(RangeError, (err, _, res) => {
     assertType(err)<RangeError>();
     res.end('range error');
+  }),
+  jsonErrorHandler((err) => ({ error: err.body, status: err.statusCode }), {
+    forceStatus: 200,
+    onlyIfRequested: false,
   }),
 );
 

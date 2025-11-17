@@ -1,8 +1,7 @@
 import type { IncomingMessage } from 'node:http';
 import type { UpgradeListener } from '../polyfill/serverTypes.mts';
 import { VOID_BUFFER } from '../util/voidBuffer.mts';
-import type { UpgradeErrorHandler } from './errorHandler.mts';
-import { internalMustGetProps } from './messages.mts';
+import { internalMustGetProps, type UpgradeErrorHandler } from './messages.mts';
 import { internalSetSoftCloseHandler, type SoftCloseHandler } from './close.mts';
 import { STOP } from './RoutingInstruction.mts';
 
@@ -17,7 +16,6 @@ export interface AcceptUpgradeResult<T> {
 }
 
 interface UpgradeMessageProps {
-  _hasUpgraded: boolean;
   _upgradeReturn: unknown;
 }
 

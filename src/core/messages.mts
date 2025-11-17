@@ -3,12 +3,12 @@ import type { Duplex } from 'node:stream';
 import type { MaybePromise } from '../util/MaybePromise.mts';
 import { internalParseURL } from '../util/parseURL.mts';
 import { ErrorAccumulator } from '../util/ErrorAccumulator.mts';
-import type { UpgradeErrorHandler } from './errorHandler.mts';
 
 export type TeardownFn = () => MaybePromise<void>;
 
 interface RequestOutput {
   _target: ServerResponse;
+  _head?: never;
 }
 
 interface UpgradeOutput {
@@ -26,13 +26,17 @@ interface UpgradeExtraProps {
   _output?: UpgradeOutput;
 }
 
+export type ServerErrorCallback = (error: unknown, action: string, req: IncomingMessage) => void;
+export type UpgradeErrorHandler = (error: unknown, req: IncomingMessage, socket: Duplex) => void;
+
 export type MessageProps = {
   _request: IncomingMessage;
   _originalURL: URL;
   _decodedPathname: string;
-  _shouldUpgradeErrorHandler?: (error: unknown) => void;
+  _hasUpgraded?: boolean;
   _upgradeErrorHandler?: UpgradeErrorHandler;
   _ac: AbortController;
+  _errorCallback: ServerErrorCallback;
   _deferred: TeardownFn[];
   _teardowns: TeardownFn[];
   _postTeardown?: (fn: () => MaybePromise<void>) => void;
@@ -41,7 +45,11 @@ export type MessageProps = {
 
 const REQUESTS = new WeakMap<IncomingMessage, MessageProps>();
 
-export function internalBeginRequest(req: IncomingMessage, isUpgrade: boolean): MessageProps {
+export function internalBeginRequest(
+  req: IncomingMessage,
+  errorCallback: ServerErrorCallback,
+  isUpgrade: boolean,
+): MessageProps {
   const existingProps = REQUESTS.get(req);
   if (existingProps) {
     // Nested request (ideally should not happen), or request/upgrade after shouldUpgrade - just return the already generated props.
@@ -54,6 +62,7 @@ export function internalBeginRequest(req: IncomingMessage, isUpgrade: boolean): 
     _originalURL: url,
     _decodedPathname: decodeURIComponent(url.pathname), // must decode URI upfront to avoid path confusion vulnerabilities
     _ac: new AbortController(),
+    _errorCallback: errorCallback,
     _deferred: [],
     _teardowns: [],
     _upgradeProtocols: isUpgrade ? internalReadUpgradeProtocols(req) : null,
@@ -66,7 +75,6 @@ export function internalBeginResponse(
   props: MessageProps,
   isUpgrade: boolean,
   output: RequestOutput | UpgradeOutput,
-  onTeardownError: (error: unknown, req: IncomingMessage) => void,
 ): MessageProps {
   if (!isUpgrade) {
     // may switch upgrade -> request if shouldUpgrade returned false (never switches request -> upgrade)
@@ -84,12 +92,12 @@ export function internalBeginResponse(
         try {
           await fn();
         } catch (error: unknown) {
-          onTeardownError(error, props._request);
+          props._errorCallback(error, 'tearing down', props._request);
         }
       };
     });
     if (err._hasError) {
-      onTeardownError(err._error, props._request);
+      props._errorCallback(err._error, 'tearing down', props._request);
     }
   };
 
@@ -145,6 +153,8 @@ function internalReadUpgradeProtocols(req: IncomingMessage) {
 
 export const internalGetProps = <T = {},>(req: IncomingMessage) =>
   REQUESTS.get(req) as (MessageProps & Partial<T>) | undefined;
+
+export const internalEndRequest = (req: IncomingMessage) => REQUESTS.delete(req);
 
 export function internalMustGetProps<T = {}>(req: IncomingMessage) {
   const props = internalGetProps<T>(req);

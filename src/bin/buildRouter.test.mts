@@ -155,7 +155,7 @@ describe('buildRouter', () => {
       [{ type: 'fixture', method: 'GET', path: '/', status: 200, headers: {}, body: 'Hi' }],
       (info) => events.push(info),
     );
-    return withServer(router, async (url) => {
+    return withServer(router, async (url, { expectError }) => {
       await fetch(url);
       expect(events).hasLength(1);
       expect(events[0]?.method).equals('GET');
@@ -167,6 +167,7 @@ describe('buildRouter', () => {
       expect(events[1]?.method).equals('PUT');
       expect(events[1]?.path).equals('/nope');
       expect(events[1]?.status).equals(404);
+      expectError('handling request /nope: HTTPError(404 Not Found)');
     });
   });
 });

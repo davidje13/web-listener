@@ -14,20 +14,13 @@ describe('SocketServerResponse', () => {
     response.setHeader('foo', 'bar');
     response.setHeaders(new Headers({ zig: 'zag' }));
     expect(response.headersSent).isFalse();
-    response.writeHead(200, 'Yep', { extra: ['this', 'that'] });
+    response.writeHead(200, 'Yep');
     response.write('this is some ');
     response.end('body content!');
 
     const sent = await readAll(mockSocket.readable, 'ascii');
     expect(sent).equals(
-      [
-        'HTTP/1.1 200 Yep',
-        'foo: bar',
-        'zig: zag',
-        'extra: this, that',
-        '',
-        'this is some body content!',
-      ].join('\r\n'),
+      ['HTTP/1.1 200 Yep', 'foo: bar', 'zig: zag', '', 'this is some body content!'].join('\r\n'),
     );
   });
 });

@@ -1,7 +1,11 @@
 import type { IncomingMessage } from 'node:http';
 import type { MaybePromise } from '../util/MaybePromise.mts';
-import { internalGetProps, internalMustGetProps, type MessageProps } from './messages.mts';
-import { internalLogError, type ServerErrorCallback } from './errorHandler.mts';
+import {
+  internalGetProps,
+  internalMustGetProps,
+  type MessageProps,
+  type ServerErrorCallback,
+} from './messages.mts';
 
 export type SoftCloseHandler = (reason: string) => MaybePromise<void>;
 
@@ -44,7 +48,7 @@ export function scheduleClose(
   reason: string,
   hardCloseTimestamp: number,
   softCloseBufferTime: number = 0,
-  onSoftCloseError: ServerErrorCallback = internalLogError,
+  onSoftCloseError?: ServerErrorCallback,
 ) {
   const props = internalMustGetProps<CloseMessageProps>(req);
   const softCloseTimestamp = hardCloseTimestamp - Math.max(softCloseBufferTime, 0);
@@ -62,7 +66,7 @@ export function scheduleClose(
     props._softCloseSchedule = {
       _time: softCloseTimestamp,
       _reason: reason,
-      _errorCallback: onSoftCloseError,
+      _errorCallback: onSoftCloseError ?? props._errorCallback,
     };
   }
   internalUpdateCloseTimeout(props);

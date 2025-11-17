@@ -44,7 +44,7 @@ describe('fileServer', () => {
     async ({ getTyped }) => {
       const handler = await fileServer(getTyped(TEST_DIR));
 
-      return withServer(handler, async (url) => {
+      return withServer(handler, async (url, { expectError }) => {
         const res1 = await fetch(url);
         expect(res1.status).equals(200);
         expect(await res1.text()).equals('Root Index');
@@ -60,6 +60,7 @@ describe('fileServer', () => {
         const res4 = await fetch(url + '/none/');
         expect(res4.status).equals(404);
         expect(await res4.text()).equals('');
+        expectError('handling request /none/: HTTPError(404 Not Found)');
       });
     },
   );

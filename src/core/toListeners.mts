@@ -11,20 +11,19 @@ import type {
 } from '../polyfill/serverTypes.mts';
 import { VOID_BUFFER } from '../util/voidBuffer.mts';
 import { ErrorAccumulator } from '../util/ErrorAccumulator.mts';
+import { findCause } from '../util/findCause.mts';
 import { internalCheckShouldUpgrade, internalRunHandler } from './Router.mts';
 import type { Handler } from './handler.mts';
-import { internalBeginRequest, internalBeginResponse, type MessageProps } from './messages.mts';
+import {
+  internalBeginRequest,
+  internalBeginResponse,
+  internalEndRequest,
+  type MessageProps,
+  type ServerErrorCallback,
+} from './messages.mts';
 import { CONTINUE, NEXT_ROUTE, NEXT_ROUTER } from './RoutingInstruction.mts';
 import { HTTPError } from './HTTPError.mts';
-import {
-  internalLogError,
-  internalRequestErrorHandler,
-  internalUpgradeErrorHandler,
-  type ServerGeneralErrorCallback,
-  type ServerErrorCallback,
-  type RequestErrorHandler,
-  type UpgradeErrorHandler,
-} from './errorHandler.mts';
+import { internalDefaultErrorHandler } from './defaultErrorHandler.mts';
 import { internalHardClose, internalSoftClose } from './close.mts';
 
 export interface NativeListenersOptions {
@@ -40,43 +39,17 @@ export interface NativeListenersOptions {
   onError?: ServerGeneralErrorCallback;
 
   /**
-   * Fallback error handler when a request cannot be parsed, or an error reaches the end of the chain without being handled.
-   * This is responsible for sending a reply to the client and closing the response.
-   *
-   * You may wish to override it to provide an alternative error format (e.g. to encode errors as JSON).
-   * Unlike registering error middleware, this will be called even if the request could not be parsed.
-   *
-   * The default implementation is:
-   *
-   * ```js
-   * if (!res.headersSent) {
-   *   const httpError = findCause(error, HTTPError) ?? new HTTPError(500);
-   *   res.setHeader('content-type', 'text/plain; charset=utf-8');
-   *   res.setHeaders(httpError.headers);
-   *   res.setHeader('content-length', String(Buffer.byteLength(httpError.body, 'utf-8')));
-   *   res.writeHead(httpError.statusCode, httpError.statusMessage);
-   *   res.end(httpError.body, 'utf-8');
-   * } else {
-   *   res.end();
-   * }
-   * ```
-   */
-  requestErrorHandler?: RequestErrorHandler;
-
-  /**
-   * Fallback error handler when an upgrade error reaches the end of the chain without being handled.
-   * This is responsible for sending a reply to the client and closing the response.
-   *
-   * The default implementation is equivalent to the default `requestErrorHandler`.
-   */
-  upgradeErrorHandler?: UpgradeErrorHandler;
-
-  /**
    * Number of milliseconds to wait before forcibly closing sockets which are left half-open by the client.
    * @default 500
    */
   socketCloseTimeout?: number;
 }
+
+export type ServerGeneralErrorCallback = (
+  error: unknown,
+  action: string,
+  req?: IncomingMessage,
+) => void;
 
 export interface NativeListeners {
   request: RequestListener;
@@ -90,12 +63,7 @@ export interface NativeListeners {
 
 export function toListeners(
   handler: Handler,
-  {
-    onError = internalLogError,
-    requestErrorHandler = internalRequestErrorHandler,
-    upgradeErrorHandler = internalUpgradeErrorHandler,
-    socketCloseTimeout = 500,
-  }: NativeListenersOptions = {},
+  { onError = internalLogError, socketCloseTimeout = 500 }: NativeListenersOptions = {},
 ): NativeListeners {
   const allClosedCallbacks: (() => void)[] = [];
   const active = new Set<MessageProps>();
@@ -124,28 +92,28 @@ export function toListeners(
       }
     });
   };
-  const teardownError = (error: unknown, req: IncomingMessage) =>
-    onError(error, 'tearing down', req);
 
   return {
     request: async (req, res) => {
       let props: MessageProps;
       try {
-        props = internalBeginRequest(req, false);
+        props = internalBeginRequest(req, onError, false);
       } catch (error: unknown) {
         onError(error, 'parsing request', req);
-        requestErrorHandler(new HTTPError(400), req, res);
+        internalDefaultErrorHandler(new HTTPError(400), req, { response: res });
         return undefined;
       }
-      internalBeginResponse(props, false, { _target: res }, teardownError);
+      internalBeginResponse(props, false, { _target: res });
       track(props);
       const currentError = new ErrorAccumulator();
       const r = await internalRunHandler(handler, props, currentError);
+      if (!currentError._hasError && (r === CONTINUE || r === NEXT_ROUTE || r === NEXT_ROUTER)) {
+        currentError._add(new HTTPError(404));
+      }
       if (currentError._hasError) {
         onError(currentError._error, 'handling request', req);
-        requestErrorHandler(currentError._error, req, res);
-      } else if (r === CONTINUE || r === NEXT_ROUTE || r === NEXT_ROUTER) {
-        requestErrorHandler(new HTTPError(404), req, res);
+        internalDefaultErrorHandler(currentError._error, req, { response: res });
+        internalEndRequest(req);
       }
     },
 
@@ -158,35 +126,47 @@ export function toListeners(
 
       let props: MessageProps;
       try {
-        props = internalBeginRequest(req, true);
+        props = internalBeginRequest(req, onError, true);
       } catch (error: unknown) {
         onError(error, 'parsing upgrade', req);
-        upgradeErrorHandler(new HTTPError(400), req, socket);
+        internalDefaultErrorHandler(new HTTPError(400), req, {
+          socket,
+          head: VOID_BUFFER,
+          hasUpgraded: false,
+        });
         return undefined;
       }
-      internalBeginResponse(props, true, { _target: socket, _head: head }, teardownError);
+      internalBeginResponse(props, true, { _target: socket, _head: head });
       head = VOID_BUFFER; // allow GC
       track(props);
       const currentError = new ErrorAccumulator();
       const r = await internalRunHandler(handler, props, currentError);
-      if (currentError._hasError) {
-        onError(currentError._error, 'handling upgrade', req);
-        (props._upgradeErrorHandler ?? upgradeErrorHandler)(currentError._error, req, socket);
-      } else if (r === CONTINUE || r === NEXT_ROUTE || r === NEXT_ROUTER) {
+      if (!currentError._hasError && (r === CONTINUE || r === NEXT_ROUTE || r === NEXT_ROUTER)) {
         // ideally we would automatically fall-back to a standard request here, but the Node.js
         // Server API doesn't support that, so we warn the user about a possible misconfiguration:
         console.warn(
           `Upgrade ${req.headers.upgrade} request for ${req.url} fell-through. This probably means you need to add shouldUpgrade to one of your upgrade handlers, or if this is intentional, explicitly reject the request (throw new HTTPError(404)) instead of using CONTINUE.`,
         );
-        (props._upgradeErrorHandler ?? upgradeErrorHandler)(new HTTPError(404), req, socket);
+        currentError._add(new HTTPError(404));
+      }
+      if (currentError._hasError) {
+        onError(currentError._error, 'handling upgrade', req);
+        if (props._upgradeErrorHandler) {
+          props._upgradeErrorHandler(currentError._error, req, socket);
+        } else {
+          internalDefaultErrorHandler(currentError._error, req, {
+            socket,
+            head: props._output?._head ?? VOID_BUFFER,
+            hasUpgraded: props._hasUpgraded ?? false,
+          });
+        }
+        internalEndRequest(req);
       }
     },
 
     shouldUpgrade: (req) => {
       try {
-        const props = internalBeginRequest(req, true);
-        props._shouldUpgradeErrorHandler = (error) =>
-          onError(error, 'checking should upgrade', req);
+        const props = internalBeginRequest(req, onError, true);
         return internalCheckShouldUpgrade(handler, props);
       } catch {
         return false; // error will be reported properly by request handler
@@ -245,6 +225,16 @@ export function toListeners(
     },
   };
 }
+
+export const internalLogError: ServerGeneralErrorCallback = (error, action, req) => {
+  if (findCause(error, HTTPError)?.statusCode ?? 500 >= 500) {
+    console.error(
+      '%s',
+      `unhandled error while ${action} ${req?.url ?? '(no request information)'}:`,
+      error,
+    );
+  }
+};
 
 const makeErrorResponse = (code: number) =>
   Buffer.from(`HTTP/1.1 ${code} ${STATUS_CODES[code]}\r\nConnection: close\r\n\r\n`);

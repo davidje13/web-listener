@@ -58,9 +58,9 @@ export const anyHandler = <Req,>(
   shouldUpgrade: shouldUpgrade,
 });
 
-type ErrorOutput =
-  | { response: ServerResponse; socket?: never; head?: never }
-  | { response?: never; socket: Duplex; head: Buffer };
+export type ErrorOutput =
+  | { response: ServerResponse; socket?: never; head?: never; hasUpgraded?: never }
+  | { response?: never; socket: Duplex; head: Buffer; hasUpgraded: boolean };
 
 export type ErrorHandlerFn<Req = {}> = (
   error: unknown,

@@ -1,8 +1,7 @@
 import { createServer, type IncomingMessage, type Server, type ServerOptions } from 'node:http';
 import type { TypedEventTarget } from '../polyfill/TypedEventTarget.mts';
-import { toListeners, type NativeListenersOptions } from './toListeners.mts';
+import { internalLogError, toListeners, type NativeListenersOptions } from './toListeners.mts';
 import type { Handler } from './handler.mts';
-import { internalLogError } from './errorHandler.mts';
 
 export interface ListenOptions {
   /**

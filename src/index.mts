@@ -25,7 +25,6 @@ export {
   addTeardown,
   getAbortSignal,
 } from './core/close.mts';
-export type { ServerGeneralErrorCallback, ServerErrorCallback } from './core/errorHandler.mts';
 export {
   requestHandler,
   upgradeHandler,
@@ -39,6 +38,7 @@ export {
   type HandlerResult,
 } from './core/handler.mts';
 export { HTTPError, type HTTPErrorOptions } from './core/HTTPError.mts';
+export type { ServerErrorCallback, UpgradeErrorHandler } from './core/messages.mts';
 export type { ParametersFromPath } from './core/path.mts';
 export {
   getPathParameter,
@@ -50,7 +50,11 @@ export {
 export { getSearch, getSearchParams, getQuery } from './core/queryParameters.mts';
 export { Router, type CommonMethod, type CommonUpgrade } from './core/Router.mts';
 export { STOP, CONTINUE, NEXT_ROUTE, NEXT_ROUTER } from './core/RoutingInstruction.mts';
-export { toListeners, type NativeListeners } from './core/toListeners.mts';
+export {
+  toListeners,
+  type NativeListeners,
+  type ServerGeneralErrorCallback,
+} from './core/toListeners.mts';
 
 export { requireBearerAuth, requireAuthScope, hasAuthScope } from './extras/auth/bearer.mts';
 
@@ -61,6 +65,12 @@ export {
   compressFilesInDir,
   type CompressionInfo,
 } from './extras/compress/offline.mts';
+
+export { emitError } from './extras/error/emitError.mts';
+export {
+  jsonErrorHandler,
+  type JSONErrorHandlerOptions,
+} from './extras/error/jsonErrorHandler.mts';
 
 export {
   FileFinder,

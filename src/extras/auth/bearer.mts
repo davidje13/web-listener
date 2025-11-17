@@ -4,7 +4,7 @@ import type { MaybePromise } from '../../util/MaybePromise.mts';
 import { scheduleClose } from '../../core/close.mts';
 import { anyHandler, type RequestHandler, type UpgradeHandler } from '../../core/handler.mts';
 import { HTTPError } from '../../core/HTTPError.mts';
-import type { ServerErrorCallback } from '../../core/errorHandler.mts';
+import type { ServerErrorCallback } from '../../core/messages.mts';
 import { getAuthorization } from '../request/headers.mts';
 import { Property, internalAsFactory } from '../properties.mts';
 

@@ -37,7 +37,7 @@ describe('router', () => {
     router.mount('/foo', testHandler);
     router.at('/exact', testHandler);
 
-    return withServer(router, async (url) => {
+    return withServer(router, async (url, { expectError }) => {
       await expect(
         fetch(url + '/foo'),
         responds({ status: 200, body: 'request - method: GET, handler URL: /' }),
@@ -54,8 +54,11 @@ describe('router', () => {
       );
 
       await expect(fetch(url + '/exact/bar'), responds({ status: 404 }));
+      expectError('handling request /exact/bar: HTTPError(404 Not Found)');
       await expect(fetch(url + '/nope'), responds({ status: 404 }));
+      expectError('handling request /nope: HTTPError(404 Not Found)');
       await expect(fetch(url + '/'), responds({ status: 404 }));
+      expectError('handling request /: HTTPError(404 Not Found)');
     });
   });
 
@@ -99,7 +102,7 @@ describe('router', () => {
     router.onRequest('GET', '/foo', testHandler);
     router.onRequest('POST', '/foo', writeAndReturn('posted'));
 
-    return withServer(router, async (url) => {
+    return withServer(router, async (url, { expectError }) => {
       await expect(
         fetch(url + '/foo'),
         responds({ status: 200, body: 'request - method: GET, handler URL: /' }),
@@ -110,6 +113,7 @@ describe('router', () => {
       );
 
       await expect(fetch(url + '/foo', { method: 'PUT' }), responds({ status: 404 }));
+      expectError('handling request /foo: HTTPError(404 Not Found)');
     });
   });
 
@@ -368,9 +372,10 @@ describe('router', () => {
     const router = new Router();
     router.getOnly('/', writeAndReturn('content'));
 
-    return withServer(router, async (url) => {
+    return withServer(router, async (url, { expectError }) => {
       await expect(fetch(url + '/', { method: 'GET' }), responds({ status: 200 }));
       await expect(fetch(url + '/', { method: 'HEAD' }), responds({ status: 404 }));
+      expectError('handling request /: HTTPError(404 Not Found)');
     });
   });
 
@@ -401,11 +406,14 @@ describe('router', () => {
       subRouter.get('/bar', writeAndReturn('sub'));
     });
 
-    return withServer(router, async (url) => {
+    return withServer(router, async (url, { expectError }) => {
       await expect(fetch(url + '/foo/bar'), responds({ body: 'sub' }));
       await expect(fetch(url + '/foo'), responds({ status: 404 }));
+      expectError('handling request /foo: HTTPError(404 Not Found)');
       await expect(fetch(url + '/foo/nope'), responds({ status: 404 }));
+      expectError('handling request /foo/nope: HTTPError(404 Not Found)');
       await expect(fetch(url + '/nope/bar'), responds({ status: 404 }));
+      expectError('handling request /nope/bar: HTTPError(404 Not Found)');
     });
   });
 
@@ -543,7 +551,7 @@ describe('router', () => {
   it('returns 404 for upgrade requests which are not handled', { timeout: 3000 }, () => {
     const router = new Router().onUpgrade('GET', 'custom', '/', () => CONTINUE);
 
-    return withServer(router, async (url) => {
+    return withServer(router, async (url, { expectError }) => {
       const response = await rawRequest(url, {
         headers: { connection: 'upgrade', upgrade: 'custom' },
       });
@@ -557,6 +565,7 @@ describe('router', () => {
           '',
         ].join('\r\n'),
       );
+      expectError('handling upgrade /: HTTPError(404 Not Found)');
     });
   });
 

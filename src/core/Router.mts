@@ -27,6 +27,7 @@ import {
   type ErrorHandler,
   type Handler,
   type RequestReturnHandlerFn,
+  type ErrorOutput,
 } from './handler.mts';
 
 export type CommonMethod =
@@ -498,8 +499,12 @@ export async function internalRunHandler(
     if (currentError._hasError) {
       if (handler.handleError) {
         const err = currentError._error;
-        const output = props._upgradeProtocols
-          ? { socket: props._output!._target, head: props._output!._head }
+        const output: ErrorOutput = props._upgradeProtocols
+          ? {
+              socket: props._output!._target,
+              head: props._output!._head,
+              hasUpgraded: props._hasUpgraded ?? false,
+            }
           : { response: props._output!._target };
         if (!handler.shouldHandleError || handler.shouldHandleError(err, props._request, output)) {
           currentError._clear(); // clear before calling handler in case handler throws a routing instruction
@@ -535,7 +540,7 @@ export function internalCheckShouldUpgrade(handler: Handler, props: MessageProps
     try {
       return handler.shouldUpgrade(props._request);
     } catch (error: unknown) {
-      props._shouldUpgradeErrorHandler!(error);
+      props._errorCallback(error, 'checking should upgrade', props._request);
       return false;
     }
   } else {

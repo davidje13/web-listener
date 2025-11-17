@@ -120,7 +120,7 @@ describe('keep-alive', () => {
     const router = new Router();
     router.onUpgrade('GET', 'foobar', '/one', () => CONTINUE);
 
-    return withServer(router, async (url) => {
+    return withServer(router, async (url, { expectError }) => {
       const parsedURL = new URL(url);
       const socket = await openRawSocket(parsedURL);
       const received = makeStreamSearch(socket, fail);
@@ -130,6 +130,7 @@ describe('keep-alive', () => {
       });
       await received.find('404 Not Found');
       await received.expectEnd();
+      expectError('handling upgrade /one: HTTPError(404 Not Found)');
     });
   });
 });
