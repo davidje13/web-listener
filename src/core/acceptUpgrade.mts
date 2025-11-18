@@ -30,7 +30,7 @@ export async function acceptUpgrade<T>(
   if (!props._upgradeProtocols) {
     throw new TypeError('not an upgrade request');
   }
-  if (props._hasUpgraded) {
+  if (props._upgradeErrorHandler) {
     // note: if a single request triggers multiple acceptUpgrade calls,
     // later calls will assume the type is correct. This may cause type
     // mismatches, but is considered a user error (applications should
@@ -41,11 +41,11 @@ export async function acceptUpgrade<T>(
   if (!socket.readable || !socket.writable) {
     throw STOP;
   }
+  props._hasUpgraded = true;
   const upgraded = await upgrade(req, socket, props._output._head);
   props._output._head = VOID_BUFFER; // allow GC of head data after upgrade is complete
   props._upgradeErrorHandler = upgraded.onError;
   internalSetSoftCloseHandler(props, upgraded.softCloseHandler);
   props._upgradeReturn = upgraded.return;
-  props._hasUpgraded = true;
   return upgraded.return;
 }

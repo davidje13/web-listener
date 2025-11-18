@@ -230,20 +230,38 @@ describe('WebListener', () => {
       }
     });
 
-    it('rejects new connections while soft closing', { timeout: 3000 }, async () => {
-      const events: string[] = [];
-      const handler = requestHandler((req) => {
-        events.push('received');
-        setSoftCloseHandler(req, () => {});
+    it('allows new connections while soft closing', { timeout: 3000 }, async () => {
+      const closers: (() => void)[] = [];
+      const handler = requestHandler((req, res) => {
+        setSoftCloseHandler(req, () => {
+          res.write('soft closed');
+        });
+        closers.push(() => res.end());
       });
 
       const weblistener = new WebListener(handler);
       const server = await weblistener.listen(0, 'localhost');
       const url = getAddressURL(server.address());
       try {
-        fetch(url).catch(() => {});
-        await expect.poll(() => events, equals(['received']), { timeout: 500 });
-        server.closeWithTimeout('shutdown', 5000);
+        const req1 = fetch(url)
+          .then((r) => r.text())
+          .catch(fail);
+        await expect.poll(() => closers, hasLength(1), { timeout: 500 });
+
+        const closed = server.closeWithTimeout('shutdown', 5000);
+
+        const req2 = fetch(url)
+          .then((r) => r.text())
+          .catch(fail);
+        await expect.poll(() => closers, hasLength(2), { timeout: 500 });
+
+        closers[1]!();
+        expect(await req2).equals('soft closed');
+
+        closers[0]!();
+        expect(await req1).equals('soft closed');
+
+        await closed; // after closing, subsequent requests fail
         await expect(() => fetch(url)).throws('fetch failed');
       } finally {
         await server.closeWithTimeout('end of test', 0);

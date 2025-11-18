@@ -1,4 +1,5 @@
 import type { IncomingMessage } from 'node:http';
+import { SocketServerResponse } from '../polyfill/SocketServerResponse.mts';
 import type { MaybePromise } from '../util/MaybePromise.mts';
 import {
   internalGetProps,
@@ -100,11 +101,15 @@ export function internalHardClose(props: MessageProps & Partial<CloseMessageProp
   if (!props._upgradeProtocols) {
     const res = props._output._target;
     if (!res.headersSent) {
-      res.statusCode = 503;
       if (!res.hasHeader('connection')) {
         res.setHeader('connection', 'close');
       }
+      res.writeHead(503);
     }
+  } else if (!props._hasUpgraded && props._output._target.writable) {
+    const res = new SocketServerResponse(props._output._target);
+    res.setHeader('connection', 'close');
+    res.writeHead(503);
   }
   props._output._target.end(() => props._request.socket.destroy());
 }

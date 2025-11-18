@@ -131,12 +131,14 @@ export class ServerManager {
       detach: () => detach('restart', options.restartTimeout),
       close: () =>
         new Promise<void>((resolve) => {
-          server.close(() => {
-            // ignore any error (happens if server is already closed)
-            this._log(2, `${name} closed`);
-            resolve();
+          const listeners = detach('shutdown', options.shutdownTimeout, true, () => {
+            server.close(() => {
+              // ignore any error (happens if server is already closed)
+              this._log(2, `${name} closed`);
+              resolve();
+            });
+            server.closeAllConnections();
           });
-          const listeners = detach('shutdown', options.shutdownTimeout, true);
           const connections = listeners.countConnections();
           if (connections > 0) {
             this._log(

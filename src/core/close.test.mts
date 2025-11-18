@@ -1,8 +1,10 @@
 import { withServer } from '../test-helpers/withServer.mts';
 import { responds } from '../test-helpers/responds.mts';
+import { rawRequest } from '../test-helpers/rawRequest.mts';
 import { Router } from './Router.mts';
 import { CONTINUE } from './RoutingInstruction.mts';
-import { requestHandler } from './handler.mts';
+import { requestHandler, upgradeHandler } from './handler.mts';
+import { acceptUpgrade } from './acceptUpgrade.mts';
 import {
   addTeardown,
   defer,
@@ -62,6 +64,48 @@ describe('soft close', () => {
       expect(capturedErrors).equals(['oops']);
     });
   });
+
+  it('notifies new connections that they should close immediately', { timeout: 3000 }, () => {
+    const events: string[] = [];
+    const handler = requestHandler((req, res) => {
+      events.push('initial soft close state: ' + isSoftClosed(req));
+      setSoftCloseHandler(req, (reason) => {
+        events.push('soft close called: ' + reason);
+        events.push('new soft close state: ' + isSoftClosed(req));
+        res.end();
+      });
+    });
+
+    return withServer(handler, async (url, { listeners }) => {
+      listeners.softClose('going away', (error) => fail(String(error)));
+
+      const res = await fetch(url);
+      expect(res.headers.get('connection')).equals('close');
+      expect(events).equals([
+        'initial soft close state: true',
+        'soft close called: going away',
+        'new soft close state: true',
+      ]);
+    });
+  });
+
+  it('notifies new upgrades that they should close immediately', { timeout: 3000 }, () => {
+    const events: string[] = [];
+    const handler = upgradeHandler((req, res) => {
+      events.push('initial soft close state: ' + isSoftClosed(req));
+      res.end();
+    });
+
+    return withServer(handler, async (url, { listeners }) => {
+      listeners.softClose('going away', (error) => fail(String(error)));
+
+      const res = await rawRequest(url, {
+        headers: { connection: 'upgrade', upgrade: 'custom' },
+      });
+      expect(res).equals('');
+      expect(events).equals(['initial soft close state: true']);
+    });
+  });
 });
 
 describe('hard close', () => {
@@ -83,6 +127,78 @@ describe('hard close', () => {
     });
   });
 
+  it('closes existing unhandled upgrades immediately', { timeout: 3000 }, () => {
+    const events: string[] = [];
+    const handler = upgradeHandler(() => {
+      events.push('received upgrade');
+    });
+
+    return withServer(handler, async (url, { server, listeners }) => {
+      const response = rawRequest(url, {
+        headers: { connection: 'upgrade', upgrade: 'custom' },
+      });
+      await expect.poll(() => events, equals(['received upgrade']));
+
+      listeners.hardClose(() => server.closeAllConnections());
+      expect(await response).equals(
+        'HTTP/1.1 503 Service Unavailable\r\nconnection: close\r\n\r\n',
+      );
+    });
+  });
+
+  it('closes existing handled upgrades immediately', { timeout: 3000 }, () => {
+    const events: string[] = [];
+    const handler = upgradeHandler(async (req) => {
+      events.push('received upgrade');
+      await acceptUpgrade(req, async (_, socket) => {
+        socket.write('protocol message');
+        return { return: null, onError: () => {}, softCloseHandler: () => {} };
+      });
+      events.push('upgraded');
+    });
+
+    return withServer(handler, async (url, { server, listeners }) => {
+      const response = rawRequest(url, {
+        headers: { connection: 'upgrade', upgrade: 'custom' },
+      });
+      await expect.poll(() => events, equals(['received upgrade', 'upgraded']));
+
+      listeners.hardClose(() => server.closeAllConnections());
+      expect(await response).equals('protocol message');
+    });
+  });
+
+  it('closes new connections immediately', { timeout: 3000 }, () => {
+    const events: string[] = [];
+    const handler = requestHandler(() => {
+      events.push('received request');
+    });
+
+    return withServer(handler, async (url, { listeners }) => {
+      listeners.hardClose();
+      const res = await fetch(url);
+      expect(res.status).equals(503);
+      expect(res.headers.get('connection')).equals('close');
+      expect(events).equals([]);
+    });
+  });
+
+  it('closes new upgrades immediately', { timeout: 3000 }, () => {
+    const events: string[] = [];
+    const handler = upgradeHandler(async () => {
+      events.push('received upgrade');
+    });
+
+    return withServer(handler, async (url, { listeners }) => {
+      listeners.hardClose();
+      const res = await rawRequest(url, {
+        headers: { connection: 'upgrade', upgrade: 'custom' },
+      });
+      expect(res).equals('HTTP/1.1 503 Service Unavailable\r\nconnection: close\r\n\r\n');
+      expect(events).equals([]);
+    });
+  });
+
   it('closes connections cleanly if they have already begun responding', { timeout: 3000 }, () => {
     const events: string[] = [];
     const handler = requestHandler((_, res) => {
@@ -97,6 +213,7 @@ describe('hard close', () => {
       listeners.hardClose(() => server.closeAllConnections());
       const res = await request;
       expect(res!.status).equals(200);
+      expect(res!.headers.get('connection')).equals('keep-alive');
       expect(await res!.text()).equals('data');
     });
   });

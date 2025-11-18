@@ -81,43 +81,51 @@ export class WebListener extends (EventTarget as TypedEventTarget<
     }
     server.addListener('clientError', listeners.clientError);
 
-    let closing = false;
-    const detach = (reason = '', existingConnectionTimeout = -1, forceCloseAll = false) => {
-      if (!closing) {
-        closing = true;
-        server.removeListener('checkContinue', listeners.request);
-        server.removeListener('checkExpectation', listeners.request);
-        server.removeListener('request', listeners.request);
-        server.removeListener('upgrade', listeners.upgrade);
-        if (server.shouldUpgradeCallback === listeners.shouldUpgrade) {
-          server.shouldUpgradeCallback = originalShouldUpgrade;
-        }
-        server.removeListener('clientError', listeners.clientError);
+    let removeListeners: (() => void) | undefined = () => {
+      removeListeners = undefined;
+      server.removeListener('checkContinue', listeners.request);
+      server.removeListener('checkExpectation', listeners.request);
+      server.removeListener('request', listeners.request);
+      server.removeListener('upgrade', listeners.upgrade);
+      if (server.shouldUpgradeCallback === listeners.shouldUpgrade) {
+        server.shouldUpgradeCallback = originalShouldUpgrade;
       }
-      const closePending = () => {
-        if (forceCloseAll) {
-          // idle connections are purged automatically by server.close, and in theory we
-          // have sent a hard close message to all the other connections, but in practice
-          // Node.js considers NEW connections which have not yet sent a request to not be
-          // "idle", so they can hang the server unless we kill them:
-          server.closeAllConnections();
-        }
-      };
+      server.removeListener('clientError', listeners.clientError);
+    };
+
+    return (
+      reason = '',
+      existingConnectionTimeout = -1,
+      forShutdown = false,
+      callback?: () => void,
+    ) => {
+      if (!forShutdown) {
+        removeListeners?.();
+      }
       if (existingConnectionTimeout > 0) {
-        const hardCloseTm = setTimeout(listeners.hardClose, existingConnectionTimeout);
+        const hardCloseTm = setTimeout(() => {
+          removeListeners?.();
+          // do not run callback - the softclose callback will still be invoked
+          listeners.hardClose();
+        }, existingConnectionTimeout);
         listeners.softClose(reason, onError, () => {
+          removeListeners?.();
           clearTimeout(hardCloseTm);
-          closePending();
+          callback?.();
         });
       } else if (existingConnectionTimeout === 0) {
-        listeners.hardClose(closePending);
+        removeListeners?.();
+        listeners.hardClose(callback);
+      } else {
+        removeListeners?.();
+        if (callback) {
+          setImmediate(callback);
+        }
       }
       // return the detached listeners in case the user wants to use their
       // own close() logic or check the number of active connections
       return listeners;
     };
-
-    return detach;
   }
 
   createServer(options: ServerOptions & ListenerOptions = {}): AugmentedServer {
@@ -128,10 +136,12 @@ export class WebListener extends (EventTarget as TypedEventTarget<
     const detach = this.attach(s, options);
     const augmented = Object.assign(s, {
       closeWithTimeout: (reason: string, timeout: number) =>
-        new Promise<void>((resolve) => {
-          s.close(() => resolve()); // ignore any error (happens if server is already closed)
-          detach(reason, timeout, true);
-        }),
+        new Promise<void>((resolve) =>
+          detach(reason, timeout, true, () => {
+            s.close(() => resolve());
+            s.closeAllConnections();
+          }),
+        ),
     });
     return augmented;
   }

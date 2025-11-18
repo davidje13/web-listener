@@ -65,6 +65,10 @@ export function toListeners(
   handler: Handler,
   { onError = internalLogError, socketCloseTimeout = 500 }: NativeListenersOptions = {},
 ): NativeListeners {
+  let closeState = 0;
+  let closeReason = '';
+  let closeOnError: ServerErrorCallback = onError;
+
   const allClosedCallbacks: (() => void)[] = [];
   const active = new Set<MessageProps>();
   const runAllClosedCallbacks = () => {
@@ -101,10 +105,17 @@ export function toListeners(
       } catch (error: unknown) {
         onError(error, 'parsing request', req);
         internalDefaultErrorHandler(new HTTPError(400), req, { response: res });
-        return undefined;
+        return;
       }
       internalBeginResponse(props, false, { _target: res });
       track(props);
+      if (closeState === 1) {
+        internalSoftClose(props, closeReason, closeOnError);
+      } else if (closeState === 2) {
+        internalHardClose(props);
+        internalEndRequest(req);
+        return;
+      }
       const currentError = new ErrorAccumulator();
       const r = await internalRunHandler(handler, props, currentError);
       if (!currentError._hasError && (r === CONTINUE || r === NEXT_ROUTE || r === NEXT_ROUTER)) {
@@ -139,6 +150,13 @@ export function toListeners(
       internalBeginResponse(props, true, { _target: socket, _head: head });
       head = VOID_BUFFER; // allow GC
       track(props);
+      if (closeState === 1) {
+        internalSoftClose(props, closeReason, closeOnError);
+      } else if (closeState === 2) {
+        internalHardClose(props);
+        internalEndRequest(req);
+        return;
+      }
       const currentError = new ErrorAccumulator();
       const r = await internalRunHandler(handler, props, currentError);
       if (!currentError._hasError && (r === CONTINUE || r === NEXT_ROUTE || r === NEXT_ROUTER)) {
@@ -207,15 +225,23 @@ export function toListeners(
     },
 
     softClose(reason, onError, callback) {
-      for (const props of active) {
-        void internalSoftClose(props, reason, onError);
+      if (closeState < 1) {
+        closeState = 1;
+        closeReason = reason;
+        closeOnError = onError;
+        for (const props of active) {
+          internalSoftClose(props, reason, onError);
+        }
       }
       addAllClosedCallback(callback);
     },
 
     hardClose(callback) {
-      for (const props of active) {
-        internalHardClose(props);
+      if (closeState < 2) {
+        closeState = 2;
+        for (const props of active) {
+          internalHardClose(props);
+        }
       }
       addAllClosedCallback(callback);
     },
