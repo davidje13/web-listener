@@ -1,4 +1,4 @@
-import type { IncomingMessage } from 'http';
+import type { IncomingMessage } from 'node:http';
 import { internalMustGetProps } from '../../core/messages.mts';
 
 export const emitError = (req: IncomingMessage, error: unknown) => {

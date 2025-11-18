@@ -19,6 +19,7 @@ import {
   typedErrorHandler,
   jsonErrorHandler,
   emitError,
+  conditionalErrorHandler,
 } from 'web-listener';
 
 // this file just checks types; the code is not executed
@@ -118,6 +119,18 @@ r.use(
     assertType(err)<RangeError>();
     res.end('range error');
   }),
+  conditionalErrorHandler(
+    (e) => typeof e === 'number',
+    (err) => {
+      assertType(err)<number>();
+    },
+  ),
+  conditionalErrorHandler(
+    (e) => e instanceof Error && e.message === 'oops',
+    (err) => {
+      assertType(err)<unknown>();
+    },
+  ),
   jsonErrorHandler((err) => ({ error: err.body, status: err.statusCode }), {
     forceStatus: 200,
     onlyIfRequested: false,

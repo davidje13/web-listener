@@ -14,11 +14,13 @@ interface BearerAuthOptions<Req, Token> {
     token: string,
     realm: string,
     req: IncomingMessage & Req,
-  ) => MaybePromise<Token>;
-  fallbackTokenFetcher?: (req: IncomingMessage & Req) => MaybePromise<string | undefined>;
-  closeOnExpiry?: boolean;
-  softCloseBufferTime?: number;
-  onSoftCloseError?: ServerErrorCallback;
+  ) => MaybePromise<Token | null | undefined>;
+  fallbackTokenFetcher?:
+    | ((req: IncomingMessage & Req) => MaybePromise<string | null | undefined>)
+    | undefined;
+  closeOnExpiry?: boolean | undefined;
+  softCloseBufferTime?: number | undefined;
+  onSoftCloseError?: ServerErrorCallback | undefined;
 }
 
 interface JWTToken {
@@ -51,7 +53,7 @@ export function requireBearerAuth<Req = {}, Token = JWTToken>({
         throw new HTTPError(401, { headers: failHeaders, body: 'no token provided' });
       }
 
-      let tokenData: Token | null;
+      let tokenData: Token | null | undefined;
       try {
         tokenData = await extractAndValidateToken(token, authRealm, req);
       } catch (error: unknown) {

@@ -88,13 +88,22 @@ export const typedErrorHandler = <Error, Req>(
   handler: TypedErrorHandlerFn<Error, Req>,
 ) => conditionalErrorHandler((x): x is Error => x instanceof ErrorClass, handler);
 
-export const conditionalErrorHandler = <Error, Req>(
+type ConditionalErrorHandler = (<Error, Req>(
   test: (x: unknown) => x is Error,
+  handler: TypedErrorHandlerFn<Error, Req>,
+) => ErrorHandler<Req>) &
+  (<Req>(
+    test: (x: unknown) => boolean,
+    handler: TypedErrorHandlerFn<unknown, Req>,
+  ) => ErrorHandler<Req>);
+
+export const conditionalErrorHandler: ConditionalErrorHandler = <Error, Req>(
+  test: (x: unknown) => boolean,
   handler: TypedErrorHandlerFn<Error, Req>,
 ): ErrorHandler<Req> => ({
   handleError: (error, req, output) => {
     if (output.response && test(error)) {
-      return handler(error, req, output.response);
+      return handler(error as Error, req, output.response);
     }
     throw error;
   },
