@@ -1268,13 +1268,13 @@ function captureEvents(bb: BusboyInstance, omit: string[] = []): Promise<unknown
         file.data = Buffer.concat(data, nb);
         file.truncated = stream.truncated;
       });
-      stream.on('error', (err) => {
-        file.err = err.message;
+      stream.on('error', (error) => {
+        file.err = error.message;
       });
     });
   }
 
-  bb.on('error', (err) => results.push({ error: err.message }));
+  bb.on('error', (error) => results.push({ error: error.message }));
   bb.on('partsLimit', () => results.push('partsLimit'));
   bb.on('filesLimit', () => results.push('filesLimit'));
   bb.on('fieldsLimit', () => results.push('fieldsLimit'));

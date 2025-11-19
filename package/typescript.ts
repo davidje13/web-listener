@@ -87,15 +87,17 @@ const auth = requireBearerAuth({
   fallbackTokenFetcher: makeWebSocketFallbackTokenFetcher(acceptWebSocket),
   closeOnExpiry: true,
   softCloseBufferTime: 5000,
-  onSoftCloseError(err, action, req) {
-    assertType(err)<unknown>();
-    assertType(action)<string>();
+  onSoftCloseError(error, context, req) {
+    assertType(error)<unknown>();
+    assertType(context)<string>();
     assertType(req)<IncomingMessage>();
   },
 });
 r.use(auth.handler, requireAuthScope('foo'), (req) => {
   assertType(auth.getTokenData(req))<{ nbf: number; exp: number; scopes: string[]; extra: {} }>();
   emitError(req, 'nope');
+  emitError(req, new Error());
+  emitError(req, new Error(), 'custom context');
 });
 
 r.use((req, res) => {
@@ -111,27 +113,27 @@ r.use(
 );
 
 r.use(
-  typedErrorHandler(TypeError, (err, _, res) => {
-    assertType(err)<TypeError>();
+  typedErrorHandler(TypeError, (error, _, res) => {
+    assertType(error)<TypeError>();
     res.end('type error');
   }),
-  typedErrorHandler(RangeError, (err, _, res) => {
-    assertType(err)<RangeError>();
+  typedErrorHandler(RangeError, (error, _, res) => {
+    assertType(error)<RangeError>();
     res.end('range error');
   }),
   conditionalErrorHandler(
     (e) => typeof e === 'number',
-    (err) => {
-      assertType(err)<number>();
+    (error) => {
+      assertType(error)<number>();
     },
   ),
   conditionalErrorHandler(
     (e) => e instanceof Error && e.message === 'oops',
-    (err) => {
-      assertType(err)<unknown>();
+    (error) => {
+      assertType(error)<unknown>();
     },
   ),
-  jsonErrorHandler((err) => ({ error: err.body, status: err.statusCode }), {
+  jsonErrorHandler((error) => ({ error: error.body, status: error.statusCode }), {
     forceStatus: 200,
     onlyIfRequested: false,
   }),

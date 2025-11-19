@@ -23,19 +23,19 @@ export async function withServer(
   const errors: string[] = [];
   const listeners = toListeners(handler, {
     ...options,
-    onError: (err, action, req) => {
-      let message = action;
+    onError: (error, context, req) => {
+      let message = context;
       if (req?.url) {
         message += ` ${req.url}`;
       }
       message += ': ';
-      if (err instanceof Error) {
-        if ('code' in err) {
-          message += `${err.code} `;
+      if (error instanceof Error) {
+        if ('code' in error) {
+          message += `${error.code} `;
         }
-        message += err.stack ?? String(err);
+        message += error.stack ?? String(error);
       } else {
-        message += String(err);
+        message += String(error);
       }
       errors.push(message);
     },
@@ -78,11 +78,11 @@ export async function withServer(
       errors.length = 0;
       throw error;
     }
-  } catch (err) {
+  } catch (error) {
     if (errors.length > 0) {
       console.log('unexpected errors:\n%s', errors.join('\n'));
     }
-    throw err;
+    throw error;
   } finally {
     listeners.hardClose(() => server.closeAllConnections());
     await new Promise<void>((resolve, reject) => {
@@ -90,10 +90,10 @@ export async function withServer(
         server.closeAllConnections();
         reject(new Error('timed out waiting for connections to close'));
       }, 1000);
-      server.close((err) => {
+      server.close((error) => {
         clearTimeout(tm);
-        if (err) {
-          reject(err);
+        if (error) {
+          reject(error);
         } else {
           resolve();
         }

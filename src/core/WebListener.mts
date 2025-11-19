@@ -60,10 +60,10 @@ export class WebListener extends (EventTarget as TypedEventTarget<
   }
 
   attach(server: Server, options: ListenerOptions = {}) {
-    const onError = (error: unknown, action: string, request?: IncomingMessage) => {
-      const detail = { error, server, action, request };
+    const onError = (error: unknown, context: string, request: IncomingMessage | undefined) => {
+      const detail = { server, error, context, request };
       if (this.dispatchEvent(new CustomEvent<RequestErrorDetail>('error', { detail }))) {
-        internalLogError(error, action, request);
+        internalLogError(error, context, request);
       }
     };
     const listeners = toListeners(this._handler, { ...options, onError });
@@ -166,9 +166,9 @@ export class WebListener extends (EventTarget as TypedEventTarget<
 }
 
 export interface RequestErrorDetail {
-  error: unknown;
   server: Server;
-  action: string;
+  error: unknown;
+  context: string;
   request: IncomingMessage | undefined;
 }
 

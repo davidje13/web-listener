@@ -60,8 +60,8 @@ describe('BlockingQueue', () => {
     const queue = new BlockingQueue<number>();
 
     let caught: unknown = null;
-    queue.shift().catch((err) => {
-      caught = err;
+    queue.shift().catch((error) => {
+      caught = error;
     });
     await Promise.resolve();
     expect(caught).isNull();
@@ -93,8 +93,8 @@ describe('BlockingQueue', () => {
     const queue = new BlockingQueue<number>();
 
     let caught: unknown = null;
-    queue.shift().catch((err) => {
-      caught = err;
+    queue.shift().catch((error) => {
+      caught = error;
     });
     await Promise.resolve();
     expect(caught).isNull();

@@ -3,6 +3,7 @@ import type { Duplex } from 'node:stream';
 import { acceptUpgrade, type AcceptUpgradeHandler } from '../../core/acceptUpgrade.mts';
 import { HTTPError } from '../../core/HTTPError.mts';
 import { findCause } from '../../util/findCause.mts';
+import { VOID_BUFFER } from '../../util/voidBuffer.mts';
 import { WebSocketError } from './WebSocketError.mts';
 
 interface InternalWebSocketServerOptions {
@@ -62,6 +63,7 @@ export function makeAcceptWebSocket<T extends ClosableWebSocket, PassThroughOpti
       wsServer.once('wsClientError', reject);
       wsServer.handleUpgrade(req, socket, head, (ws) => {
         wsServer.off('wsClientError', reject);
+        head = VOID_BUFFER; // GC
         resolve({
           return: ws,
           onError: (error) => {

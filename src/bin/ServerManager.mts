@@ -91,8 +91,8 @@ export class ServerManager {
         : () => {},
     );
     const weblistener = new WebListener(router);
-    weblistener.addEventListener('error', ({ detail: { action, error, request } }) => {
-      this._log(0, `${name} ${this._colour('91', 'error')}: ${action} ${request?.url} ${error}`);
+    weblistener.addEventListener('error', ({ detail: { error, context, request } }) => {
+      this._log(0, `${name} ${this._colour('91', 'error')}: ${context} ${request?.url} ${error}`);
     });
 
     let server: Server;

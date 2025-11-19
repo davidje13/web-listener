@@ -91,7 +91,7 @@ describe('WebSocketMessages', () => {
     router.ws('/', async (req) => {
       const ws = await acceptWebSocket(req);
       const messages = new WebSocketMessages(ws);
-      received = messages.next(100).catch((err) => `caught ${err}`);
+      received = messages.next(100).catch((error) => `caught ${error}`);
     });
 
     return withServer(router, async (url) => {
@@ -111,7 +111,7 @@ describe('WebSocketMessages', () => {
     router.ws('/', async (req) => {
       const ws = await acceptWebSocket(req);
       const messages = new WebSocketMessages(ws);
-      received = messages.next().catch((err) => `caught ${err}`);
+      received = messages.next().catch((error) => `caught ${error}`);
     });
 
     return withServer(router, async (url) => {
@@ -135,7 +135,7 @@ describe('WebSocketMessages', () => {
       const messages = new WebSocketMessages(ws);
       detach = messages.detach;
       received1 = messages.next();
-      received2 = messages.next().catch((err) => `caught ${err}`);
+      received2 = messages.next().catch((error) => `caught ${error}`);
     });
 
     return withServer(router, async (url) => {
@@ -162,7 +162,7 @@ describe('WebSocketMessages', () => {
       const messages = new WebSocketMessages(ws, { limit: 2 });
       received1 = messages.next();
       received2 = messages.next();
-      received3 = messages.next().catch((err) => `caught ${err}`);
+      received3 = messages.next().catch((error) => `caught ${error}`);
     });
 
     return withServer(router, async (url) => {
@@ -231,7 +231,7 @@ describe('nextWebSocketMessage', () => {
     const router = new Router();
     router.ws('/', async (req) => {
       const ws = await acceptWebSocket(req);
-      const message1 = await nextWebSocketMessage(ws, { timeout: 50 }).catch((err) => err);
+      const message1 = await nextWebSocketMessage(ws, { timeout: 50 }).catch((error) => error);
       ws.send(String(message1));
       const message2 = await nextWebSocketMessage(ws);
       ws.send(`echo ${message2.text}`);

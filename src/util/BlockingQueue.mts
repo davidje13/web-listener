@@ -2,7 +2,7 @@ import { Queue } from './Queue.mts';
 
 interface PendingPop<T> {
   _resolve: (value: T) => void;
-  _reject: (err: unknown) => void;
+  _reject: (error: unknown) => void;
   _tm: NodeJS.Timeout | null;
 }
 

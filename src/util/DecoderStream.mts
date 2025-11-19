@@ -16,8 +16,8 @@ export class WrappedDecoderStream extends TransformStream<Uint8Array, string> {
           if (result) {
             controller.enqueue(result);
           }
-        } catch (err: unknown) {
-          controller.error(err);
+        } catch (error: unknown) {
+          controller.error(error);
         }
       },
       flush(controller) {
@@ -26,8 +26,8 @@ export class WrappedDecoderStream extends TransformStream<Uint8Array, string> {
           if (result) {
             controller.enqueue(result);
           }
-        } catch (err: unknown) {
-          controller.error(err);
+        } catch (error: unknown) {
+          controller.error(error);
         }
       },
     });

@@ -182,8 +182,8 @@ function spawnProcess(path, args, options = {}) {
     env: { PATH: process.env['PATH'], ...options.env },
   });
   const errors = [];
-  const err = (err) => errors.push(err);
-  p.on('error', err);
+  const errorListener = (error) => errors.push(error);
+  p.on('error', errorListener);
   const exited = new Promise((resolve) => p.once('exit', resolve));
 
   return {
@@ -191,7 +191,7 @@ function spawnProcess(path, args, options = {}) {
     stderr: p.stderr,
     errors,
     close: () => {
-      p.off('error', err);
+      p.off('error', errorListener);
       p.on('error', () => {});
       ac.abort();
       return exited;

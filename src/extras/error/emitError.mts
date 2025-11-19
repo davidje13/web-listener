@@ -1,11 +1,11 @@
 import type { IncomingMessage } from 'node:http';
 import { internalMustGetProps } from '../../core/messages.mts';
 
-export const emitError = (req: IncomingMessage, error: unknown) => {
+export const emitError = (req: IncomingMessage, error: unknown, context?: string) => {
   const props = internalMustGetProps(req);
   props._errorCallback(
     error,
-    props._upgradeProtocols ? 'handling upgrade' : 'handling request',
+    context ?? (props._upgradeProtocols ? 'handling upgrade' : 'handling request'),
     req,
   );
 };

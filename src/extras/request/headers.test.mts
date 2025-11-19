@@ -129,13 +129,13 @@ describe('getRange', () => {
   });
 
   it('throws HTTP 416 if all requested ranges are invalid', () => {
-    let err: unknown;
+    let capturedError: unknown;
     try {
       getRange({ headers: { range: 'bytes=2000-2999' } } as IncomingMessage, 1000);
     } catch (error: unknown) {
-      err = error;
+      capturedError = error;
     }
-    expect(String(err)).contains('HTTPError(416 Range Not Satisfiable)');
+    expect(String(capturedError)).contains('HTTPError(416 Range Not Satisfiable)');
   });
 
   it('interprets unbounded ranges as to-end', () => {

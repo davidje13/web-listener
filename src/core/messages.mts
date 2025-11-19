@@ -26,8 +26,8 @@ interface UpgradeExtraProps {
   _output?: UpgradeOutput;
 }
 
-export type ServerErrorCallback = (error: unknown, action: string, req: IncomingMessage) => void;
-export type UpgradeErrorHandler = (error: unknown, req: IncomingMessage, socket: Duplex) => void;
+export type ServerErrorCallback = (error: unknown, context: string, req: IncomingMessage) => void;
+export type UpgradeErrorHandler = (error: unknown) => void;
 
 export type MessageProps = {
   _request: IncomingMessage;
@@ -85,9 +85,9 @@ export function internalBeginResponse(
   const handleClose = async () => {
     // finished sending response, or client aborted request (can check _target.writableEnded to distinguish if needed)
     props._ac.abort(output._target.writableEnded ? 'complete' : 'client abort');
-    const err = new ErrorAccumulator();
-    await internalRunTeardown(props._deferred, err, props);
-    await internalRunTeardown(props._teardowns, err, props, () => {
+    const errors = new ErrorAccumulator();
+    await internalRunTeardown(props._deferred, errors, props);
+    await internalRunTeardown(props._teardowns, errors, props, () => {
       props._postTeardown = async (fn) => {
         try {
           await fn();
@@ -96,8 +96,8 @@ export function internalBeginResponse(
         }
       };
     });
-    if (err._hasError) {
-      props._errorCallback(err._error, 'tearing down', props._request);
+    if (errors._hasError) {
+      props._errorCallback(errors._error, 'tearing down', props._request);
     }
   };
 

@@ -36,8 +36,8 @@ describe('getRemainingPathComponents', () => {
     const handler = requestHandler((req, res) => {
       try {
         res.end(JSON.stringify(getRemainingPathComponents(req)));
-      } catch (err) {
-        res.end(JSON.stringify(String(err)));
+      } catch (error: unknown) {
+        res.end(JSON.stringify(String(error)));
       }
     });
 

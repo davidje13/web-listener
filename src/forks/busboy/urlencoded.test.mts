@@ -253,7 +253,7 @@ describe('urlencoded', () => {
 
         bb.on('field', (key, val, info) => results.push([key, val, info]));
         bb.on('file', () => reject(new Error('Unexpected file')));
-        bb.on('error', (err) => results.push({ error: err.message }));
+        bb.on('error', (error) => results.push({ error: error.message }));
         bb.on('partsLimit', () => results.push('partsLimit'));
         bb.on('filesLimit', () => results.push('filesLimit'));
         bb.on('fieldsLimit', () => results.push('fieldsLimit'));
@@ -281,7 +281,7 @@ describe('urlencoded', () => {
 
         bb.on('field', (key, val, info) => results.push([key, val, info]));
         bb.on('file', () => reject(new Error('Unexpected file')));
-        bb.on('error', (err) => results.push({ error: err.message }));
+        bb.on('error', (error) => results.push({ error: error.message }));
         bb.on('partsLimit', () => results.push('partsLimit'));
         bb.on('filesLimit', () => results.push('filesLimit'));
         bb.on('fieldsLimit', () => results.push('fieldsLimit'));

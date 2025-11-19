@@ -498,7 +498,7 @@ export async function internalRunHandler(
   try {
     if (currentError._hasError) {
       if (handler.handleError) {
-        const err = currentError._error;
+        const error = currentError._error;
         const output: ErrorOutput = props._upgradeProtocols
           ? {
               socket: props._output!._target,
@@ -506,9 +506,12 @@ export async function internalRunHandler(
               hasUpgraded: props._hasUpgraded ?? false,
             }
           : { response: props._output!._target };
-        if (!handler.shouldHandleError || handler.shouldHandleError(err, props._request, output)) {
+        if (
+          !handler.shouldHandleError ||
+          handler.shouldHandleError(error, props._request, output)
+        ) {
           currentError._clear(); // clear before calling handler in case handler throws a routing instruction
-          result = await handler.handleError(err, props._request, output);
+          result = await handler.handleError(error, props._request, output);
         }
       }
     } else if (props._upgradeProtocols) {

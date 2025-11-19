@@ -176,7 +176,7 @@ describe('ServerSentEvents', () => {
 
       await received.find('welcome');
       expect(received).not(contains('retry'));
-      listeners.softClose('shutdown', (err) => fail(String(err)));
+      listeners.softClose('shutdown', (error) => fail(String(error)));
       await received.expectEnd();
       expect(received.current()).matches(/retry:\d+\n\n\r\n0\r\n\r\n$/);
     });

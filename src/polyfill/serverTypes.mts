@@ -2,7 +2,7 @@ import type { IncomingMessage } from 'node:http';
 import type { Duplex } from 'node:stream';
 
 // This type is defined inline in node:http's Server.addListener('clientError', ...) definition
-export type ClientErrorListener = (err: Error, socket: Duplex) => void;
+export type ClientErrorListener = (error: Error, socket: Duplex) => void;
 
 // This type is defined inline in node:http's Server.addListener('upgrade', ...) definition
 export type UpgradeListener = (req: IncomingMessage, socket: Duplex, head: Buffer) => void;

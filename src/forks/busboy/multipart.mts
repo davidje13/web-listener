@@ -264,7 +264,7 @@ function write(
   this: Multipart,
   chunk: Buffer,
   _: BufferEncoding,
-  cb: (err?: Error | null) => void,
+  cb: (error?: Error | null) => void,
 ) {
   this._writecb = cb;
   this._bparser.push(chunk);
@@ -275,19 +275,19 @@ function write(
   }
 }
 
-function destroy(this: Multipart, err: Error | null, cb: (err?: Error | null) => void) {
+function destroy(this: Multipart, error: Error | null, cb: (error?: Error | null) => void) {
   this._hparser = undefined;
   this._bparser = IGNORE_DATA;
-  err ??= this._checkEndState();
+  error ??= this._checkEndState();
   const fileStream = this._fileStream;
   if (fileStream) {
     this._fileStream = undefined;
-    fileStream.destroy(err ?? undefined);
+    fileStream.destroy(error ?? undefined);
   }
-  cb(err);
+  cb(error);
 }
 
-function final(this: Multipart, cb: (err?: Error | null) => void) {
+function final(this: Multipart, cb: (error?: Error | null) => void) {
   this._bparser.destroy();
   if (!this._complete) {
     return cb(new HTTPError(400, { body: 'unexpected end of form' }));

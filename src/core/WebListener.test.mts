@@ -219,7 +219,7 @@ describe('WebListener', () => {
         const input = new TransformStream<Uint8Array>();
         const madeConnection = new Promise((resolve) => server.once('connection', resolve));
         const request = fetch(url, { method: 'POST', body: input.readable, duplex: 'half' }).catch(
-          (err) => String(err),
+          (error) => String(error),
         );
         await madeConnection;
         await server.closeWithTimeout('shutdown', 50);
@@ -324,7 +324,7 @@ describe('WebListener', () => {
         }
       } finally {
         await new Promise<void>((resolve, reject) => {
-          server.close((err) => (err ? reject(err) : resolve()));
+          server.close((error) => (error ? reject(error) : resolve()));
           server.closeAllConnections();
         });
       }
@@ -357,7 +357,7 @@ describe('WebListener', () => {
         expect(await res!.text()).equals('soft closed');
       } finally {
         await new Promise<void>((resolve, reject) => {
-          server.close((err) => (err ? reject(err) : resolve()));
+          server.close((error) => (error ? reject(error) : resolve()));
           server.closeAllConnections();
         });
       }

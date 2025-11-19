@@ -7,7 +7,7 @@ import 'lean-test';
 
 describe('jsonErrorHandler', () => {
   it('sends errors as JSON using the given format', { timeout: 3000 }, () => {
-    const errorHandler = jsonErrorHandler((err) => ({ error: err.body, extra: 'hi' }));
+    const errorHandler = jsonErrorHandler((error) => ({ error: error.body, extra: 'hi' }));
     return withServer(
       new Router().get('/', DO_THROW, errorHandler),
       async (url, { expectError }) => {
@@ -21,7 +21,7 @@ describe('jsonErrorHandler', () => {
   });
 
   it('sends as plain text if the client does not request JSON', { timeout: 3000 }, () => {
-    const errorHandler = jsonErrorHandler((err) => ({ error: err.body }));
+    const errorHandler = jsonErrorHandler((error) => ({ error: error.body }));
     return withServer(
       new Router().get('/', DO_THROW, errorHandler),
       async (url, { expectError }) => {
@@ -35,7 +35,7 @@ describe('jsonErrorHandler', () => {
   });
 
   it('can be forced to send JSON regardless of the client preference', { timeout: 3000 }, () => {
-    const errorHandler = jsonErrorHandler((err) => ({ error: err.body }), {
+    const errorHandler = jsonErrorHandler((error) => ({ error: error.body }), {
       onlyIfRequested: false,
     });
     return withServer(
@@ -51,9 +51,10 @@ describe('jsonErrorHandler', () => {
   });
 
   it('can be forced to use a constant status', { timeout: 3000 }, () => {
-    const errorHandler = jsonErrorHandler((err) => ({ error: err.body, status: err.statusCode }), {
-      forceStatus: 200,
-    });
+    const errorHandler = jsonErrorHandler(
+      (error) => ({ error: error.body, status: error.statusCode }),
+      { forceStatus: 200 },
+    );
     return withServer(
       new Router().get('/', DO_THROW, errorHandler),
       async (url, { expectError }) => {
@@ -66,9 +67,10 @@ describe('jsonErrorHandler', () => {
   });
 
   it('can use an alternative content-type', { timeout: 3000 }, () => {
-    const errorHandler = jsonErrorHandler((err) => ({ error: err.body, status: err.statusCode }), {
-      contentType: 'application/json+error',
-    });
+    const errorHandler = jsonErrorHandler(
+      (error) => ({ error: error.body, status: error.statusCode }),
+      { contentType: 'application/json+error' },
+    );
     return withServer(
       new Router().get('/', DO_THROW, errorHandler),
       async (url, { expectError }) => {
@@ -80,7 +82,7 @@ describe('jsonErrorHandler', () => {
   });
 
   it('does not emit the error if emitError is false', { timeout: 3000 }, () => {
-    const errorHandler = jsonErrorHandler((err) => ({ error: err.body }), { emitError: false });
+    const errorHandler = jsonErrorHandler((error) => ({ error: error.body }), { emitError: false });
     return withServer(new Router().get('/', DO_THROW, errorHandler), async (url) => {
       const res = await fetch(url, { headers: { accept: 'application/json' } });
       expect(res.status).equals(555);

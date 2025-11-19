@@ -228,7 +228,7 @@ describe('hard close', () => {
         const input = new TransformStream<Uint8Array>();
         const madeConnection = new Promise((resolve) => server.once('connection', resolve));
         const request = fetch(url, { method: 'POST', body: input.readable, duplex: 'half' }).catch(
-          (err) => String(err),
+          (error) => String(error),
         );
         await madeConnection;
 
@@ -249,7 +249,7 @@ describe('hard close', () => {
       const input = new TransformStream<Uint8Array>();
       const writer = input.writable.getWriter();
       const request = fetch(url, { method: 'POST', body: input.readable, duplex: 'half' }).catch(
-        (err) => err,
+        (error) => error,
       );
       writer.write(Buffer.from('chunk1'));
       await expect.poll(() => events, equals(['received request']), { timeout: 500 });
@@ -319,8 +319,8 @@ describe('scheduleClose', () => {
       setSoftCloseHandler(req, () => {
         throw 'oops';
       });
-      scheduleClose(req, 'timeout', Date.now() + 1000, 950, (error, action) => {
-        capturedErrors.push({ error, action });
+      scheduleClose(req, 'timeout', Date.now() + 1000, 950, (error, context) => {
+        capturedErrors.push({ error, context });
       });
     });
 
@@ -330,7 +330,7 @@ describe('scheduleClose', () => {
       const end = Date.now();
       expect(end - begin).isLessThan(500);
       expect(res.status).equals(503);
-      expect(capturedErrors).equals([{ error: 'oops', action: 'soft closing' }]);
+      expect(capturedErrors).equals([{ error: 'oops', context: 'soft closing' }]);
     });
   });
 });

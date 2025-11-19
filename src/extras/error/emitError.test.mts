@@ -17,4 +17,18 @@ describe('emitError', () => {
       },
     );
   });
+
+  it('allows custom context labels', { timeout: 3000 }, () => {
+    return withServer(
+      new Router().get('/', (req, res) => {
+        emitError(req, new Error('oops'), 'my custom context');
+        res.end();
+      }),
+      async (url, { expectError }) => {
+        const res = await fetch(url);
+        expect(res.status).equals(200);
+        expectError('my custom context /: Error: oops');
+      },
+    );
+  });
 });

@@ -423,7 +423,7 @@ describe('router', () => {
     router.get('/bar', () => {
       throw 'nope';
     });
-    router.onError((err, _, out) => void out.response?.end('handled ' + err));
+    router.onError((error, _, out) => void out.response?.end('handled ' + error));
 
     return withServer(router, async (url) => {
       await expect(fetch(url + '/foo'), responds({ body: 'got foo' }));
@@ -665,12 +665,12 @@ describe('router', () => {
     });
     router.get(
       '/',
-      errorHandler((err, _, res) => {
-        res.response?.end(`should not be called: ${err}`);
+      errorHandler((error, _, res) => {
+        res.response?.end(`should not be called: ${error}`);
       }),
       () => ({ foo: 'bar' }),
-      errorHandler((err, _, res) => {
-        res.response?.end(`error-handler:${err}`);
+      errorHandler((error, _, res) => {
+        res.response?.end(`error-handler:${error}`);
       }),
     );
 
@@ -719,9 +719,9 @@ const testHandler = requestHandler(
   (req, res) => void res.end(`request - method: ${req.method}, handler URL: ${req.url}`),
 );
 
-const doThrow = (err: unknown) =>
+const doThrow = (error: unknown) =>
   requestHandler(() => {
-    throw err;
+    throw error;
   });
 
 const writeAndReturn = (message: string, end = true, response: HandlerResult = undefined) =>

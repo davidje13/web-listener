@@ -132,7 +132,7 @@ describe('acceptUpgrade', () => {
         socket.write('upgrading\n');
         return {
           return: null,
-          onError: (error: unknown) => void socket.end(`errored: ${error}`),
+          onError: (error) => void socket.end(`errored: ${error}`),
           softCloseHandler: () => {},
         };
       });

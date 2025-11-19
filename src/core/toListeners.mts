@@ -47,8 +47,8 @@ export interface NativeListenersOptions {
 
 export type ServerGeneralErrorCallback = (
   error: unknown,
-  action: string,
-  req?: IncomingMessage,
+  context: string,
+  req: IncomingMessage | undefined,
 ) => void;
 
 export interface NativeListeners {
@@ -170,7 +170,7 @@ export function toListeners(
       if (currentError._hasError) {
         onError(currentError._error, 'handling upgrade', req);
         if (props._upgradeErrorHandler) {
-          props._upgradeErrorHandler(currentError._error, req, socket);
+          props._upgradeErrorHandler(currentError._error);
         } else {
           internalDefaultErrorHandler(currentError._error, req, {
             socket,
@@ -220,7 +220,7 @@ export function toListeners(
         // Similar: https://github.com/expressjs/multer/issues/779
         // Already handled by the reader, so ignore it here.
       } else {
-        onError(error, 'initialising request');
+        onError(error, 'initialising request', undefined);
       }
     },
 
@@ -252,11 +252,11 @@ export function toListeners(
   };
 }
 
-export const internalLogError: ServerGeneralErrorCallback = (error, action, req) => {
+export const internalLogError: ServerGeneralErrorCallback = (error, context, req) => {
   if (findCause(error, HTTPError)?.statusCode ?? 500 >= 500) {
     console.error(
       '%s',
-      `unhandled error while ${action} ${req?.url ?? '(no request information)'}:`,
+      `unhandled error while ${context} ${req?.url ?? '(no request information)'}:`,
       error,
     );
   }
