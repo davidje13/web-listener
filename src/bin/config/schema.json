@@ -136,6 +136,7 @@
                 "filePath": { "type": "string" }
               }
             },
+            "verbose": { "type": "boolean", "default": false },
             "subDirectories": {
               "anyOf": [{ "type": "boolean" }, { "type": "integer" }],
               "default": true

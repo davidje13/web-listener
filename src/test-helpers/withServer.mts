@@ -12,7 +12,7 @@ import {
 interface TestParams {
   server: Server;
   listeners: NativeListeners;
-  expectError: (message?: string) => void;
+  expectError: (message?: string | RegExp) => void;
 }
 
 export async function withServer(
@@ -52,8 +52,10 @@ export async function withServer(
     await test(getAddressURL(server.address()), {
       server,
       listeners,
-      expectError: (message = '') => {
-        const p = errors.findIndex((m) => m.includes(message));
+      expectError: (message: string | RegExp = '') => {
+        const p = errors.findIndex((m) =>
+          message instanceof RegExp ? message.test(m) : m.includes(message),
+        );
         if (p === -1) {
           throw new Error(
             `error not found: ${JSON.stringify(message)}\nseen:\n${errors.join('\n')}`,

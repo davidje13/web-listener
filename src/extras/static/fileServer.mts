@@ -2,12 +2,14 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { extname, resolve } from 'node:path';
 import { CONTINUE } from '../../core/RoutingInstruction.mts';
 import type { RequestHandler } from '../../core/handler.mts';
+import { HTTPError } from '../../core/HTTPError.mts';
 import type { MaybePromise } from '../../util/MaybePromise.mts';
 import { readHTTPQualityValues } from '../request/headers.mts';
 import type { NegotiationInput } from '../request/negotiation.mts';
 import { getRemainingPathComponents } from '../request/pathComponents.mts';
 import { sendFile } from '../response/sendFile.mts';
 import { generateWeakETag } from '../cache/etag.mts';
+import { emitError } from '../error/emitError.mts';
 import { getMime } from '../registries/mime.mts';
 import {
   FileFinder,
@@ -41,6 +43,14 @@ export interface FileServerOptions extends FileFinderOptions {
    * Compression, cache control, and range requests will continue to work as usual.
    */
   fallback?: FallbackOptions | undefined;
+
+  /**
+   * Enable verbose error messages when a file is not found.
+   * When this is false, only failures to find the fallback file will include verbose details.
+   *
+   * @default false
+   */
+  verbose?: boolean;
 
   /**
    * A function to call when a file is being served. Can modify headers in the response.
@@ -100,6 +110,7 @@ export const fileServer = async (
   {
     mode = 'dynamic',
     fallback,
+    verbose,
     callback = setDefaultCacheHeaders,
     ...options
   }: FileServerOptions = {},
@@ -131,13 +142,22 @@ export const fileServer = async (
         language: readHTTPQualityValues(req.headers['accept-language']),
         encoding: readHTTPQualityValues(req.headers['accept-encoding']),
       };
-      let file = await fileLookup.find(path, negotiation);
-      if (!file && fallbackPath) {
-        isFallback = true;
-        file = await fileLookup.find(fallbackPath, negotiation);
-      }
+      const warnings: string[] = [];
+      let file = await fileLookup.find(path, negotiation, verbose ? warnings : undefined);
       if (!file) {
-        return CONTINUE;
+        if (!fallbackPath) {
+          if (verbose) {
+            emitError(req, new Error(warnings.join(', ')), 'serving static content');
+          }
+          return CONTINUE;
+        }
+        isFallback = true;
+        file = await fileLookup.find(fallbackPath, negotiation, warnings);
+        if (!file) {
+          throw new HTTPError(500, {
+            message: `failed to find fallback file: ${warnings.join(', ')}`,
+          });
+        }
       }
       try {
         if (isFallback) {

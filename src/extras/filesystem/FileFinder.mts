@@ -139,7 +139,12 @@ export interface FileFinderOptions {
 }
 
 export interface FileFinderCore {
-  find(pathParts: string[], negotiation?: NegotiationInput): Promise<ResolvedFileInfo | null>;
+  find(
+    pathParts: string[],
+    negotiation?: NegotiationInput,
+    warnings?: string[] | undefined,
+  ): Promise<ResolvedFileInfo | null>;
+  debugAllPaths(): Promise<Set<string>>;
   readonly vary: string;
 }
 
@@ -245,6 +250,7 @@ export class FileFinder implements FileFinderCore {
   async find(
     pathParts: string[],
     negotiation: NegotiationInput = {},
+    warnings?: string[] | undefined,
   ): Promise<ResolvedFileInfo | null> {
     let subPath = pathParts.join(sep);
     if (this._caseSensitive === 'force-lowercase') {
@@ -252,6 +258,9 @@ export class FileFinder implements FileFinderCore {
     }
     let resolvedPath = resolve(this._basePath, subPath);
     if (!resolvedPath.startsWith(this._basePath) && resolvedPath + sep !== this._basePath) {
+      warnings?.push(
+        `${JSON.stringify(resolvedPath)} is not inside root ${JSON.stringify(this._basePath)}`,
+      );
       return null; // directory traversal escaped root directory: fail
     }
 
@@ -263,10 +272,14 @@ export class FileFinder implements FileFinderCore {
         .substring(this._basePath.length)
         .split(sep)
         .filter((part) => part);
-      if (parts.length > this._subDirectories + 1) {
+      if (parts.length - 1 > this._subDirectories) {
+        warnings?.push(
+          `${JSON.stringify(resolvedPath)} is nested too deeply (${parts.length - 1} > ${this._subDirectories})`,
+        );
         return null; // requested path is too deep for our config: fail
       }
       if (parts.some((p) => !this._checkPermitted(this._normalise(p)))) {
+        warnings?.push(`${JSON.stringify(resolvedPath)} is not permitted`);
         return null; // part of the requested path involves a file which we do not permit access to: fail
       }
       const name = parts[parts.length - 1] ?? '';
@@ -275,6 +288,7 @@ export class FileFinder implements FileFinderCore {
         this._indexFilesSet.has(this._normalise(name)) &&
         !this._allow.has(this._normalise(name))
       ) {
+        warnings?.push(`${JSON.stringify(resolvedPath)} is a hidden index file`);
         return null; // requested an index file by name, denied by config: fail
       }
       realPath = await realpath(suffixedPath, { encoding: 'utf-8' }).catch(() => null);
@@ -284,21 +298,27 @@ export class FileFinder implements FileFinderCore {
       }
     }
     if (!realPath || !parts) {
-      // requested path does not exist: fail
-      return null;
+      warnings?.push(`file ${JSON.stringify(resolvedPath)} does not exist`);
+      return null; // requested path does not exist: fail
     }
     if (this._normalise(realPath) !== this._normalise(resolvedPath)) {
-      // real path turned out to be different (e.g. a symlink): fail
-      return null;
+      warnings?.push(
+        `realpath ${JSON.stringify(realPath)} does not match request ${JSON.stringify(resolvedPath)}`,
+      );
+      return null; // real path turned out to be different (e.g. a symlink): fail
     }
 
     let canonicalPath = realPath;
     let stats = await stat(realPath).catch(() => null);
     if (!stats) {
+      warnings?.push(`file ${JSON.stringify(realPath)} does not exist`);
       return null; // requested path does not exist: fail
     }
     if (stats.isDirectory()) {
       if (parts.length > this._subDirectories) {
+        warnings?.push(
+          `${JSON.stringify(realPath)} index file is nested too deeply (${parts.length} > ${this._subDirectories})`,
+        );
         return null; // requested path is a directory and is too deep for our config to look for an index file: fail
       }
       for (const attempt of this._indexFiles) {
@@ -311,6 +331,7 @@ export class FileFinder implements FileFinderCore {
       }
     }
     if (!stats?.isFile()) {
+      warnings?.push(`${JSON.stringify(realPath)} exists but is not a file`);
       return null; // requested path exists but is not a regular file: fail
     }
     if (this._negotiator) {
@@ -320,17 +341,21 @@ export class FileFinder implements FileFinderCore {
         if (!option.filename || option.filename.includes(sep)) {
           continue;
         }
-        const result = await internalTryReturn({
-          canonicalPath,
-          negotiatedPath: join(dir, option.filename),
-          ...option.info,
-        });
+        const result = await internalTryReturn(
+          { canonicalPath, negotiatedPath: join(dir, option.filename), ...option.info },
+          warnings,
+        );
         if (result) {
           return result;
         }
       }
     }
-    return internalTryReturn({ canonicalPath, negotiatedPath: canonicalPath });
+    return internalTryReturn({ canonicalPath, negotiatedPath: canonicalPath }, warnings);
+  }
+
+  async debugAllPaths() {
+    const precomputed = await this.precompute();
+    return precomputed.debugAllPaths();
   }
 
   async precompute(): Promise<FileFinderCore> {
@@ -385,9 +410,10 @@ export class FileFinder implements FileFinderCore {
     }
 
     return {
-      find: async (path, negotiation = {}) => {
+      find: async (path, negotiation = {}, warnings) => {
         const entity = lookup.get(this._normalise(path.join('/')));
         if (!entity?.file) {
+          warnings?.push(`${JSON.stringify(path.join('/'))} not found in static file paths`);
           return null;
         }
         if (this._negotiator) {
@@ -395,21 +421,26 @@ export class FileFinder implements FileFinderCore {
             if (!entity.siblings.has(this._normalise(option.filename))) {
               continue;
             }
-            const result = await internalTryReturn({
-              canonicalPath: entity.file,
-              negotiatedPath: join(entity.dir, option.filename),
-              ...option.info,
-            });
+            const result = await internalTryReturn(
+              {
+                canonicalPath: entity.file,
+                negotiatedPath: join(entity.dir, option.filename),
+                ...option.info,
+              },
+              warnings,
+            );
             if (result) {
               return result;
             }
           }
         }
-        return internalTryReturn({
-          canonicalPath: entity.file,
-          negotiatedPath: entity.file,
-        });
+        return internalTryReturn(
+          { canonicalPath: entity.file, negotiatedPath: entity.file },
+          warnings,
+        );
       },
+      debugAllPaths: () =>
+        Promise.resolve(new Set([...lookup].filter(([_, v]) => v.file).map(([k]) => k))),
       vary: this.vary,
     };
   }
@@ -438,9 +469,11 @@ const DIR: StaticFileInfo = { file: '', dir: '', basename: '', siblings: new Set
 
 async function internalTryReturn(
   details: Omit<ResolvedFileInfo, 'handle' | 'stats'>,
+  warnings: string[] | undefined,
 ): Promise<ResolvedFileInfo | null> {
   const handle = await open(details.negotiatedPath, constants.O_RDONLY).catch(() => null);
   if (!handle) {
+    warnings?.push(`failed to open ${JSON.stringify(details.negotiatedPath)}`);
     return null;
   }
   const fail = () => {
@@ -451,6 +484,7 @@ async function internalTryReturn(
   // types of node, so we must confirm this is a file:
   const stats = await handle.stat().catch(fail);
   if (!stats?.isFile()) {
+    warnings?.push(`${JSON.stringify(details.negotiatedPath)} exists but is not a file`);
     return fail();
   }
   return { handle, stats: stats, ...details };

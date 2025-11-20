@@ -13,7 +13,7 @@ describe('fileServer', () => {
     'file.txt.gz': 'Compressed',
     'index.htm': 'Root Index',
     sub: {
-      'index.htm': 'Sub Index',
+      'index.html': 'Sub Index',
     },
     none: {},
   });
@@ -93,6 +93,18 @@ describe('fileServer', () => {
     });
   });
 
+  it('reports verbose error information if configured', { timeout: 3000 }, async ({ getTyped }) => {
+    const router = new Router();
+    router.use(await fileServer(getTyped(TEST_DIR), { verbose: true }));
+    router.use(requestHandler((_, res) => res.end('nope')));
+
+    return withServer(router, async (url, { expectError }) => {
+      const res = await fetch(url + '/missing');
+      expect(await res.text()).equals('nope');
+      expectError(/serving static content \/missing: Error: file ".*" does not exist/);
+    });
+  });
+
   it('ignores non-GET/HEAD requests', { timeout: 3000 }, async ({ getTyped }) => {
     const router = new Router();
     router.use(await fileServer(getTyped(TEST_DIR)));
@@ -121,6 +133,24 @@ describe('fileServer', () => {
 
       const res2 = await rawRequest(url + '/missing', { headers: { 'accept-encoding': 'gzip' } });
       expect(res2).contains('Compressed');
+    });
+  });
+
+  it('errors if the fallback file is not found', { timeout: 3000 }, async ({ getTyped }) => {
+    const router = new Router();
+    router.use(
+      await fileServer(getTyped(TEST_DIR), {
+        fallback: { filePath: 'nope.txt' },
+      }),
+    );
+
+    return withServer(router, async (url, { expectError }) => {
+      const res1 = await fetch(url + '/missing');
+      expect(res1.status).equals(500);
+      expect(await res1.text()).equals('');
+      expectError(
+        'handling request /missing: HTTPError(500 Internal Server Error): failed to find fallback file',
+      );
     });
   });
 });

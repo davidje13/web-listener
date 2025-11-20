@@ -260,6 +260,7 @@ const DEFAULT_FILES_OPTIONS = {
   mode: 'dynamic',
   subDirectories: true,
   caseSensitive: 'exact',
+  verbose: false,
   allowAllDotfiles: false,
   allowAllTildefiles: false,
   allowDirectIndexAccess: false,

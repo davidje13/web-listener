@@ -328,6 +328,22 @@ function fileFinderTestSuite(isPrecomputed: boolean) {
     }
   });
 
+  describe('debugAllPaths', () => {
+    it('returns a set of all recognised paths', async (props) => {
+      const fileFinder = await initialise(props, {
+        'foo.txt': 'Hello',
+        sub1: {
+          'index.htm': 'Index Content',
+          'foo.htm': 'Other Content',
+        },
+        sub2: { 'nope.htm': 'Nested Content' },
+      });
+
+      const paths = await fileFinder.debugAllPaths();
+      expect(paths).equals(new Set(['foo.txt', 'sub1', 'sub1/foo.htm', 'sub2/nope.htm']));
+    });
+  });
+
   const TEST_DIR = makeTestTempDir('ff-');
 
   async function initialise(
