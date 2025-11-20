@@ -175,7 +175,7 @@ export function toListeners(
           internalDefaultErrorHandler(currentError._error, req, {
             socket,
             head: props._output?._head ?? VOID_BUFFER,
-            hasUpgraded: props._hasUpgraded ?? false,
+            hasUpgraded: Boolean(props._hasUpgraded),
           });
         }
         internalEndRequest(req);

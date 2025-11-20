@@ -503,7 +503,7 @@ export async function internalRunHandler(
           ? {
               socket: props._output!._target,
               head: props._output!._head,
-              hasUpgraded: props._hasUpgraded ?? false,
+              hasUpgraded: Boolean(props._hasUpgraded),
             }
           : { response: props._output!._target };
         if (

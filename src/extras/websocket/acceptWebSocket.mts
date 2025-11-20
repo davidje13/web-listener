@@ -37,21 +37,22 @@ declare class WebSocketServer<T, Options> {
 }
 
 interface ClosableWebSocket {
-  close(status: number, message?: string): void;
+  close(status: number, message: string): void;
 }
 
-interface WebSocketOptions {
+type MakeAcceptWebSocketOptions<T, PassThroughOptions> = Partial<
+  PassThroughOptions & Record<ForbiddenWebSocketServerOptions, never>
+> & {
+  WebSocket?: (new (...args: any) => T) | undefined;
   softCloseStatusCode?: number | undefined;
-}
+};
 
 export function makeAcceptWebSocket<T extends ClosableWebSocket, PassThroughOptions>(
   wsServerClass: typeof WebSocketServer<T, InternalWebSocketServerOptions & PassThroughOptions>,
   {
     softCloseStatusCode = WebSocketError.GOING_AWAY,
     ...options
-  }: Partial<PassThroughOptions & Record<ForbiddenWebSocketServerOptions, never>> & {
-    WebSocket?: (new (...args: any) => T) | undefined;
-  } & WebSocketOptions = {},
+  }: MakeAcceptWebSocketOptions<T, PassThroughOptions> = {},
 ): (req: IncomingMessage) => Promise<T> {
   const upgrader: AcceptUpgradeHandler<T> = (req, socket, head) =>
     new Promise((resolve, reject) => {

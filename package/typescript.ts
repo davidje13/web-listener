@@ -20,16 +20,10 @@ import {
   jsonErrorHandler,
   emitError,
   conditionalErrorHandler,
+  acceptUpgrade,
 } from 'web-listener';
 
 // this file just checks types; the code is not executed
-
-// assertion helper
-type Equals<A, B> =
-  (<G>() => G extends A ? 1 : 2) extends <G>() => G extends B ? 1 : 2 ? [] : ['nope'];
-const assertType =
-  <Actual>(_: Actual) =>
-  <Expected>(..._typesDoNotMatch: Equals<Actual, Expected>) => {};
 
 const r = new Router();
 r.onRequest('GET', '/:foo{/:bar}/*baz', (req, res) => {
@@ -74,6 +68,24 @@ r.ws('/ws2', async (req) => {
     assertType(message)<WebSocketMessage>();
   }
   messages.detach();
+});
+
+r.onUpgrade('GET', 'foo', '/:id', async (req) => {
+  const accepted = await acceptUpgrade(req, async (req, socket, head) => {
+    assertType(getPathParameter(req, 'id'))<string>();
+    assertType(socket)<Duplex>();
+    assertType(head)<Buffer>();
+    return {
+      return: 1,
+      onError: (error) => {
+        assertType(error)<unknown>();
+      },
+      softCloseHandler: (reason) => {
+        assertType(reason)<string>();
+      },
+    };
+  });
+  assertType(accepted)<number>();
 });
 
 const auth = requireBearerAuth({
@@ -189,3 +201,10 @@ new WebListener(r).listen(8080, 'localhost');
 
 // @ts-expect-error
 new WebListener(subRouter);
+
+// assertion helper
+type Equals<A, B> =
+  (<G>() => G extends A ? 1 : 2) extends <G>() => G extends B ? 1 : 2 ? [] : ['nope'];
+const assertType =
+  <Actual>(_: Actual) =>
+  <Expected>(..._typesDoNotMatch: Equals<Actual, Expected>) => {};

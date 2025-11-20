@@ -33,8 +33,8 @@ export type MessageProps = {
   _request: IncomingMessage;
   _originalURL: URL;
   _decodedPathname: string;
-  _hasUpgraded?: boolean;
-  _upgradeErrorHandler?: UpgradeErrorHandler;
+  _hasUpgraded?: number;
+  _upgradeErrorHandler?: UpgradeErrorHandler | undefined;
   _ac: AbortController;
   _errorCallback: ServerErrorCallback;
   _deferred: TeardownFn[];
