@@ -62,7 +62,11 @@ export class WebListener extends (EventTarget as TypedEventTarget<
   attach(server: Server, options: ListenerOptions = {}) {
     const onError = (error: unknown, context: string, request: IncomingMessage | undefined) => {
       const detail = { server, error, context, request };
-      if (this.dispatchEvent(new CustomEvent<RequestErrorDetail>('error', { detail }))) {
+      if (
+        this.dispatchEvent(
+          new CustomEvent<RequestErrorDetail>('error', { detail, cancelable: true }),
+        )
+      ) {
         internalLogError(error, context, request);
       }
     };

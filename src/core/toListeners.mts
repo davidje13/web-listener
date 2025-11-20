@@ -253,7 +253,7 @@ export function toListeners(
 }
 
 export const internalLogError: ServerGeneralErrorCallback = (error, context, req) => {
-  if (findCause(error, HTTPError)?.statusCode ?? 500 >= 500) {
+  if ((findCause(error, HTTPError)?.statusCode ?? 500) >= 500) {
     console.error(
       '%s',
       `unhandled error while ${context} ${req?.url ?? '(no request information)'}:`,

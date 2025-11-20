@@ -1,5 +1,5 @@
 import { createServer, type Server, type ServerOptions } from 'node:http';
-import { WebListener, type ListenOptions } from '../index.mts';
+import { findCause, HTTPError, WebListener, type ListenOptions } from '../index.mts';
 import type { ConfigServer, ConfigServerOptions } from './config/types.mts';
 import { buildRouter } from './buildRouter.mts';
 import type { Logger, AddColour } from './log.mts';
@@ -91,8 +91,12 @@ export class ServerManager {
         : () => {},
     );
     const weblistener = new WebListener(router);
-    weblistener.addEventListener('error', ({ detail: { error, context, request } }) => {
-      this._log(0, `${name} ${this._colour('91', 'error')}: ${context} ${request?.url} ${error}`);
+    weblistener.addEventListener('error', (evt) => {
+      evt.preventDefault();
+      const { error, context, request } = evt.detail;
+      if ((findCause(error, HTTPError)?.statusCode ?? 500) >= 500) {
+        this._log(0, `${name} ${this._colour('91', 'error')}: ${context} ${request?.url} ${error}`);
+      }
     });
 
     let server: Server;
