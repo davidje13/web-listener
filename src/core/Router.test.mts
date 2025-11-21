@@ -713,6 +713,14 @@ describe('router', () => {
       await expect(fetch(url), responds({ body: 'inner {"foo":"bar"};outer {"foo":"bar"};' }));
     });
   });
+
+  it('throws if given promises', () => {
+    const makeHandler = async () => requestHandler((_, res) => res.end());
+    const router = new Router();
+    expect(() => router.use(makeHandler() as any)).throws(
+      'expected handler, got Promise (did you forget to await?)',
+    );
+  });
 });
 
 const testHandler = requestHandler(

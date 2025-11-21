@@ -96,6 +96,9 @@ export class Router<Req = {}> implements Handler<Req> {
     const compiled = path
       ? internalCompilePathPattern(path, allowSubRoutes)
       : { _pattern: null, _parameters: [] };
+    if (handlers.some((h) => h instanceof Promise)) {
+      throw new TypeError('expected handler, got Promise (did you forget to await?)');
+    }
     this._routes.push({
       _methods: methods,
       _protocol: typeof protocol === 'string' ? protocol.toLowerCase() : protocol,
