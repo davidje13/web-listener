@@ -8,6 +8,7 @@ import { addTeardown } from '../../core/close.mts';
 import type { MaybePromise } from '../../util/MaybePromise.mts';
 import { STOP } from '../../core/RoutingInstruction.mts';
 import { BlockingQueue } from '../../util/BlockingQueue.mts';
+import { guardTimeout } from '../../util/guardTimeout.mts';
 import { makeTempFileStorage } from '../filesystem/tempFileStorage.mts';
 import { acceptBody } from './continue.mts';
 
@@ -17,6 +18,7 @@ export function getFormFields(
   req: IncomingMessage,
   { closeAfterErrorDelay = 500, ...options }: GetFormFieldsOptions = {},
 ): AsyncIterable<FormField, unknown, undefined> {
+  guardTimeout(closeAfterErrorDelay, 'closeAfterErrorDelay', true);
   const bus = busboy(req.headers, options);
 
   acceptBody(req);

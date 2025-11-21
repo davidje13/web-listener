@@ -12,6 +12,7 @@ import type {
 import { VOID_BUFFER } from '../util/voidBuffer.mts';
 import { ErrorAccumulator } from '../util/ErrorAccumulator.mts';
 import { findCause } from '../util/findCause.mts';
+import { guardTimeout } from '../util/guardTimeout.mts';
 import { internalCheckShouldUpgrade, internalRunHandler } from './Router.mts';
 import type { Handler } from './handler.mts';
 import {
@@ -65,6 +66,8 @@ export function toListeners(
   handler: Handler,
   { onError = internalLogError, socketCloseTimeout = 500 }: NativeListenersOptions = {},
 ): NativeListeners {
+  guardTimeout(socketCloseTimeout, 'socketCloseTimeout');
+
   let closeState = 0;
   let closeReason = '';
   let closeOnError: ServerErrorCallback = onError;

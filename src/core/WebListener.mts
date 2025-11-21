@@ -1,4 +1,5 @@
 import { createServer, type IncomingMessage, type Server, type ServerOptions } from 'node:http';
+import { guardTimeout } from '../util/guardTimeout.mts';
 import type { TypedEventTarget } from '../polyfill/TypedEventTarget.mts';
 import { internalLogError, toListeners, type NativeListenersOptions } from './toListeners.mts';
 import type { Handler } from './handler.mts';
@@ -103,6 +104,7 @@ export class WebListener extends (EventTarget as TypedEventTarget<
       forShutdown = false,
       callback?: () => void,
     ) => {
+      guardTimeout(existingConnectionTimeout, 'existingConnectionTimeout', true);
       if (!forShutdown) {
         removeListeners?.();
       }

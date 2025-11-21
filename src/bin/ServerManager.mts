@@ -125,7 +125,7 @@ export class ServerManager {
     if (launch) {
       await launch;
       // wait an extra tick before confirming we are ready (required on Linux)
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      await new Promise((resolve) => setTimeout(resolve, 1));
       this._log(2, `${name} ready`);
     }
     return {

@@ -1,4 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { guardTimeout } from '../../util/guardTimeout.mts';
 import { setSoftCloseHandler } from '../../core/close.mts';
 
 interface ServerSentEventsOptions {
@@ -29,8 +30,9 @@ export class ServerSentEvents {
       softCloseReconnectStagger = 2000,
     }: ServerSentEventsOptions = {},
   ) {
+    guardTimeout(keepaliveInterval, 'keepaliveInterval', true);
     this._res = res;
-    this._keepaliveInterval = keepaliveInterval ?? 0;
+    this._keepaliveInterval = keepaliveInterval;
     this._ac = new AbortController();
 
     res.setHeader('content-type', 'text/event-stream');
@@ -55,7 +57,7 @@ export class ServerSentEvents {
 
   /** @internal */
   private _startKeepalive() {
-    if (this._keepaliveInterval) {
+    if (this._keepaliveInterval > 0) {
       this._keepalive = setTimeout(this.ping, this._keepaliveInterval);
     }
   }

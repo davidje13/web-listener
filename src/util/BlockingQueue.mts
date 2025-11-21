@@ -1,3 +1,4 @@
+import { guardTimeout } from './guardTimeout.mts';
 import { Queue } from './Queue.mts';
 
 interface PendingPop<T> {
@@ -34,6 +35,7 @@ export class BlockingQueue<T> {
   }
 
   shift(timeout?: number | undefined): Promise<T> {
+    guardTimeout(timeout ?? 0, 'timeout');
     if (!this._pendingPush.isEmpty()) {
       return Promise.resolve(this._pendingPush.shift()!);
     }

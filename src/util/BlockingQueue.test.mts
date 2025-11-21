@@ -39,6 +39,13 @@ describe('BlockingQueue', () => {
     expect(end - begin).isLessThan(500);
   });
 
+  it('rejects timeouts which are too large', async () => {
+    const queue = new BlockingQueue<number>();
+    await expect(() => queue.shift(10000000000)).throws(
+      'timeout must fit in a 31 bit integer - got 10000000000',
+    );
+  });
+
   it('throws if the queue has been closed', async () => {
     const queue = new BlockingQueue<number>();
 

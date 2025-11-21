@@ -136,7 +136,10 @@ function internalUpdateCloseTimeout(props: MessageProps & Partial<CloseMessagePr
   if (props._checkCloseTimeout === undefined) {
     props._teardowns.push(() => clearTimeout(props._checkCloseTimeout));
   }
-  props._checkCloseTimeout = setTimeout(() => internalUpdateCloseTimeout(props), next - now);
+  props._checkCloseTimeout = setTimeout(
+    () => internalUpdateCloseTimeout(props),
+    Math.min(next - now, 1000 * 60 * 60 * 24 * 7), // max 1 week between checks (js engine rejects timeouts which do not fit in 31 bits)
+  );
 }
 
 async function internalRunSoftCloseHandler(
