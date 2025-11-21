@@ -22,7 +22,7 @@ describe('requireBearerAuth', () => {
   function runTest(fetchInit: RequestInit, expectedStatus: number, expectedCalled = false) {
     let called = false;
     const router = new Router();
-    router.use(testAuth.handler);
+    router.use(testAuth);
     router.get('/', (_, res) => {
       called = true;
       res.end('content');
@@ -73,7 +73,7 @@ describe('requireBearerAuth', () => {
         realm: 'some-realm',
         extractAndValidateToken: testTokenValidator,
         closeOnExpiry: true,
-      }).handler,
+      }),
       () => {},
     );
 
@@ -95,7 +95,7 @@ describe('requireBearerAuth', () => {
         realm: 'some-realm',
         extractAndValidateToken: testTokenValidator,
         fallbackTokenFetcher: (req) => String(req.headers['x-custom-auth']),
-      }).handler,
+      }),
       (_, res) => void res.end('content'),
     );
 
@@ -125,7 +125,7 @@ describe('requireAuthScope', () => {
   function runTest(fetchInit: RequestInit, expectedStatus: number, expectedCalled = false) {
     let called = false;
     const router = new Router();
-    router.use(testAuth.handler);
+    router.use(testAuth);
     router.get('/', requireAuthScope('my-scope'), (_, res) => {
       called = true;
       res.end('content');
@@ -155,7 +155,7 @@ describe('requireAuthScope', () => {
 describe('getTokenData', () => {
   it('returns the parsed token data', () => {
     const router = new Router();
-    router.get('/', testAuth.handler, (req, res) => {
+    router.get('/', testAuth, (req, res) => {
       res.end(`getTokenData: ${JSON.stringify(testAuth.getTokenData(req))}`);
     });
 
@@ -185,7 +185,7 @@ describe('getTokenData', () => {
 describe('hasAuthScope', () => {
   function runTest(path: string, fetchInit: RequestInit, expectedBody: string) {
     const router = new Router();
-    router.get('/authenticated', testAuth.handler, (req, res) => {
+    router.get('/authenticated', testAuth, (req, res) => {
       res.end(`hasAuthScope s1: ${hasAuthScope(req, 's1')}`);
     });
     router.get('/unauthenticated', (req, res) => {

@@ -125,7 +125,7 @@ describe('makeWebSocketFallbackTokenFetcher', () => {
     });
 
     const router = new Router();
-    router.ws('/', testAuth.handler, async (req) => {
+    router.ws('/', testAuth, async (req) => {
       const ws = await acceptWebSocket(req);
       ws.on('message', (data) => {
         const message = data.toString('utf-8');
@@ -155,7 +155,7 @@ describe('makeWebSocketFallbackTokenFetcher', () => {
     });
 
     const router = new Router();
-    router.ws('/', testAuth.handler, async (req) => {
+    router.ws('/', testAuth, async (req) => {
       const ws = await acceptWebSocket(req);
       ws.send('hello ' + JSON.stringify(testAuth.getTokenData(req)));
     });
@@ -177,7 +177,7 @@ describe('makeWebSocketFallbackTokenFetcher', () => {
     });
 
     const router = new Router();
-    router.ws('/', testAuth.handler, async (req) => {
+    router.ws('/', testAuth, async (req) => {
       const ws = await acceptWebSocket(req);
       ws.send('hello ' + JSON.stringify(testAuth.getTokenData(req)));
       ws.close();

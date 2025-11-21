@@ -105,16 +105,35 @@ const auth = requireBearerAuth({
     assertType(req)<IncomingMessage>();
   },
 });
-r.use(auth.handler, requireAuthScope('foo'), (req) => {
+r.use(auth, requireAuthScope('foo'), (req) => {
   assertType(auth.getTokenData(req))<{ nbf: number; exp: number; scopes: string[]; extra: {} }>();
-  emitError(req, 'nope');
-  emitError(req, new Error());
-  emitError(req, new Error(), 'custom context');
 });
+
+const nonTokenAuth = requireBearerAuth({
+  realm: 'my realm',
+  extractAndValidateToken: () => 'yep',
+});
+r.use(nonTokenAuth, (req) => {
+  assertType(nonTokenAuth.getTokenData(req))<string>();
+});
+
+r.mount(
+  '/:id',
+  requireBearerAuth({
+    realm: (req) => {
+      return '';
+    },
+    extractAndValidateToken: () => true,
+  }),
+);
 
 r.use((req, res) => {
   assertType(req)<IncomingMessage>();
   assertType(res)<ServerResponse>();
+
+  emitError(req, 'nope');
+  emitError(req, new Error());
+  emitError(req, new Error(), 'custom context');
 });
 
 r.use(

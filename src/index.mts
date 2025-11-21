@@ -56,7 +56,12 @@ export {
   type ServerGeneralErrorCallback,
 } from './core/toListeners.mts';
 
-export { requireBearerAuth, requireAuthScope, hasAuthScope } from './extras/auth/bearer.mts';
+export {
+  requireBearerAuth,
+  requireAuthScope,
+  hasAuthScope,
+  type TokenAuthHandler,
+} from './extras/auth/bearer.mts';
 
 export { generateWeakETag, generateStrongETag } from './extras/cache/etag.mts';
 

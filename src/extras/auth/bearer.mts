@@ -29,6 +29,11 @@ interface JWTToken {
   scopes?: Record<string, boolean> | string[] | string | undefined;
 }
 
+export type TokenAuthHandler<Req, Token> = {
+  getTokenData: (req: IncomingMessage) => Token;
+} & RequestHandler<Req> &
+  UpgradeHandler<Req>;
+
 export function requireBearerAuth<Req = {}, Token = JWTToken>({
   realm,
   extractAndValidateToken,
@@ -36,14 +41,11 @@ export function requireBearerAuth<Req = {}, Token = JWTToken>({
   closeOnExpiry = true,
   softCloseBufferTime = 0,
   onSoftCloseError,
-}: BearerAuthOptions<Req, Token>): {
-  handler: RequestHandler<Req> & UpgradeHandler<Req>;
-  getTokenData: (req: IncomingMessage) => Token;
-} {
+}: BearerAuthOptions<Req, Token>): TokenAuthHandler<Req, Token> {
   const realmForRequest = internalAsFactory(realm);
 
   return {
-    handler: anyHandler(async (req) => {
+    ...anyHandler(async (req) => {
       const now = Date.now();
       const authRealm = await realmForRequest(req);
       const failHeaders = { 'www-authenticate': `Bearer realm="${authRealm}"` };
