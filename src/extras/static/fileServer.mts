@@ -124,7 +124,7 @@ export const fileServer = async (
     if (path.startsWith('/')) {
       path = path.substring(1);
     }
-    fallbackPath = path.split('/');
+    fallbackPath = fileFinder.toNormalisedPath(path.split('/'));
   }
 
   const pathOptions = mode === 'dynamic' ? {} : { rejectPotentiallyUnsafe: false };

@@ -153,4 +153,16 @@ describe('fileServer', () => {
       );
     });
   });
+
+  it('allows otherwise hidden paths as a fallback', { timeout: 3000 }, async ({ getTyped }) => {
+    const router = new Router();
+    router.use(await fileServer(getTyped(TEST_DIR), { fallback: { filePath: 'index.htm' } }));
+    router.use(requestHandler((_, res) => res.end('nope')));
+
+    return withServer(router, async (url) => {
+      const res1 = await fetch(url + '/missing');
+      expect(res1.status).equals(200);
+      expect(await res1.text()).equals('Root Index');
+    });
+  });
 });

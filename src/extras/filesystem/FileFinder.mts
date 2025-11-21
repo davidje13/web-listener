@@ -238,6 +238,14 @@ export class FileFinder implements FileFinderCore {
     }
   }
 
+  toNormalisedPath(pathParts: string[]) {
+    const last = pathParts[pathParts.length - 1];
+    if (last && this._indexFilesSet.has(this._normalise(last))) {
+      return pathParts.slice(0, pathParts.length - 1);
+    }
+    return pathParts;
+  }
+
   /**
    * Find a file which matches the path.
    *
