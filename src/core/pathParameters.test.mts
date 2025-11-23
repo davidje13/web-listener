@@ -1,6 +1,7 @@
 import { withServer } from '../test-helpers/withServer.mts';
 import { rawRequest } from '../test-helpers/rawRequest.mts';
 import { responds } from '../test-helpers/responds.mts';
+import { disableProtoThrow } from '../test-helpers/proto.mts';
 import { Router } from './Router.mts';
 import { requestHandler } from './handler.mts';
 import {
@@ -165,6 +166,37 @@ describe('getPathParameters', () => {
       expect(capturedParameters).equals({ id: 'a/b', rest: ['one/1', 'two/2'] });
     });
   });
+
+  it(
+    'permits any name for path parameters',
+    { timeout: 3000 },
+    disableProtoThrow(() => {
+      let capturedParameters: unknown;
+      const router = new Router()
+        .get('/one{/:__proto__}', (req, res) => {
+          capturedParameters = getPathParameters(req);
+          res.end();
+        })
+        .get('/two{/:constructor}', (req, res) => {
+          capturedParameters = getPathParameters(req);
+          res.end();
+        });
+
+      return withServer(router, async (url) => {
+        await expect(fetch(url + '/one/yep'), responds({ status: 200 }));
+        expect(capturedParameters).equals(Object.fromEntries([['__proto__', 'yep']]));
+
+        await expect(fetch(url + '/one'), responds({ status: 200 }));
+        expect(capturedParameters).equals(Object.fromEntries([['__proto__', undefined]]));
+
+        await expect(fetch(url + '/two/yep'), responds({ status: 200 }));
+        expect(capturedParameters).equals(Object.fromEntries([['constructor', 'yep']]));
+
+        await expect(fetch(url + '/two'), responds({ status: 200 }));
+        expect(capturedParameters).equals(Object.fromEntries([['constructor', undefined]]));
+      });
+    }),
+  );
 });
 
 describe('getPathParameter', () => {
@@ -180,6 +212,44 @@ describe('getPathParameter', () => {
       expect(capturedParameter).equals('dothing');
     });
   });
+
+  it(
+    'permits any name for path parameters',
+    { timeout: 3000 },
+    disableProtoThrow(() => {
+      let capturedParameterProto: unknown;
+      let capturedParameterConstructor: unknown;
+      const router = new Router()
+        .get('/one{/:__proto__}', (req, res) => {
+          capturedParameterProto = getPathParameter(req, '__proto__');
+          capturedParameterConstructor = getPathParameter(req, 'constructor');
+          res.end();
+        })
+        .get('/two{/:constructor}', (req, res) => {
+          capturedParameterProto = getPathParameter(req, '__proto__');
+          capturedParameterConstructor = getPathParameter(req, 'constructor');
+          res.end();
+        });
+
+      return withServer(router, async (url) => {
+        await expect(fetch(url + '/one/yep'), responds({ status: 200 }));
+        expect(capturedParameterProto).equals('yep');
+        expect(capturedParameterConstructor).equals(undefined);
+
+        await expect(fetch(url + '/one'), responds({ status: 200 }));
+        expect(capturedParameterProto).equals(undefined);
+        expect(capturedParameterConstructor).equals(undefined);
+
+        await expect(fetch(url + '/two/yep'), responds({ status: 200 }));
+        expect(capturedParameterProto).equals(undefined);
+        expect(capturedParameterConstructor).equals('yep');
+
+        await expect(fetch(url + '/two'), responds({ status: 200 }));
+        expect(capturedParameterProto).equals(undefined);
+        expect(capturedParameterConstructor).equals(undefined);
+      });
+    }),
+  );
 });
 
 describe('getAbsolutePath', () => {

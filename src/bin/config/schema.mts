@@ -14,7 +14,7 @@ export function makeSchemaParser<T>(schema: SchemaObject) {
   const convert = (part: SchemaObject): Mapper<unknown> => {
     const ref = part['$ref'];
     if (ref && ref.startsWith('#/$defs/')) {
-      const refed = schema['$defs'][ref.substring(8)];
+      const refed = accessProperty(schema['$defs'], ref.substring(8));
       if (!refed) {
         throw new Error(`unable to find ${ref} in schema`);
       }
@@ -186,18 +186,18 @@ const mObject =
     if (Array.isArray(o)) {
       throw new ConfigError('expected object, got list', ctx);
     }
-    const r: Record<string, unknown> = {};
+    const r: [string, unknown][] = [];
     const seen = new Set<string>();
     for (const [k, v] of Object.entries(o)) {
       seen.add(k);
       const valueMapper = known.get(k) ?? other;
       const val = valueMapper(v, { ...ctx, path: `${ctx.path}.${k}` });
       if (val !== undefined) {
-        r[k] = val;
+        r.push([k, val]);
       }
     }
     for (const req of required) {
-      if (r[req] === undefined) {
+      if (!seen.has(req)) {
         throw new ConfigError(`missing required property ${JSON.stringify(req)}`, ctx);
       }
     }
@@ -205,11 +205,11 @@ const mObject =
       if (!seen.has(k)) {
         const val = valueMapper(undefined, { ...ctx, path: `${ctx.path}.${k}` });
         if (val !== undefined) {
-          r[k] = val;
+          r.push([k, val]);
         }
       }
     }
-    return r;
+    return Object.fromEntries(r);
   };
 
 const mAny: Mapper<unknown> = (o) => o;
@@ -233,3 +233,6 @@ class ConfigError extends Error {
     this.p = p;
   }
 }
+
+const accessProperty = <T, K extends keyof T>(o: T, k: K): T[K] | undefined =>
+  Object.prototype.hasOwnProperty.call(o, k) ? o[k] : undefined;

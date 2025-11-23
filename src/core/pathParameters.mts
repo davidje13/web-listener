@@ -1,4 +1,5 @@
 import type { IncomingMessage } from 'node:http';
+import { accessProperty } from '../util/safeAccess.mts';
 import { internalGetProps, type MessageProps } from './messages.mts';
 
 const PATH_PARAMETERS = Symbol();
@@ -59,7 +60,7 @@ export function getPathParameter<PathParameters extends {}, ID extends keyof Pat
   req: IncomingMessage & WithPathParameters<PathParameters>,
   id: ID,
 ) {
-  return getPathParameters(req)[id];
+  return accessProperty(getPathParameters(req), id);
 }
 
 export function getAbsolutePath(req: IncomingMessage) {

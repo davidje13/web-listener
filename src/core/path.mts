@@ -129,31 +129,27 @@ export function internalCompilePathPattern(
   };
 }
 
-function internalFlagExtractor<K extends string>(available: Record<K, string>) {
-  const defaults = {} as Record<K, boolean>;
-  const lookup = new Map<string, K>();
-  for (const [k, flag] of Object.entries(available)) {
-    defaults[k as K] = false;
-    lookup.set(flag as string, k as K);
-  }
-  return (str: string): [Record<K, boolean>, string] => {
-    const flags = { ...defaults };
-    for (let p = 0; p < str.length; ++p) {
+const internalFlagExtractor =
+  <K extends string>(lookup: Map<string, K>) =>
+  (str: string): [{ [k in K]?: boolean }, string] => {
+    const flags: [K, boolean][] = [];
+    let p = 0;
+    for (; p < str.length; ++p) {
       const found = lookup.get(str[p]!);
-      if (found) {
-        flags[found] = true;
-      } else {
-        return [flags, str.substring(p)];
+      if (!found) {
+        break;
       }
+      flags.push([found, true]);
     }
-    return [flags, ''];
+    return [Object.fromEntries(flags) as { [k in K]?: boolean }, str.substring(p)];
   };
-}
 
-const internalPathFlags = /*@__PURE__*/ internalFlagExtractor({
-  _caseInsensitive: 'i',
+const internalPathFlags = /*@__PURE__*/ internalFlagExtractor(
+  /*@__PURE__*/ new Map([
+    ['i', /*@__KEY__*/ '_caseInsensitive' as const],
 
-  // perform exact matching of slashes. By default, sequences of / match n *or more* slashes
-  // (merging is on by default for security; see NGINX's rationale https://nginx.org/en/docs/http/ngx_http_core_module.html#merge_slashes)
-  _noMergeSlashes: '!',
-});
+    // perform exact matching of slashes. By default, sequences of / match n *or more* slashes
+    // (merging is on by default for security; see NGINX's rationale https://nginx.org/en/docs/http/ngx_http_core_module.html#merge_slashes)
+    ['!', /*@__KEY__*/ '_noMergeSlashes' as const],
+  ]),
+);

@@ -146,6 +146,12 @@ describe('makeNegotiator', () => {
       expect(optionGenerator.next().done).isTrue();
     });
   });
+
+  it('rejects unknown types', () => {
+    expect(() =>
+      makeNegotiator([{ type: 'unknown' as any, options: [{ match: 'a/b', file: 'x' }] }]),
+    ).throws('unknown rule type: unknown');
+  });
 });
 
 const COMPLEX_RULES: FileNegotiation[] = [

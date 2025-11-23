@@ -6,6 +6,7 @@ import { responds } from '../../test-helpers/responds.mts';
 import { makeStreamSearch } from '../../test-helpers/streamSearch.mts';
 import { rawRequest, rawRequestStream } from '../../test-helpers/rawRequest.mts';
 import { generateTLSConfig } from '../../test-helpers/generateTLSConfig.mts';
+import { disableProtoDelete, disableProtoThrow } from '../../test-helpers/proto.mts';
 import { getAddressURL } from '../../util/getAddressURL.mts';
 import { requestHandler } from '../../core/handler.mts';
 import { getAbortSignal } from '../../core/close.mts';
@@ -143,6 +144,7 @@ describe('proxy', () => {
             'User-agent': 'me',
           },
         });
+        req.end();
         const res = await new Promise<IncomingMessage>((resolve, reject) => {
           req.once('response', resolve);
           req.once('error', reject);
@@ -165,6 +167,82 @@ describe('proxy', () => {
       }),
     );
   });
+
+  it(
+    'handles malicious header names',
+    { timeout: 3000 },
+    // delete rather than throw for this test, because Node.js internals for header parsing trigger access if a header is named __proto__
+    disableProtoDelete(() => {
+      const upstream = requestHandler((req, res) => {
+        res.writeHead(
+          200,
+          Object.fromEntries([
+            ['__proto__', 'foo-out'],
+            ['constructor', 'bar-out'],
+          ]),
+        );
+        const raw = req.rawHeaders;
+        for (let i = 0; i < raw.length; i += 2) {
+          res.write(`${raw[i]}: ${raw[i + 1]}\n`);
+        }
+        res.end();
+      });
+
+      return withServer(upstream, (upstreamUrl) =>
+        withServer(proxy(upstreamUrl), async (url) => {
+          const req = request(url, {
+            headers: Object.fromEntries([
+              ['__proto__', 'foo-in'],
+              ['constructor', 'bar-in'],
+            ]),
+          });
+          req.end();
+          const res = await new Promise<IncomingMessage>((resolve, reject) => {
+            req.once('response', resolve);
+            req.once('error', reject);
+          });
+          expect(res.headers['__proto__']).equals('foo-out');
+          expect(res.headers['constructor']).equals('bar-out');
+
+          const body = await text(res);
+          const reflectedHeaders = body.split('\n');
+          expect(reflectedHeaders).contains('__proto__: foo-in');
+          expect(reflectedHeaders).contains('constructor: bar-in');
+        }),
+      );
+    }),
+  );
+
+  it(
+    'handles malicious connection header values',
+    { timeout: 3000 },
+    disableProtoThrow(() => {
+      const upstream = requestHandler((req, res) => {
+        res.writeHead(200, { Connection: '__proto__, constructor' });
+        const raw = req.rawHeaders;
+        for (let i = 0; i < raw.length; i += 2) {
+          res.write(`${raw[i]}: ${raw[i + 1]}\n`);
+        }
+        res.end();
+      });
+
+      return withServer(upstream, (upstreamUrl) =>
+        withServer(proxy(upstreamUrl), async (url) => {
+          const req = request(url, { headers: { Connection: '__proto__, constructor' } });
+          req.end();
+          const res = await new Promise<IncomingMessage>((resolve, reject) => {
+            req.once('response', resolve);
+            req.once('error', reject);
+          });
+          expect(res.headers['connection']).equals('keep-alive');
+
+          const body = await text(res);
+          const reflectedHeaders = body.split('\n');
+          expect(reflectedHeaders).contains('Connection: keep-alive');
+        }),
+      );
+    }),
+  );
 
   it('allows proxying to a specific subpath', { timeout: 3000 }, () => {
     const upstream = requestHandler((req, res) => {

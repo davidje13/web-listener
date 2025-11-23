@@ -1,6 +1,7 @@
 import { Agent as httpAgent, request as httpRequest, type OutgoingHttpHeaders } from 'node:http';
 import { Agent as httpsAgent, request as httpsRequest, type AgentOptions } from 'node:https';
 import { pipeline } from 'node:stream/promises';
+import { deleteProperty } from '../../util/safeAccess.mts';
 import { requestHandler } from '../../core/handler.mts';
 import { getAbortSignal } from '../../core/close.mts';
 import { HTTPError } from '../../core/HTTPError.mts';
@@ -115,9 +116,9 @@ export function proxy(
 
 function blockHeaders(headers: OutgoingHttpHeaders, blocked: string[]) {
   for (const key of readHTTPUnquotedCommaSeparated(headers['connection']) ?? []) {
-    delete headers[key.toLowerCase()];
+    deleteProperty(headers, key.toLowerCase());
   }
   for (const key of blocked) {
-    delete headers[key];
+    deleteProperty(headers, key);
   }
 }

@@ -134,6 +134,13 @@ describe('compilePathPattern', () => {
     expect(getPathParameters(path, '/foo/baz')).equals(new Map([['bar', undefined]]));
   });
 
+  it('permits any name for path parameters', () => {
+    const path = internalCompilePathPattern('/foo{/:__proto__}', false);
+
+    expect(getPathParameters(path, '/foo/bar')).equals(new Map([['__proto__', 'bar']]));
+    expect(getPathParameters(path, '/foo')).equals(new Map([['__proto__', undefined]]));
+  });
+
   it('supports partial component path parameters', () => {
     const path = internalCompilePathPattern('/foo-:thing-bar', false);
     expect(path._pattern.test('/foo-one-bar')).isTrue();

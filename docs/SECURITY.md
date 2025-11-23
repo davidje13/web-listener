@@ -5,7 +5,7 @@ types of attack. Some of these attacks, and the mitigations applied, are listed 
 
 ## Javascript Vulnerabilities
 
-This library fully supports "hardened" runtime environments, such as `--disable-proto=throw`,
+This library fully supports "hardened" runtime environments, such as `--disable-proto=delete`,
 `--frozen-intrinsics`, `--no-addons`, and `--disallow-code-generation-from-strings`, but also is not
 reliant upon these settings for security guarantees.
 

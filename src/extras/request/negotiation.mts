@@ -52,31 +52,34 @@ export interface FileNegotiationOption {
   file: string;
 }
 
-const ENCODING_MAPPING = {
-  zstd: '{file}.zst',
-  br: '{file}.br',
-  gzip: '{file}.gz',
-  deflate: '{file}.deflate',
-  identity: '{file}',
-};
+type FileEncodingFormat = 'zstd' | 'br' | 'gzip' | 'deflate' | 'identity';
 
-type FileEncodingFormat = keyof typeof ENCODING_MAPPING;
+const ENCODING_MAPPING_LOOKUP = /*@__PURE__*/ new Map<FileEncodingFormat, string>([
+  ['zstd', '{file}.zst'],
+  ['br', '{file}.br'],
+  ['gzip', '{file}.gz'],
+  ['deflate', '{file}.deflate'],
+  ['identity', '{file}'],
+]);
 
 export const negotiateEncoding = (
   options: FileEncodingFormat[] | Record<FileEncodingFormat, string>,
 ): FileNegotiation => ({
   type: 'encoding',
-  options: internalReadMap(options, ENCODING_MAPPING).map(([match, file]) => ({ match, file })),
+  options: internalReadMap(options, ENCODING_MAPPING_LOOKUP),
 });
 
 function internalReadMap<T extends string>(
   items: T[] | Record<T, string>,
-  lookup: Record<T, string>,
-): [T, string][] {
+  lookup: Map<T, string>,
+): { match: T; file: string }[] {
   if (Array.isArray(items)) {
-    return items.map((format) => [format, lookup[format]] as const);
+    return items.map((format) => ({ match: format, file: lookup.get(format)! }));
   } else {
-    return Object.entries(items) as [T, string][];
+    return Object.entries(items).map(([match, file]) => ({
+      match: match as T,
+      file: file as string,
+    }));
   }
 }
 
@@ -117,8 +120,11 @@ interface InternalOption {
 
 export function makeNegotiator(rules: FileNegotiation[], maxFailedAttempts = 10): Negotiator {
   const normalisedRules = rules
-    .map(
-      (rule): InternalRule => ({
+    .map((rule): InternalRule => {
+      if (!Object.prototype.hasOwnProperty.call(HEADERS, rule.type)) {
+        throw new RangeError(`unknown rule type: ${rule.type}`);
+      }
+      return {
         _type: rule.type,
         _options: rule.options.map((option) => ({
           _file: option.file,
@@ -128,8 +134,8 @@ export function makeNegotiator(rules: FileNegotiation[], maxFailedAttempts = 10)
               : internalOverrideFlags(option.match, true),
           _as: option.as ?? (typeof option.match === 'string' ? option.match : undefined),
         })),
-      }),
-    )
+      };
+    })
     .filter((rule) => rule._options.length > 0);
 
   return {
