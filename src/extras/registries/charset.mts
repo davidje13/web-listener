@@ -14,8 +14,8 @@ interface Charset {
 
 const CHARSETS = new Map<string, Charset>();
 
-export function registerCharset(charset: string, definition: Charset) {
-  CHARSETS.set(charset.toLowerCase(), definition);
+export function registerCharset(name: string, definition: Charset) {
+  CHARSETS.set(name.toLowerCase(), definition);
 }
 
 export function registerUTF32() {
@@ -23,23 +23,23 @@ export function registerUTF32() {
   registerCharset('utf-32le', { decoder: (options) => new UTF32Decoder(true, options) });
 }
 
-export function getTextDecoder(charset: string, options: TextDecoderOptions = {}): Decoder {
-  const custom = CHARSETS.get(charset.toLowerCase());
+export function getTextDecoder(charsetName: string, options: TextDecoderOptions = {}): Decoder {
+  const custom = CHARSETS.get(charsetName.toLowerCase());
   if (custom) {
     return custom.decoder(options);
   }
   try {
-    return new TextDecoder(charset, options);
+    return new TextDecoder(charsetName, options);
   } catch {
-    throw new HTTPError(415, { body: `unsupported charset: ${charset}` });
+    throw new HTTPError(415, { body: `unsupported charset: ${charsetName}` });
   }
 }
 
 export function getTextDecoderStream(
-  charset: string,
+  charsetName: string,
   options: TextDecoderOptions = {},
 ): DecoderStream {
-  const custom = CHARSETS.get(charset.toLowerCase());
+  const custom = CHARSETS.get(charsetName.toLowerCase());
   if (custom) {
     if (custom.decoderStream) {
       return custom.decoderStream(options);
@@ -48,9 +48,9 @@ export function getTextDecoderStream(
     }
   }
   try {
-    return new TextDecoderStream(charset, options);
+    return new TextDecoderStream(charsetName, options);
   } catch {
-    throw new HTTPError(415, { body: `unsupported charset: ${charset}` });
+    throw new HTTPError(415, { body: `unsupported charset: ${charsetName}` });
   }
 }
 

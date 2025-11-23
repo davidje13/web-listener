@@ -19,7 +19,7 @@ export class BlockingQueue<T> {
     this._state = 0;
   }
 
-  push(value: T) {
+  push(item: T) {
     if (this._state) {
       return;
     }
@@ -28,9 +28,9 @@ export class BlockingQueue<T> {
       if (pending._tm) {
         clearTimeout(pending._tm);
       }
-      pending._resolve(value);
+      pending._resolve(item);
     } else {
-      this._pendingPush.push(value);
+      this._pendingPush.push(item);
     }
   }
 

@@ -15,10 +15,10 @@ import { simplifyRange, type HTTPRange } from '../range.mts';
 export async function sendRanges(
   req: IncomingMessage,
   res: ServerResponse,
-  file: string | FileHandle | Readable | ReadableStream<Uint8Array>,
+  source: string | FileHandle | Readable | ReadableStream<Uint8Array>,
   httpRange: HTTPRange,
 ) {
-  if (typeof file !== 'string' && !internalIsFileHandle(file)) {
+  if (typeof source !== 'string' && !internalIsFileHandle(source)) {
     httpRange = simplifyRange(httpRange, { mergeOverlapDistance: 0, forceSequential: true });
   }
   if (httpRange.ranges.length === 1) {
@@ -33,7 +33,7 @@ export async function sendRanges(
       res.end();
       return;
     }
-    const slicer = await getSlicer(file);
+    const slicer = await getSlicer(source);
     await pipeline(slicer._get(range.start, range.end), res);
     if (slicer._end) {
       await slicer._end();
@@ -67,7 +67,7 @@ export async function sendRanges(
     return;
   }
   let trailing = '';
-  const slicer = await getSlicer(file);
+  const slicer = await getSlicer(source);
   try {
     for (const { _head, _range } of sections) {
       res.write(trailing + _head, 'ascii');

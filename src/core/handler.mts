@@ -89,25 +89,25 @@ export const typedErrorHandler = <Error, Req>(
 ) => conditionalErrorHandler((x): x is Error => x instanceof ErrorClass, handler);
 
 type ConditionalErrorHandler = (<Error, Req>(
-  test: (x: unknown) => x is Error,
+  condition: (x: unknown) => x is Error,
   handler: TypedErrorHandlerFn<Error, Req>,
 ) => ErrorHandler<Req>) &
   (<Req>(
-    test: (x: unknown) => boolean,
+    condition: (x: unknown) => boolean,
     handler: TypedErrorHandlerFn<unknown, Req>,
   ) => ErrorHandler<Req>);
 
 export const conditionalErrorHandler: ConditionalErrorHandler = <Error, Req>(
-  test: (x: unknown) => boolean,
+  condition: (x: unknown) => boolean,
   handler: TypedErrorHandlerFn<Error, Req>,
 ): ErrorHandler<Req> => ({
   handleError: (error, req, output) => {
-    if (output.response && test(error)) {
+    if (output.response && condition(error)) {
       return handler(error as Error, req, output.response);
     }
     throw error;
   },
-  shouldHandleError: (error, _, output) => Boolean(output.response) && test(error),
+  shouldHandleError: (error, _, output) => Boolean(output.response) && condition(error),
 });
 
 export type Handler<Req = {}> = Partial<

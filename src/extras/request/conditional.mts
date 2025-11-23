@@ -38,7 +38,7 @@ export function checkIfRange(
 
 export function compareETag(
   res: ServerResponse,
-  stats: Pick<Stats, 'mtimeMs' | 'size'>,
+  fileStats: Pick<Stats, 'mtimeMs' | 'size'>,
   etags: string[],
 ) {
   if (etags.includes('*')) {
@@ -54,7 +54,7 @@ export function compareETag(
     }
   }
   if (etags.some((etag) => etag.startsWith('W/"'))) {
-    return etags.includes(generateWeakETag(res.getHeader('content-encoding'), stats));
+    return etags.includes(generateWeakETag(res.getHeader('content-encoding'), fileStats));
   }
   return false;
 }

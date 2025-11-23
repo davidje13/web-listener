@@ -13,15 +13,15 @@ import { internalIsFileHandle } from '../../util/isFileHandle.mts';
 export async function sendFile(
   req: IncomingMessage,
   res: ServerResponse,
-  file: string | FileHandle | Readable | ReadableStream<Uint8Array>,
-  fileStats: Pick<Stats, 'mtimeMs' | 'size'> | null,
+  source: string | FileHandle | Readable | ReadableStream<Uint8Array>,
+  fileStats: Pick<Stats, 'mtimeMs' | 'size'> | null = null,
   options?: GetRangeOptions & SimplifyRangeOptions,
 ) {
   if (!fileStats) {
-    if (typeof file === 'string') {
-      fileStats = await stat(file);
-    } else if (internalIsFileHandle(file)) {
-      fileStats = await file.stat();
+    if (typeof source === 'string') {
+      fileStats = await stat(source);
+    } else if (internalIsFileHandle(source)) {
+      fileStats = await source.stat();
     }
   }
 
@@ -35,7 +35,7 @@ export async function sendFile(
       res.setHeader('accept-ranges', 'bytes');
       const range = getRange(req, fileStats.size, options);
       if (range && checkIfRange(req, res, fileStats)) {
-        return sendRanges(req, res, file, simplifyRange(range, options));
+        return sendRanges(req, res, source, simplifyRange(range, options));
       }
     }
     res.setHeader('content-length', fileStats.size);
@@ -45,10 +45,10 @@ export async function sendFile(
     res.end();
     return;
   }
-  if (typeof file === 'string') {
-    file = createReadStream(file);
-  } else if (internalIsFileHandle(file)) {
-    file = file.createReadStream({ start: 0, autoClose: false });
+  if (typeof source === 'string') {
+    source = createReadStream(source);
+  } else if (internalIsFileHandle(source)) {
+    source = source.createReadStream({ start: 0, autoClose: false });
   }
-  return pipeline(file, res);
+  return pipeline(source, res);
 }

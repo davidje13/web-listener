@@ -25,7 +25,7 @@ export interface CompressionInfo {
 export async function compressFileOffline(
   file: string,
   options: FileNegotiationOption[],
-  minCompress: number,
+  minCompression: number,
 ): Promise<CompressionInfo> {
   const raw = await readFile(file);
   const info = {
@@ -36,7 +36,7 @@ export async function compressFileOffline(
     created: 0,
   };
 
-  if (info.rawSize <= minCompress) {
+  if (info.rawSize <= minCompression) {
     return info;
   }
 
@@ -52,7 +52,7 @@ export async function compressFileOffline(
       continue;
     }
     const compressed = await compress(raw);
-    if (compressed.byteLength <= info.rawSize - minCompress) {
+    if (compressed.byteLength <= info.rawSize - minCompression) {
       await writeFile(mutated, compressed);
       info.bestSize = Math.min(info.bestSize, compressed.byteLength);
       ++info.created;
@@ -65,7 +65,7 @@ export async function compressFileOffline(
 export async function compressFilesInDir(
   dir: string,
   options: FileNegotiationOption[],
-  minCompress: number,
+  minCompression: number,
 ): Promise<CompressionInfo[]> {
   const allFiles: string[] = [];
   await findFilesR(dir, allFiles);
@@ -79,7 +79,7 @@ export async function compressFilesInDir(
       }
     }
   }
-  return Promise.all([...files].map((file) => compressFileOffline(file, options, minCompress)));
+  return Promise.all([...files].map((file) => compressFileOffline(file, options, minCompression)));
 }
 
 async function findFilesR(dir: string, output: string[]) {

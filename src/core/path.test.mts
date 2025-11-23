@@ -61,6 +61,13 @@ describe('compilePathPattern', () => {
     expect(path._pattern.test('/foo/nope')).isFalse();
   });
 
+  it('supports optional components after the first /', () => {
+    const path = internalCompilePathPattern('/{foo/}bar', false);
+    expect(path._pattern.test('/foo/bar')).isTrue();
+    expect(path._pattern.test('/bar')).isTrue();
+    expect(path._pattern.test('/foo')).isFalse();
+  });
+
   it('supports optional trailing slashes', () => {
     const path = internalCompilePathPattern('/foo/bar{/}', false);
     expect(path._pattern.test('/foo/bar/')).isTrue();
@@ -171,6 +178,12 @@ describe('compilePathPattern', () => {
 
     expect(() => internalCompilePathPattern('/x/*/', false)).throws(
       "unnamed parameter or unescaped '*' at 3",
+    );
+  });
+
+  it('rejects paths with an optional leading /', () => {
+    expect(() => internalCompilePathPattern('{/}foo', false)).throws(
+      "path must begin with '/' or flags",
     );
   });
 

@@ -204,7 +204,7 @@ subRouterNoParams.get('/:p', (req) => {
 r.mount('/nothing', subRouterNoParams);
 r.mount('/:anything', subRouterNoParams);
 
-r.on('GET /:id/:2', async (req, res) => {
+r.get('/:id/:2', async (req, res) => {
   const sse = new ServerSentEvents(req, res);
   const proxy = new EventSource('https://example.com');
   proxy.addEventListener('message', (ev) => {
@@ -212,9 +212,6 @@ r.on('GET /:id/:2', async (req, res) => {
   });
   sse.signal.addEventListener('abort', () => proxy.close());
 });
-
-// @ts-expect-error
-r.on('GET/:id/:2', () => null);
 
 new WebListener(r).listen(8080, 'localhost');
 

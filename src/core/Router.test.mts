@@ -379,27 +379,6 @@ describe('router', () => {
     });
   });
 
-  it('accepts combined method and path strings in .on', { timeout: 3000 }, () => {
-    const router = new Router();
-    router.on('GET /', writeAndReturn('got /'));
-    router.on('GET /foo', writeAndReturn('got /foo'));
-    router.on('POST /foo', writeAndReturn('posted /foo'));
-
-    return withServer(router, async (url) => {
-      await expect(fetch(url), responds({ body: 'got /' }));
-      await expect(fetch(url + '/foo'), responds({ body: 'got /foo' }));
-      await expect(fetch(url + '/foo', { method: 'POST' }), responds({ body: 'posted /foo' }));
-    });
-  });
-
-  it('rejects invalid config in .on', () => {
-    const router = new Router();
-    expect(() => router.on('get /' as any, () => {})).throws('invalid method + path spec');
-    expect(() => router.on('GET' as any, () => {})).throws('invalid method + path spec');
-    expect(() => router.on(' /' as any, () => {})).throws('invalid method + path spec');
-    expect(() => router.on('GET ' as any, () => {})).throws('invalid method + path spec');
-  });
-
   it('registers sub-routers with .within', { timeout: 3000 }, () => {
     const router = new Router();
     router.within('/foo', (subRouter) => {

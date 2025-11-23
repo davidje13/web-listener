@@ -5,9 +5,9 @@ import { pipeline } from 'node:stream/promises';
 
 export function generateWeakETag(
   contentEncoding: string | number | string[] | undefined,
-  stats: Pick<Stats, 'mtimeMs' | 'size'>,
+  fileStats: Pick<Stats, 'mtimeMs' | 'size'>,
 ) {
-  const token = `${stats.mtimeMs | 0} ${stats.size} ${contentEncoding ?? ''}`;
+  const token = `${fileStats.mtimeMs | 0} ${fileStats.size} ${contentEncoding ?? ''}`;
   const hash = createHash('sha256').update(token).digest('base64').substring(0, 12);
   return `W/"${hash}"`;
 }

@@ -5,7 +5,7 @@ import { responds } from '../test-helpers/responds.mts';
 import { getAddressURL } from '../util/getAddressURL.mts';
 import { requestHandler, upgradeHandler } from './handler.mts';
 import { setSoftCloseHandler } from './close.mts';
-import { WebListener } from './WebListener.mts';
+import { WebListener, type RequestErrorDetail } from './WebListener.mts';
 import '../polyfill/fetch.mts';
 import 'lean-test';
 
@@ -370,10 +370,10 @@ describe('WebListener', () => {
         throw new Error('oops');
       });
       const weblistener = new WebListener(handler);
-      const capturedErrors: any[] = [];
-      weblistener.addEventListener('error', (ev) => {
-        ev.preventDefault();
-        capturedErrors.push((ev as CustomEvent).detail);
+      const capturedErrors: RequestErrorDetail[] = [];
+      weblistener.addEventListener('error', (evt) => {
+        evt.preventDefault();
+        capturedErrors.push(evt.detail);
       });
       const server = await weblistener.listen(0, 'localhost');
       const url = getAddressURL(server.address());
@@ -383,8 +383,8 @@ describe('WebListener', () => {
         await server.closeWithTimeout('end of test', 0);
       }
       expect(capturedErrors).hasLength(1);
-      expect(capturedErrors[0].error).equals(new Error('oops'));
-      expect(capturedErrors[0].server).equals(server);
+      expect(capturedErrors[0]!.error).equals(new Error('oops'));
+      expect(capturedErrors[0]!.server).equals(server);
     });
   });
 });

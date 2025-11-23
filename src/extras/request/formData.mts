@@ -98,20 +98,20 @@ export function getFormFields(
 
 export async function getFormData(
   req: IncomingMessage,
-  config: GetFormDataOptions = {},
+  options: GetFormDataOptions = {},
 ): Promise<AugmentedFormData> {
   const data = new FormData();
   const pathLookup = new Map<Blob, string>();
 
-  for await (const field of getFormFields(req, config)) {
+  for await (const field of getFormFields(req, options)) {
     if (field.type === 'file') {
       const stream = field.value;
-      let postCheck = await config.preCheckFile?.({
+      let postCheck = await options.preCheckFile?.({
         fieldName: field.name,
         filename: field.filename,
         encoding: field.encoding,
         mimeType: field.mimeType,
-        maxBytes: config.limits?.fileSize,
+        maxBytes: options.limits?.fileSize,
       });
       const runPostCheck = (actualBytes: number) => {
         if (typeof postCheck === 'function') {
@@ -131,7 +131,7 @@ export async function getFormData(
       data.append(field.name, file);
     } else {
       let val = field.value;
-      if (config.trimAllValues) {
+      if (options.trimAllValues) {
         val = val.trim();
       }
       data.append(field.name, val);

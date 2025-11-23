@@ -213,31 +213,16 @@ export class Router<Req = {}> implements Handler<Req> {
    * routing instruction. They can be used for features like templating or ensuring connections
    * are always closed when a handler returns.
    *
-   * Return hanlders are called in the order they were registered, and from the innermost router
+   * Return handlers are called in the order they were registered, and from the innermost router
    * to the outermost rooter. Return handlers are not called for upgrade requests.
    *
    * Return handlers are not ordered with the other handlers, so they can be registered upfront if
    * desired. If a return handler throws, the error will be passed to the next error handler after
    * the request handler which triggered it.
    */
-  onReturn(...handlers: RequestReturnHandlerFn<Req>[]): this {
-    this._returnHandlers.push(...(handlers as RequestReturnHandlerFn<unknown>[]));
+  onReturn(...fns: RequestReturnHandlerFn<Req>[]): this {
+    this._returnHandlers.push(...(fns as RequestReturnHandlerFn<unknown>[]));
     return this;
-  }
-
-  /**
-   * Convenience wrapper for `.onRequest`, accepting paths with a HTTP verb at the start (separated
-   * by a space).
-   */
-  on<Path extends string>(
-    path: `${CommonMethod} ${Path}`,
-    ...handlers: RelaxedRequestHandler<Req & WithPathParameters<ParametersFromPath<Path>>>[]
-  ): this {
-    const parts = /^([A-Z]+) (\/.*)$/.exec(path);
-    if (!parts) {
-      throw new TypeError('invalid method + path spec: ' + JSON.stringify(path));
-    }
-    return this._add(parts[1]!, HTTP_PROTOCOL, parts[2]!, false, handlers.map(wrapHandlerRequest));
   }
 
   /**

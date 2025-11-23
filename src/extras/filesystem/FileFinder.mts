@@ -212,7 +212,7 @@ export class FileFinder implements FileFinderCore {
     }
   }
 
-  static async build(absBasePath: string, options: FileFinderOptions) {
+  static async build(absBasePath: string, options: FileFinderOptions = {}) {
     return new FileFinder((await realpath(absBasePath, { encoding: 'utf-8' })) + sep, options);
   }
 

@@ -101,12 +101,12 @@ export interface FallbackOptions {
  * Requests for files which are not permitted or do not exist will return NEXT_ROUTE and can be
  * handled by subsequent routes.
  *
- * @param basePath the path to the directory to serve (relative paths are to the current working directory)
+ * @param baseDir the path to the directory to serve (relative paths are to the current working directory)
  * @param options custom configuration to apply
  * @returns a promise of a server handler function (note this should be `await`ed before being used as a handler!)
  */
 export const fileServer = async (
-  basePath: string,
+  baseDir: string,
   {
     mode = 'dynamic',
     fallback,
@@ -115,7 +115,7 @@ export const fileServer = async (
     ...options
   }: FileServerOptions = {},
 ): Promise<RequestHandler> => {
-  const fileFinder = await FileFinder.build(resolve(process.cwd(), basePath), options);
+  const fileFinder = await FileFinder.build(resolve(process.cwd(), baseDir), options);
 
   let fallbackPath: string[] | null = null;
   const fallbackStatusCode = fallback?.statusCode ?? 200;

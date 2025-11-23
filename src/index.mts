@@ -8,6 +8,7 @@ export { Queue } from './util/Queue.mts';
 
 export {
   acceptUpgrade,
+  delegateUpgrade,
   type AcceptUpgradeHandler,
   type AcceptUpgradeResult,
 } from './core/acceptUpgrade.mts';

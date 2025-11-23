@@ -7,7 +7,6 @@ import type { Handler } from './handler.mts';
 export interface ListenOptions {
   /**
    * `backlog` parameter sent to `server.listen`.
-   *
    * @default 511
    */
   backlog?: number | undefined;
@@ -22,26 +21,19 @@ export interface ListenerOptions extends Omit<NativeListenersOptions, 'onError'>
   /**
    * Automatically send `417 Expectation Failed` for any request with a non-standard `Expect` header.
    * Set to `false` to allow application-specific use of this header.
-   *
    * @default true (matching Node.js behaviour)
    */
   rejectNonStandardExpect?: boolean | undefined;
 
   /**
    * Automatically send `100 Continue` for any request with `Expect: 100-continue`.
-   * If set to `false`, all handlers MUST call `acceptBody(req)` before attempting
-   * to read the body of the request (bundled body parsing middleware does this
-   * automatically).
-   *
+   * If set to `false`, all handlers MUST call `acceptBody(req)` before attempting to read the body of the request (all bundled body parsing middleware does this automatically).
    * @default true (matching Node.js behaviour)
    */
   autoContinue?: boolean | undefined;
 
   /**
-   * Override the shouldUpgradeCallback of the server with one that attempts to detect whether an
-   * upgrade request would be handled by the current routes. The detection does not invoke any
-   * handlers, but checks their `shouldUpgrade` function if it is present.
-   *
+   * Override the `shouldUpgradeCallback` (Node.js 24.9+) of the server with one that attempts to detect whether an upgrade request would be handled by the current routes. The detection does not invoke any handlers, but checks their `shouldUpgrade` function if it is present.
    * @default true
    */
   overrideShouldUpgradeCallback?: boolean | undefined;
