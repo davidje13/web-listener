@@ -124,7 +124,7 @@ const tests: TestDef[] = [
     expected: [{ type: 'field', name: '', val: 'content', info: COMMON_FIELD_INFO }],
   },
   {
-    name: 'Missing field name', // TODO: should this be considered invalid?
+    name: 'Missing field name',
     source: [
       [
         `--${COMMON_BOUNDARY}`,
@@ -135,7 +135,7 @@ const tests: TestDef[] = [
       ],
     ],
     boundary: COMMON_BOUNDARY,
-    expected: [{ type: 'field', name: '', val: 'content', info: COMMON_FIELD_INFO }],
+    expected: [{ error: 'missing field name' }],
   },
   {
     name: 'Fields and files (limits)',

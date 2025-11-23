@@ -80,7 +80,12 @@ export class Multipart extends Writable {
         partSizeRemaining = -1;
         return;
       }
-      partName = disp.params.get('name') ?? '';
+      partName = disp.params.get('name');
+      if (partName === undefined) {
+        this.emit('error', new HTTPError(400, { body: 'missing field name' }));
+        partSizeRemaining = -1;
+        return;
+      }
       nameTruncated = partName.length > fieldNameSizeLimit;
       if (nameTruncated) {
         partName = partName.substring(0, fieldNameSizeLimit);
