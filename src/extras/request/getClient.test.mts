@@ -20,8 +20,8 @@ describe('getDirectConnection', () => {
     const node = internalGetDirectConnection(req);
 
     expect(node).equals({
-      client: { type: 'IPv4', ip: '5.5.5.5', port: 1234 },
-      server: { type: 'IPv4', ip: '5.6.7.8', port: 5678 },
+      client: { family: 'IPv4', address: '5.5.5.5', port: 1234 },
+      server: { family: 'IPv4', address: '5.6.7.8', port: 5678 },
       host: 'this.example.com',
       proto: undefined,
     });
@@ -41,26 +41,26 @@ describe('makeGetClient', () => {
 
   const TEST_CHAIN = [
     {
-      client: { type: 'IPv4', ip: '5.5.5.5', port: 1234 },
-      server: { type: 'IPv4', ip: '5.6.7.8', port: 5678 },
+      client: { family: 'IPv4', address: '5.5.5.5', port: 1234 },
+      server: { family: 'IPv4', address: '5.6.7.8', port: 5678 },
       host: 'this.example.com',
       proto: undefined,
     },
     {
-      client: { type: 'IPv4', ip: '1.2.3.4', port: undefined },
-      server: { type: 'IPv4', ip: '5.5.5.5', port: undefined },
+      client: { family: 'IPv4', address: '1.2.3.4', port: undefined },
+      server: { family: 'IPv4', address: '5.5.5.5', port: undefined },
       host: undefined,
       proto: undefined,
     },
     {
-      client: { type: 'IPv4', ip: '9.9.9.9', port: undefined },
-      server: { type: 'IPv4', ip: '1.2.3.4', port: undefined },
+      client: { family: 'IPv4', address: '9.9.9.9', port: undefined },
+      server: { family: 'IPv4', address: '1.2.3.4', port: undefined },
       host: 'example.com',
       proto: 'http',
     },
     {
-      client: { type: 'IPv4', ip: '1.1.1.1', port: undefined },
-      server: { type: 'IPv4', ip: '9.9.9.9', port: undefined },
+      client: { family: 'IPv4', address: '1.1.1.1', port: undefined },
+      server: { family: 'IPv4', address: '9.9.9.9', port: undefined },
       host: 'original.example.com',
       proto: 'https',
     },
@@ -94,26 +94,26 @@ describe('makeGetClient', () => {
     const client = getClient(req);
     expect(client.outwardChain).equals([
       {
-        client: { type: 'IPv4', ip: '5.5.5.5', port: 1234 },
-        server: { type: 'IPv4', ip: '5.6.7.8', port: 5678 },
+        client: { family: 'IPv4', address: '5.5.5.5', port: 1234 },
+        server: { family: 'IPv4', address: '5.6.7.8', port: 5678 },
         host: 'this.example.com',
         proto: undefined,
       },
       {
-        client: { type: 'IPv4', ip: '1.2.3.4', port: undefined },
-        server: { type: 'IPv4', ip: '5.5.5.5', port: undefined },
+        client: { family: 'IPv4', address: '1.2.3.4', port: undefined },
+        server: { family: 'IPv4', address: '5.5.5.5', port: undefined },
         host: undefined,
         proto: undefined,
       },
       {
-        client: { type: 'IPv4', ip: '9.9.9.9', port: undefined },
-        server: { type: 'IPv4', ip: '1.2.3.4', port: undefined },
+        client: { family: 'IPv4', address: '9.9.9.9', port: undefined },
+        server: { family: 'IPv4', address: '1.2.3.4', port: undefined },
         host: undefined,
         proto: undefined,
       },
       {
-        client: { type: 'IPv4', ip: '1.1.1.1', port: undefined },
-        server: { type: 'IPv4', ip: '9.9.9.9', port: undefined },
+        client: { family: 'IPv4', address: '1.1.1.1', port: undefined },
+        server: { family: 'IPv4', address: '9.9.9.9', port: undefined },
         host: undefined,
         proto: undefined,
       },
@@ -136,26 +136,26 @@ describe('makeGetClient', () => {
     const client = getClient(req);
     expect(client.outwardChain).equals([
       {
-        client: { type: 'IPv4', ip: '5.5.5.5', port: 1234 },
-        server: { type: 'IPv4', ip: '5.6.7.8', port: 5678 },
+        client: { family: 'IPv4', address: '5.5.5.5', port: 1234 },
+        server: { family: 'IPv4', address: '5.6.7.8', port: 5678 },
         host: 'this.example.com',
         proto: undefined,
       },
       {
-        client: { type: 'IPv4', ip: '1.2.3.4', port: undefined },
-        server: { type: 'IPv4', ip: '5.5.5.5', port: undefined },
+        client: { family: 'IPv4', address: '1.2.3.4', port: undefined },
+        server: { family: 'IPv4', address: '5.5.5.5', port: undefined },
         host: 'bar.example.com',
         proto: undefined,
       },
       {
-        client: { type: 'IPv4', ip: '9.9.9.9', port: undefined },
-        server: { type: 'IPv4', ip: '1.2.3.4', port: undefined },
+        client: { family: 'IPv4', address: '9.9.9.9', port: undefined },
+        server: { family: 'IPv4', address: '1.2.3.4', port: undefined },
         host: 'foo.example.com',
         proto: undefined,
       },
       {
-        client: { type: 'IPv4', ip: '1.1.1.1', port: undefined },
-        server: { type: 'IPv4', ip: '9.9.9.9', port: undefined },
+        client: { family: 'IPv4', address: '1.1.1.1', port: undefined },
+        server: { family: 'IPv4', address: '9.9.9.9', port: undefined },
         host: 'original.example.com',
         proto: undefined,
       },
@@ -178,26 +178,26 @@ describe('makeGetClient', () => {
     const client = getClient(req);
     expect(client.outwardChain).equals([
       {
-        client: { type: 'IPv4', ip: '5.5.5.5', port: 1234 },
-        server: { type: 'IPv4', ip: '5.6.7.8', port: 5678 },
+        client: { family: 'IPv4', address: '5.5.5.5', port: 1234 },
+        server: { family: 'IPv4', address: '5.6.7.8', port: 5678 },
         host: 'this.example.com',
         proto: undefined,
       },
       {
-        client: { type: 'IPv4', ip: '1.2.3.4', port: undefined },
-        server: { type: 'IPv4', ip: '5.5.5.5', port: undefined },
+        client: { family: 'IPv4', address: '1.2.3.4', port: undefined },
+        server: { family: 'IPv4', address: '5.5.5.5', port: undefined },
         host: undefined,
         proto: 'http',
       },
       {
-        client: { type: 'IPv4', ip: '9.9.9.9', port: undefined },
-        server: { type: 'IPv4', ip: '1.2.3.4', port: undefined },
+        client: { family: 'IPv4', address: '9.9.9.9', port: undefined },
+        server: { family: 'IPv4', address: '1.2.3.4', port: undefined },
         host: undefined,
         proto: 'https',
       },
       {
-        client: { type: 'IPv4', ip: '1.1.1.1', port: undefined },
-        server: { type: 'IPv4', ip: '9.9.9.9', port: undefined },
+        client: { family: 'IPv4', address: '1.1.1.1', port: undefined },
+        server: { family: 'IPv4', address: '9.9.9.9', port: undefined },
         host: undefined,
         proto: 'https',
       },
@@ -218,26 +218,26 @@ describe('makeGetClient', () => {
     const client = getClient(req);
     expect(client.outwardChain).equals([
       {
-        client: { type: 'IPv4', ip: '5.5.5.5', port: 1234 },
-        server: { type: 'IPv4', ip: '5.6.7.8', port: 5678 },
+        client: { family: 'IPv4', address: '5.5.5.5', port: 1234 },
+        server: { family: 'IPv4', address: '5.6.7.8', port: 5678 },
         host: 'this.example.com',
         proto: undefined,
       },
       {
         client: undefined,
-        server: { type: 'IPv4', ip: '5.5.5.5', port: undefined },
+        server: { family: 'IPv4', address: '5.5.5.5', port: undefined },
         host: undefined,
         proto: undefined,
       },
       {
         client: undefined,
-        server: { type: 'IPv4', ip: '1.2.3.4', port: 80 },
+        server: { family: 'IPv4', address: '1.2.3.4', port: 80 },
         host: undefined,
         proto: undefined,
       },
       {
         client: undefined,
-        server: { type: 'IPv4', ip: '9.9.9.9', port: undefined },
+        server: { family: 'IPv4', address: '9.9.9.9', port: undefined },
         host: undefined,
         proto: undefined,
       },
@@ -259,26 +259,26 @@ describe('makeGetClient', () => {
     const client = getClient(req);
     expect(client.outwardChain).equals([
       {
-        client: { type: 'IPv4', ip: '5.5.5.5', port: 1234 },
-        server: { type: 'IPv4', ip: '5.6.7.8', port: 5678 },
+        client: { family: 'IPv4', address: '5.5.5.5', port: 1234 },
+        server: { family: 'IPv4', address: '5.6.7.8', port: 5678 },
         host: 'this.example.com',
         proto: undefined,
       },
       {
-        client: { type: 'IPv4', ip: '1.2.3.4', port: undefined },
-        server: { type: 'IPv4', ip: '5.5.5.5', port: 789 },
+        client: { family: 'IPv4', address: '1.2.3.4', port: undefined },
+        server: { family: 'IPv4', address: '5.5.5.5', port: 789 },
         host: undefined,
         proto: undefined,
       },
       {
-        client: { type: 'IPv4', ip: '9.9.9.9', port: undefined },
-        server: { type: 'IPv4', ip: '1.2.3.4', port: 456 },
+        client: { family: 'IPv4', address: '9.9.9.9', port: undefined },
+        server: { family: 'IPv4', address: '1.2.3.4', port: 456 },
         host: undefined,
         proto: undefined,
       },
       {
-        client: { type: 'IPv4', ip: '1.1.1.1', port: undefined },
-        server: { type: 'IPv4', ip: '9.9.9.9', port: 123 },
+        client: { family: 'IPv4', address: '1.1.1.1', port: undefined },
+        server: { family: 'IPv4', address: '9.9.9.9', port: 123 },
         host: undefined,
         proto: undefined,
       },
@@ -303,26 +303,26 @@ describe('makeGetClient', () => {
     const client = getClient(req);
     expect(client.outwardChain).equals([
       {
-        client: { type: 'IPv4', ip: '5.5.5.5', port: 1234 },
-        server: { type: 'IPv4', ip: '5.6.7.8', port: 5678 },
+        client: { family: 'IPv4', address: '5.5.5.5', port: 1234 },
+        server: { family: 'IPv4', address: '5.6.7.8', port: 5678 },
         host: 'this.example.com',
         proto: undefined,
       },
       {
-        client: { type: 'IPv4', ip: '1.2.3.4', port: undefined },
-        server: { type: 'IPv4', ip: '5.5.5.5', port: undefined },
+        client: { family: 'IPv4', address: '1.2.3.4', port: undefined },
+        server: { family: 'IPv4', address: '5.5.5.5', port: undefined },
         host: 'bar.example.com',
         proto: 'http',
       },
       {
-        client: { type: 'IPv4', ip: '9.9.9.9', port: undefined },
-        server: { type: 'IPv4', ip: '1.2.3.4', port: undefined },
+        client: { family: 'IPv4', address: '9.9.9.9', port: undefined },
+        server: { family: 'IPv4', address: '1.2.3.4', port: undefined },
         host: 'foo.example.com',
         proto: 'https',
       },
       {
-        client: { type: 'IPv4', ip: '1.1.1.1', port: undefined },
-        server: { type: 'IPv4', ip: '9.9.9.9', port: undefined },
+        client: { family: 'IPv4', address: '1.1.1.1', port: undefined },
+        server: { family: 'IPv4', address: '9.9.9.9', port: undefined },
         host: undefined,
         proto: undefined,
       },

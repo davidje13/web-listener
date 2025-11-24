@@ -70,7 +70,7 @@ export function makeAcceptWebSocket<T extends ClosableWebSocket, PassThroughOpti
           onError: (error) => {
             const wsError = findCause(error, WebSocketError);
             if (wsError) {
-              ws.close(wsError.statusCode, wsError.statusMessage);
+              ws.close(wsError.closeCode, wsError.closeReason);
               return;
             }
             const httpError = findCause(error, HTTPError) ?? new HTTPError(500);

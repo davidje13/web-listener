@@ -56,7 +56,7 @@ describe('acceptWebSocket', () => {
 
     const handler = upgradeHandler(async (req) => {
       await acceptWebSocket(req);
-      throw new WebSocketError(4567, { statusMessage: 'oh no', message: 'private' });
+      throw new WebSocketError(4567, { closeReason: 'oh no', message: 'private' });
     });
 
     return withServer(handler, async (url, { expectError }) => {

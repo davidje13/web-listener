@@ -10,64 +10,64 @@ describe('parseAddress', () => {
 
   it('parses IPv4 addresses', () => {
     const address = parseAddress('127.0.0.1');
-    expect(address?.type).equals('IPv4');
-    expect(address?.ip).equals('127.0.0.1');
+    expect(address?.family).equals('IPv4');
+    expect(address?.address).equals('127.0.0.1');
     expect(address?.port).isUndefined();
   });
 
   it('parses IPv4 addresses with port', () => {
     const address = parseAddress('10.100.200.250:1234');
-    expect(address?.type).equals('IPv4');
-    expect(address?.ip).equals('10.100.200.250');
+    expect(address?.family).equals('IPv4');
+    expect(address?.address).equals('10.100.200.250');
     expect(address?.port).equals(1234);
   });
 
   it('rejects invalid IPv4 addresses', () => {
     const address = parseAddress('256.0.0.1');
-    expect(address?.type).equals('alias');
+    expect(address?.family).equals('alias');
   });
 
   it('rejects non-standard representations of IPv4 addresses', () => {
     const address = parseAddress('001.002.003.004');
-    expect(address?.type).equals('alias');
+    expect(address?.family).equals('alias');
   });
 
   it('parses IPv6 addresses', () => {
     const address = parseAddress('::1');
-    expect(address?.type).equals('IPv6');
-    expect(address?.ip).equals('::1');
+    expect(address?.family).equals('IPv6');
+    expect(address?.address).equals('::1');
     expect(address?.port).isUndefined();
   });
 
   it('lowercases IPv6 addresses', () => {
     const address = parseAddress('A::1');
-    expect(address?.type).equals('IPv6');
-    expect(address?.ip).equals('a::1');
+    expect(address?.family).equals('IPv6');
+    expect(address?.address).equals('a::1');
   });
 
   it('parses IPv6 addresses with port', () => {
     const address = parseAddress('[1234:abcd:12::1]:9876');
-    expect(address?.type).equals('IPv6');
-    expect(address?.ip).equals('1234:abcd:12::1');
+    expect(address?.family).equals('IPv6');
+    expect(address?.address).equals('1234:abcd:12::1');
     expect(address?.port).equals(9876);
   });
 
   it('rejects invalid IPv6 addresses', () => {
     const address = parseAddress('12345::1');
-    expect(address?.type).equals('alias');
+    expect(address?.family).equals('alias');
   });
 
   it('parses aliases', () => {
     const address = parseAddress('_something');
-    expect(address?.type).equals('alias');
-    expect(address?.ip).equals('_something');
+    expect(address?.family).equals('alias');
+    expect(address?.address).equals('_something');
     expect(address?.port).isUndefined();
   });
 
   it('parses aliases with port', () => {
     const address = parseAddress('_something:1111');
-    expect(address?.type).equals('alias');
-    expect(address?.ip).equals('_something');
+    expect(address?.family).equals('alias');
+    expect(address?.address).equals('_something');
     expect(address?.port).equals(1111);
   });
 });

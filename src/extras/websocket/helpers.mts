@@ -46,13 +46,13 @@ export const makeWebSocketFallbackTokenFetcher =
         throw STOP;
       }
       throw new WebSocketError(WebSocketError.POLICY_VIOLATION, {
-        statusMessage: 'timeout waiting for authentication token',
+        closeReason: 'timeout waiting for authentication token',
         cause: error,
       });
     }
     if (tokenMessage.isBinary) {
       throw new WebSocketError(WebSocketError.UNSUPPORTED_DATA, {
-        statusMessage: 'authentication token must be sent as text',
+        closeReason: 'authentication token must be sent as text',
       });
     }
     return tokenMessage.data.toString('utf-8');

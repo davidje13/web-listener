@@ -149,7 +149,7 @@ export interface FileFinderCore {
 }
 
 export class FileFinder implements FileFinderCore {
-  /** @internal */ declare private readonly _basePath: string;
+  /** @internal */ declare private readonly _baseDir: string;
   /** @internal */ declare private readonly _subDirectories: number;
   /** @internal */ declare private readonly _caseSensitive:
     | 'exact'
@@ -169,7 +169,7 @@ export class FileFinder implements FileFinderCore {
 
   /** @internal */
   private constructor(
-    basePath: string,
+    baseDir: string,
     {
       subDirectories = true,
       caseSensitive = 'exact',
@@ -183,7 +183,7 @@ export class FileFinder implements FileFinderCore {
       negotiation,
     }: FileFinderOptions,
   ) {
-    this._basePath = basePath;
+    this._baseDir = baseDir;
     this._subDirectories = subDirectories === true ? Number.POSITIVE_INFINITY : subDirectories || 0;
     this._caseSensitive = caseSensitive;
     this._allowAllDotfiles = allowAllDotfiles;
@@ -212,8 +212,8 @@ export class FileFinder implements FileFinderCore {
     }
   }
 
-  static async build(absBasePath: string, options: FileFinderOptions = {}) {
-    return new FileFinder((await realpath(absBasePath, { encoding: 'utf-8' })) + sep, options);
+  static async build(absBaseDir: string, options: FileFinderOptions = {}) {
+    return new FileFinder((await realpath(absBaseDir, { encoding: 'utf-8' })) + sep, options);
   }
 
   /** @internal */
@@ -264,10 +264,10 @@ export class FileFinder implements FileFinderCore {
     if (this._caseSensitive === 'force-lowercase') {
       subPath = subPath.toLowerCase();
     }
-    let resolvedPath = resolve(this._basePath, subPath);
-    if (!resolvedPath.startsWith(this._basePath) && resolvedPath + sep !== this._basePath) {
+    let resolvedPath = resolve(this._baseDir, subPath);
+    if (!resolvedPath.startsWith(this._baseDir) && resolvedPath + sep !== this._baseDir) {
       warnings?.push(
-        `${JSON.stringify(resolvedPath)} is not inside root ${JSON.stringify(this._basePath)}`,
+        `${JSON.stringify(resolvedPath)} is not inside root ${JSON.stringify(this._baseDir)}`,
       );
       return null; // directory traversal escaped root directory: fail
     }
@@ -277,7 +277,7 @@ export class FileFinder implements FileFinderCore {
     for (const suffix of this._implicitSuffixes) {
       const suffixedPath = resolvedPath + suffix;
       parts = suffixedPath
-        .substring(this._basePath.length)
+        .substring(this._baseDir.length)
         .split(sep)
         .filter((part) => part);
       if (parts.length - 1 > this._subDirectories) {
@@ -374,7 +374,7 @@ export class FileFinder implements FileFinderCore {
         lookup.set(path, info);
       }
     };
-    const queue = new Queue({ dir: [this._basePath], depth: 0 });
+    const queue = new Queue({ dir: [this._baseDir], depth: 0 });
     for (const { dir, depth } of queue) {
       const dirEntries = await readdir(join(...dir), { withFileTypes: true, encoding: 'utf-8' });
       const siblings = new Set(dirEntries.map((v) => this._normalise(v.name)));

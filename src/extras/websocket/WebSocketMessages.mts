@@ -24,16 +24,14 @@ export class WebSocketMessage {
 
   get text() {
     if (this.isBinary) {
-      throw new WebSocketError(WebSocketError.UNSUPPORTED_DATA, { statusMessage: 'expected text' });
+      throw new WebSocketError(WebSocketError.UNSUPPORTED_DATA, { closeReason: 'expected text' });
     }
     return this.data.toString('utf-8');
   }
 
   get binary() {
     if (!this.isBinary) {
-      throw new WebSocketError(WebSocketError.UNSUPPORTED_DATA, {
-        statusMessage: 'expected binary',
-      });
+      throw new WebSocketError(WebSocketError.UNSUPPORTED_DATA, { closeReason: 'expected binary' });
     }
     return this.data;
   }

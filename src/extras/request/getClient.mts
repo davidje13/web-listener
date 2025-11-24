@@ -164,8 +164,8 @@ export const internalGetDirectConnection = (req: IncomingMessage): ProxyNode => 
 });
 
 const DISCONNECTED: Address = {
-  type: 'alias',
-  ip: '_disconnected',
+  family: 'alias',
+  address: '_disconnected',
   port: undefined,
 };
 

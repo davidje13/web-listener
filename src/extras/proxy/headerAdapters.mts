@@ -73,8 +73,8 @@ export function writeForwarded(forwarded: ProxyNode[]) {
     .filter((node) => node.server || node.client)
     .map((node) =>
       Object.entries({
-        for: node.client?.ip,
-        by: node.server?.ip,
+        for: node.client?.address,
+        by: node.server?.address,
         host: node.host,
         proto: node.proto,
       })

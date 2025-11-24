@@ -1,21 +1,18 @@
 interface WebSocketErrorOptions {
   message?: string;
-  statusMessage?: string;
+  closeReason?: string;
   cause?: unknown;
 }
 
 export class WebSocketError extends Error {
-  declare public readonly statusCode: number;
-  declare public readonly statusMessage: string;
+  declare public readonly closeCode: number;
+  declare public readonly closeReason: string;
 
-  constructor(
-    statusCode: number,
-    { message, statusMessage, ...options }: WebSocketErrorOptions = {},
-  ) {
+  constructor(closeCode: number, { message, closeReason, ...options }: WebSocketErrorOptions = {}) {
     super(message, options);
-    this.statusCode = statusCode | 0;
-    this.statusMessage = statusMessage ?? '';
-    this.name = `WebSocketError(${this.statusCode} ${this.statusMessage})`;
+    this.closeCode = closeCode | 0;
+    this.closeReason = closeReason ?? '';
+    this.name = `WebSocketError(${this.closeCode} ${this.closeReason})`;
   }
 
   // https://datatracker.ietf.org/doc/html/rfc6455#section-11.7

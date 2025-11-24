@@ -1,8 +1,8 @@
 import { isIPv4, isIPv6 } from 'node:net';
 
 export interface Address {
-  type: 'IPv4' | 'IPv6' | 'alias';
-  ip: string;
+  family: 'IPv4' | 'IPv6' | 'alias';
+  address: string;
   port: number | undefined;
 }
 
@@ -12,24 +12,28 @@ export function parseAddress(address: string | undefined): Address | undefined {
   }
   const ipv4 = /^((?:\d{1,3}\.){3}\d{1,3})(?::(\d+))?$/.exec(address);
   if (ipv4?.[1] && isIPv4(ipv4[1])) {
-    return { type: 'IPv4', ip: ipv4[1], port: ipv4[2] ? Number.parseInt(ipv4[2]) : undefined };
+    return {
+      family: 'IPv4',
+      address: ipv4[1],
+      port: ipv4[2] ? Number.parseInt(ipv4[2]) : undefined,
+    };
   }
   const ipv6 = /^\[([\da-fA-F:]+)\](?::(\d+))?$|^([\da-fA-F:]+)$/.exec(address);
   if (ipv6?.[1] && isIPv6(ipv6[1])) {
     return {
-      type: 'IPv6',
-      ip: ipv6[1].toLowerCase(),
+      family: 'IPv6',
+      address: ipv6[1].toLowerCase(),
       port: ipv6[2] ? Number.parseInt(ipv6[2]) : undefined,
     };
   }
   if (ipv6?.[3] && isIPv6(ipv6[3])) {
-    return { type: 'IPv6', ip: ipv6[3].toLowerCase(), port: undefined };
+    return { family: 'IPv6', address: ipv6[3].toLowerCase(), port: undefined };
   }
   const alias = /^(.*?):(\d+)$/i.exec(address);
   if (alias?.[2]) {
-    return { type: 'alias', ip: alias[1]!, port: Number.parseInt(alias[2]) };
+    return { family: 'alias', address: alias[1]!, port: Number.parseInt(alias[2]) };
   }
-  return { type: 'alias', ip: address, port: undefined };
+  return { family: 'alias', address: address, port: undefined };
 }
 
 export function makeAddressTester(cidrRanges: string[]) {
@@ -54,14 +58,14 @@ export function makeAddressTester(cidrRanges: string[]) {
     aliases.add(range);
   }
   return (address: Address | undefined) => {
-    switch (address?.type) {
+    switch (address?.family) {
       case 'alias':
-        return aliases.has(address.ip);
+        return aliases.has(address.address);
       case 'IPv4':
-        const v4 = internalReadIPv4(address.ip);
+        const v4 = internalReadIPv4(address.address);
         return ipv4.some(([base, imask]) => (v4 | imask) === base);
       case 'IPv6':
-        const v6 = internalReadIPv6(address.ip);
+        const v6 = internalReadIPv6(address.address);
         return ipv6.some(([base, imask]) => (v6 | imask) === base);
       default:
         return false;
