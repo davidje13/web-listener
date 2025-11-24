@@ -851,7 +851,14 @@ TODO
 
 - `req` [`<IncomingMessage>`](https://nodejs.org/api/http.html#class-httpincomingmessage)
 
-TODO
+Mark the request as upgraded to another protocol. This disables automatic HTTP error responses if a
+handler throws an error. This should be used if you wish to pass the request to another library for
+handling.
+
+Can only be called for upgrade requests (i.e. from an upgrade handler).
+
+Alternatively, use [`acceptUpgrade`](#acceptupgradereq-upgrade) to configure custom error handling,
+rather than disabling it completely.
 
 ### `isSoftClosed(req)`
 
@@ -1139,11 +1146,55 @@ Equivalent to [`property.clear(req)`](#propertyclearreq)
 
 ### `makeMemo(fn, ...args)`
 
-TODO
+- `fn`
+  [`<Function>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function)
+  a (possibly asynchronous) function to memoise. Receives the current request
+  [`<IncomingMessage>`](https://nodejs.org/api/http.html#class-httpincomingmessage) and the
+  specified `args`.
+- `args` additional arguments to pass to `fn`.
 
-### `registerCharset(name, definition)`
+This creates a memoised function which can be called for a request, for example:
 
-TODO
+```js
+const memoised = makeMemo((req) => doComplicatedThing(req.headers['x-thing']));
+
+router.get('/', (req, res) => {
+  const thing = memoised(req); // calls doComplicatedThing and stores the result for subsequent calls
+  // ...
+});
+```
+
+An example of this being used internally is [`makeGetClient`](#makegetclientoptions), which uses it
+to avoid parsing headers each time the returned `getClient` function is called.
+
+### `registerCharset(charsetName, definition)`
+
+- `charsetName`
+  [`<string>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#string_type)
+  the (case insensitive) name of the character set to register (this is matched against, e.g.
+  `Content-Type` `encoding` parameters in requests).
+- `definition`
+  [`<Object>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object)
+  an object with:
+  - `decoder(options)` a function that accepts
+    [`TextDecoder` options](https://developer.mozilla.org/en-US/docs/Web/API/TextDecoder/TextDecoder#options)
+    and returns a decoder instance which is compatible with
+    [`TextDecoder`'s `decode` method](https://developer.mozilla.org/en-US/docs/Web/API/TextDecoder/decode).
+    Note that the
+    [`stream`](https://developer.mozilla.org/en-US/docs/Web/API/TextDecoder/decode#stream) option
+    _must_ be supported.
+  - `decoderStream(options)` an optional function which returns a
+    [`TransformStream<Uint8Array, string>`](https://developer.mozilla.org/en-US/docs/Web/API/TransformStream).
+    If this is not specified, it is generated automatically from the `decoder`.
+
+Registers a new (or replacement) decoder for the given character set. By default, only
+[character sets](https://developer.mozilla.org/en-US/docs/Web/API/Encoding_API/Encodings) recognised
+by Node's built-in
+[`TextDecoder`](https://developer.mozilla.org/en-US/docs/Web/API/TextDecoder/TextDecoder) are
+supported, which covers most requirements but is not an exhaustive set. If you have particular needs
+for your server, you can write your own decoder implementation or bring in another library (such as
+[iconv-lite](https://www.npmjs.com/package/iconv-lite)) and register it so that it is available for
+all built-in body parsing helpers.
 
 ### `registerUTF32()`
 
@@ -1155,11 +1206,48 @@ being the more efficient choice for all content.
 
 ### `getTextDecoder(charsetName[, options])`
 
-TODO
+- `charsetName`
+  [`<string>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#string_type)
+  the (case insensitive) name of the character set to find
+- `options`
+  [`<Object>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object)
+  [`TextDecoder` constructor options](https://developer.mozilla.org/en-US/docs/Web/API/TextDecoder/TextDecoder)
+  - `fatal`
+    [`<boolean>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#boolean_type)
+    **Default:** `false`.
+  - `ignoreBOM`
+    [`<boolean>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#boolean_type)
+    **Default:** `false`.
+
+Return a new
+[`TextDecoder`](https://developer.mozilla.org/en-US/docs/Web/API/TextDecoder)-compatible instance
+for the requested character set. For standard character sets, this will be an actual `TextDecoder`.
+For custom character sets registered using
+[`registerCharset`](#registercharsetcharsetname-definition), this will be the value returned by
+`decoder(options)`.
 
 ### `getTextDecoderStream(charsetName[, options])`
 
-TODO
+- `charsetName`
+  [`<string>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#string_type)
+  the (case insensitive) name of the character set to find
+- `options`
+  [`<Object>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object)
+  [`TextDecoder` constructor options](https://developer.mozilla.org/en-US/docs/Web/API/TextDecoder/TextDecoder)
+  - `fatal`
+    [`<boolean>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#boolean_type)
+    **Default:** `false`.
+  - `ignoreBOM`
+    [`<boolean>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#boolean_type)
+    **Default:** `false`.
+
+Return a new
+[`TextDecoderStream`](https://developer.mozilla.org/en-US/docs/Web/API/TextDecoderStream)-compatible
+instance for the requested character set. For standard character sets, this will be an actual
+`TextDecoderStream`. For custom character sets registered using
+[`registerCharset`](#registercharsetcharsetname-definition), this will be the value returned by
+`decoderStream(options)` (if provided), or a wrapper around the value returned by
+`decoder(options)`.
 
 ### `registerMime(definitions)`
 
@@ -1313,13 +1401,16 @@ TODO
 
 - `req` [`<IncomingMessage>`](https://nodejs.org/api/http.html#class-httpincomingmessage)
 
-TODO
+Returns the value of the `Origin` header, or the `Sec-WebSocket-Origin` header if `Origin` is not
+set. This provides compatibility with old versions of the WebSocket standard (`Sec-WebSocket-Origin`
+is no longer used by newer versions).
 
 ### `isWebSocketRequest(req)`
 
 - `req` [`<IncomingMessage>`](https://nodejs.org/api/http.html#class-httpincomingmessage)
 
-TODO
+Returns `true` if the request is an upgrade request, is using the `GET` method, and lists
+`websocket` as an upgrade option.
 
 ### `makeWebSocketFallbackTokenFetcher(acceptWebSocket[, timeout])`
 
@@ -2373,7 +2464,19 @@ Reference: [`CONTINUE`](#continue), [`HTTPError`](#httperror), [`Router`](#route
 ```js
 import { Property, Router } from 'web-listener';
 
-// TODO
+const router = new Router();
+
+const myProperty = new Property();
+
+router.get('/', (req) => {
+  myProperty.set(req, 10);
+  return CONTINUE;
+});
+
+router.get('/', (req, res) => {
+  const value = myProperty.get(req); // 10
+  res.end(JSON.stringify(value));
+});
 ```
 
 Reference: [`Property`](#property), [`Router`](#router)

@@ -14,8 +14,8 @@ interface Charset {
 
 const CHARSETS = new Map<string, Charset>();
 
-export function registerCharset(name: string, definition: Charset) {
-  CHARSETS.set(name.toLowerCase(), definition);
+export function registerCharset(charsetName: string, definition: Charset) {
+  CHARSETS.set(charsetName.toLowerCase(), definition);
 }
 
 export function registerUTF32() {

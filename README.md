@@ -1,7 +1,7 @@
 # Web Listener
 
 A small, dependency-free server abstraction for serving static files, proxying, and creating API
-endpoints with middleware. Supports HTTP/1.1 and upgrade requests.
+endpoints with middleware. Supports HTTP/1.1 and upgrade requests (such as WebSockets).
 
 `web-listener` is designed to be tree-shakable so that it provides a minimal framework for those who
 want something simple, while still being able to deliver advanced capabilities for those who need
@@ -60,5 +60,3 @@ and
 Note that this library does not implement rate limiting of any kind, so if you have an endpoint
 which is vulnerable to rapid requests (e.g. a password checking endpoint), you should set up your
 own rate limiting or use a proxy such as NGINX and configure rate limiting there.
-
-## Features
