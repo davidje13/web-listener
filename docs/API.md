@@ -4,26 +4,24 @@
 
 This API is built around the [`node:http` API](https://nodejs.org/api/http.html).
 
-Any valid [`http.Server` `'request'`](https://nodejs.org/api/http.html#event-request) listener
-function can be used as a `requestHandler` without modification.
+Any valid [`<http.Server>` `'request'`](https://nodejs.org/api/http.html#event-request) listener
+function can be used as a [`requestHandler`] without modification.
 
-Any valid [`http.Server` `'upgrade'`](https://nodejs.org/api/http.html#event-upgrade_1) listener
-function can be used as an `upgradeHandler` with the addition of a call to
-[`delegateUpgrade(req)`](#delegateupgradereq) to prevent automatic error responses if an error is
-thrown.
+Any valid [`<http.Server>` `'upgrade'`](https://nodejs.org/api/http.html#event-upgrade_1) listener
+function can be used as an [`upgradeHandler`] with the addition of a call to [`delegateUpgrade`] to
+prevent automatic error responses if an error is thrown.
 
-The [`Router`](#router) class can be used to define method-based and path-based routing for both
-HTTP and upgrade requests. Its behaviour is similar to the `express` model where middleware is
-attached to specific routes. `Router`s can be nested to any depth.
+The [`<Router>`] class can be used to define method-based and path-based routing for both HTTP and
+upgrade requests. Its behaviour is similar to the [express](https://www.npmjs.com/package/express)
+model where middleware is attached to specific routes. [`<Router>`]s can be nested to any depth.
 
-The [`WebListener`](#weblistener) class wraps a [`Router`](#router) (or any other
-[`Handler`](#handler) type, if you do not need routing) and provides convenience methods for
-starting a server or attaching to an existing server. For more direct control, the underlying
-[`toListeners`](#tolistenershandler-options) function can be used to convert a [`Handler`](#handler)
-into various listener types which can be attached to a server manually.
+The [`<WebListener>`] class wraps a [`<Router>`] (or any other [`<Handler>`] type, if you do not
+need routing) and provides convenience methods for starting a server or attaching to an existing
+server. For more direct control, the underlying [`toListeners`] function can be used to convert a
+[`<Handler>`] into various listener types which can be attached to a server manually.
 
-Most applications should have a single [`WebListener`](#weblistener), typically wrapping a hierarchy
-of [`Router`](#router)s.
+Most applications should have a single [`<WebListener>`], typically wrapping a hierarchy of
+[`<Router>`]s.
 
 For example:
 
@@ -65,138 +63,126 @@ names beginning with standard ASCII letters (`a-zA-Z`) are _not_ mangled.
 
 ### `WebListener`
 
+[`<WebListener>`]: #weblistener
+
 This is a wrapper class which provides methods to easily start and stop a web server given a
 handler. Most applications should have a single `WebListener` at a time.
 
 #### `new WebListener(handler)`
 
-- `handler` [`<Handler>`](#handler)
+- `handler` [`<Handler>`]
 
-Create a `WebListener` referencing the given `handler`. The handler is typically a
-[`Router`](#router), but can also be a raw [`Handler`](#handler) object (e.g. returned from
-[`requestHandler`](#requesthandlerfn), or constructed manually).
+Create a `WebListener` referencing the given `handler`. The handler is typically a [`<Router>`], but
+can also be a raw [`<Handler>`] object (e.g. returned from [`requestHandler`], or constructed
+manually).
 
 #### `weblistener.attach(server[, options])`
 
-- `server` [`<http.Server>`](https://nodejs.org/api/http.html#class-httpserver)
-- `options`
-  [`<Object>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object)
-  A set of options configuring the listeners
-  - `rejectNonStandardExpect`
-    [`<boolean>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#boolean_type)
-    Automatically send `417 Expectation Failed` for any request with a non-standard `Expect` header.
-    Set to `false` to allow application-specific use of this header. **Default:** `true` (matching
-    Node.js behaviour).
-  - `autoContinue`
-    [`<boolean>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#boolean_type)
-    Automatically send `100 Continue` for any request with `Expect: 100-continue`. If set to
-    `false`, all handlers MUST call [`acceptBody`](#acceptbodyreq) before attempting to read the
-    body of the request (all bundled body parsing helpers do this automatically). **Default:**
-    `true` (matching Node.js behaviour).
-  - `overrideShouldUpgradeCallback`
-    [`<boolean>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#boolean_type)
-    Override the `shouldUpgradeCallback` (Node.js 24.9+) of the server with one that attempts to
-    detect whether an upgrade request would be handled by the current routes. The detection does not
-    invoke any handlers, but checks their `shouldUpgrade` function if it is present. **Default:**
-    `true`.
-  - additional options are passed to [`toListeners`](#tolistenershandler-options) (note that setting
-    `onError` is not supported; it is always mapped to the ['error' event](#weblisteneronerror-fn)).
+[`weblistener.attach`]: #weblistenerattachserver-options
+
+- `server` [`<http.Server>`]
+- `options` [`<Object>`] A set of options configuring the listeners
+  - `rejectNonStandardExpect` [`<boolean>`] Automatically send [417 Expectation Failed] for any
+    request with a non-standard [`Expect`] header. Set to `false` to allow application-specific use
+    of this header. **Default:** `true` (matching Node.js behaviour).
+  - `autoContinue` [`<boolean>`] Automatically send [100 Continue] for any request with
+    [`Expect: 100-continue`][`Expect`]. If set to `false`, all handlers MUST call [`acceptBody`]
+    before attempting to read the body of the request (all bundled body parsing helpers do this
+    automatically). **Default:** `true` (matching Node.js behaviour).
+  - `overrideShouldUpgradeCallback` [`<boolean>`] Override the `shouldUpgradeCallback` (Node.js
+    24.9+) of the server with one that attempts to detect whether an upgrade request would be
+    handled by the current routes. The detection does not invoke any handlers, but checks their
+    `shouldUpgrade` function if it is present. **Default:** `true`.
+  - additional options are passed to [`toListeners`] (note that setting `onError` is not supported;
+    it is always mapped to the ['error' event](#event-error)).
+- Returns: [`<Function>`] a
+  [`detach` function](#detachreason-existingconnectiontimeout-forshutdown-callback) which can be
+  called to detach the listeners
 
 Attach listeners to the given `server`.
 
-Returns a `function` which can be called to detach the listeners:
-
 ##### `detach([reason[, existingConnectionTimeout[, forShutdown[, callback]]]])`
 
-- `reason`
-  [`<string>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#string_type)
-  optional label describing the type of close, used in error messages and passed to soft close
-  helpers. **Default:** `''`.
-- `timeout`
-  [`<number>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#number_type)
-  the number of milliseconds to wait before forcibly closing all connections. **Default:** `-1`.
-- `forShutdown`
-  [`<boolean>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#boolean_type).
-  If `true`, new requests will continue to be served while the soft close is happening, but all
-  requests will be marked as soft-closed immediately upon creation. If `false`, all listeners are
-  immediately removed, meaning it is possible to attach new listeners without waiting for existing
-  connections to close. **Default:** `false`.
-- `callback`
-  [`<Function>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function)
-  function to invoke once all connections have closed.
+- `reason` [`<string>`] optional label describing the type of close, used in error messages and
+  passed to soft close helpers. **Default:** `''`.
+- `timeout` [`<number>`] the number of milliseconds to wait before forcibly closing all connections.
+  **Default:** `-1`.
+- `forShutdown` [`<boolean>`]. If `true`, new requests will continue to be served while the soft
+  close is happening, but all requests will be marked as soft-closed immediately upon creation. If
+  `false`, all listeners are immediately removed, meaning it is possible to attach new listeners
+  without waiting for existing connections to close. **Default:** `false`.
+- `callback` [`<Function>`] function to invoke once all connections have closed.
+- Returns: [`<NativeListeners>`] the native listeners wrapper, which can be used to track the
+  remaining connections.
 
 Sends a soft-close event to all existing connections and schedules a hard close after the given
 timeout.
 
-Synchronously returns the underlying [`NativeListeners`](#nativelisteners) object which can be used
-to track the remaining connections.
-
 #### `weblistener.createServer([options])`
 
-- `options`
-  [`<Object>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object)
-  A set of options, passed to
-  [`http.createServer`](https://nodejs.org/api/http.html#httpcreateserveroptions-requestlistener)
-  and [`weblistener.attach`](#weblistenerattachserver-options).
+[`weblistener.createServer`]: #weblistenercreateserveroptions
 
-Creates an [`AugmentedServer`](#augmentedserver) (extension of
-[`http.Server`](https://nodejs.org/api/http.html#class-httpserver)) with listeners attached.
+- `options` [`<Object>`] A set of options, passed to [`http.createServer`] and
+  [`weblistener.attach`].
+- Returns: [`<AugmentedServer>`] (extension of [`<http.Server>`])
+
+Creates a server with listeners attached.
 
 #### `weblistener.listen(port, host[, options])`
 
-- `port`
-  [`<number>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#number_type)
-- `host`
-  [`<string>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#string_type)
-- `options`
-  [`<Object>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object)
-  A set of options:
-  - `backlog`
-    [`<number>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#number_type)
-    value to pass as the `backlog` parameter to
-    [`server.listen`](https://nodejs.org/api/net.html#serverlistenport-host-backlog-callback).
+[`weblistener.listen`]: #weblistenerlistenport-host-options
+
+- `port` [`<number>`]
+- `host` [`<string>`]
+- `options` [`<Object>`] A set of options:
+  - `backlog` [`<number>`] value to pass as the `backlog` parameter to [`server.listen`].
     **Default:** `511` (matching Node.js behaviour).
-  - `socketTimeout`
-    [`<number>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#number_type)
-    value to pass to
-    [`server.setTimeout`](https://nodejs.org/api/http.html#serversettimeoutmsecs-callback).
-  - additional options are passed to
-    [`http.createServer`](https://nodejs.org/api/http.html#httpcreateserveroptions-requestlistener)
-    and [`weblistener.attach`](#weblistenerattachserver-options).
+  - `socketTimeout` [`<number>`] value to pass to [`server.setTimeout`].
+  - additional options are passed to [`http.createServer`] and [`weblistener.attach`].
+- Returns: [`<Promise>`] Fulfills with [`<AugmentedServer>`] (extension of [`<http.Server>`]) once
+  the server is listening on the requested port.
 
-Creates an [`AugmentedServer`](#augmentedserver) (extension of
-[`http.Server`](https://nodejs.org/api/http.html#class-httpserver)) with listeners attached and
-calls [`server.listen`](https://nodejs.org/api/net.html#serverlistenport-host-backlog-callback).
-Returns a `Promise` which resolves with the `AugmentedServer` once the server is listening on the
-requested port.
+Creates a server with listeners attached and calls [`server.listen`].
 
-### `weblistener.on('error', fn)
+### Event: `'error'`
+
+- `event` [`<CustomEvent>`] an event with a `detail` property containing:
+  - `server` [`<http.Server>`]
+  - `error` [`<any>`]
+  - `context` [`<string>`] a text string describing the action which triggered the error (for
+    example `'parsing request'`, `'handling upgrade'`, `'initialising request'`, `'soft closing'`,
+    `'tearing down'`). This can be used in logs to assist debugging but should not be relied on to
+    stay constant in future versions.
+  - `request` [`<http.IncomingMessage>`] | [`<undefined>`] the request which caused the error (or
+    `undefined` if the request failed before it could be parsed)
 
 The 'error' event is fired if a handler throws an error which is not handled by the end of the
-chain, or [`emitError`](#emiterrorreq-error-context) is called from any handler. It is also called
-if a teardown function throws an error.
+chain, or [`emitError`] is called from any handler. It is also called if a teardown function throws
+an error.
+
+Call `event.preventDefault()` if you do not want to use the default logging behaviour (which calls
+`console.error` for all errors except `HTTPError`s with `statusCode` < `500`.
 
 ### `AugmentedServer`
 
-- Extends: [`http.Server`](https://nodejs.org/api/http.html#class-httpserver)
+[`<AugmentedServer>`]: #augmentedserver
 
-Helper class returned by [`weblistener.createServer`](#weblistenercreateserveroptions) and
-[`weblistener.listen`](#weblistenerlistenport-host-options).
+- Extends: [`<http.Server>`]
+
+Helper class returned by [`weblistener.createServer`] and [`weblistener.listen`].
 
 #### `augmentedServer.closeWithTimeout(reason, timeout)`
 
-- `reason`
-  [`<string>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#string_type)
-  a label describing the type of close, used in error messages and passed to soft close helpers.
-- `timeout`
-  [`<number>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#number_type)
-  the number of milliseconds to wait before forcibly closing all connections.
+[`augmentedServer.closeWithTimeout`]: #augmentedserverclosewithtimeoutreason-timeout
+
+- `reason` [`<string>`] a label describing the type of close, used in error messages and passed to
+  soft close helpers.
+- `timeout` [`<number>`] the number of milliseconds to wait before forcibly closing all connections.
+- Returns: [`<Promise>`] Fulfills with [`<undefined>`] when all connections have closed.
 
 Sends a soft-close event to all existing connections and schedules a hard close after the given
 timeout. Continues to serve new requests during the soft close time, but marks them as soft-closed
 immediately upon creation.
-
-Returns a `Promise` which resolves once all connections have closed.
 
 Equivalent to:
 
@@ -211,48 +197,43 @@ new Promise((resolve) => {
 
 ### `NativeListeners`
 
-A collection of listeners which can be attached to a
-[`http.Server`](https://nodejs.org/api/http.html#class-httpserver). This is returned by
-[`toListeners`](#tolistenershandler-options).
+[`<NativeListeners>`]: #nativelisteners
 
-#### `request(req, res)`
+A collection of listeners which can be attached to a [`<http.Server>`]. This is returned by
+[`toListeners`].
+
+#### `request`
 
 A request listener compatible with
-[`http.Server` `'request'`](https://nodejs.org/api/http.html#event-request).
+[`<http.Server>` `'request'`](https://nodejs.org/api/http.html#event-request).
 
 Also compatible with [`'checkContinue'`](https://nodejs.org/api/http.html#event-checkcontinue) and
 [`'checkExpectation'`](https://nodejs.org/api/http.html#event-checkexpectation).
 
-#### `upgrade(req, socket, head)`
+#### `upgrade`
 
 An upgrade listener compatible with
-[`http.Server` `'upgrade'`](https://nodejs.org/api/http.html#event-upgrade_1).
+[`<http.Server>` `'upgrade'`](https://nodejs.org/api/http.html#event-upgrade_1).
 
-#### `shouldUpgrade(req)`
+#### `shouldUpgrade`
 
-A function compatible with
-[`http.createServer`](https://nodejs.org/api/http.html#httpcreateserveroptions-requestlistener)'s
-`shouldUpgradeCallback` option (Node.js 24.9+).
+A function compatible with [`http.createServer`]'s `shouldUpgradeCallback` option (Node.js 24.9+).
 
-#### `clientError(error, socket)`
+#### `clientError`
 
 An error listener compatible with
-[`http.Server` `'clientError'`](https://nodejs.org/api/http.html#event-clienterror).
+[`<http.Server>` `'clientError'`](https://nodejs.org/api/http.html#event-clienterror).
 
 #### `softClose(reason, onError[, callback])`
 
-- `reason`
-  [`<string>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#string_type)
-  a label describing the type of close, used in error messages and passed to soft close helpers.
-- `onError`
-  [`<Function>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function)
-  function to invoke if a soft close handler throws an error (receives `error`, `context`
-  [`<string>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#string_type),
-  and `req` [`<IncomingMessage>`](https://nodejs.org/api/http.html#class-httpincomingmessage)). May
-  be invoked multiple times (once for each request that throws).
-- `callback`
-  [`<Function>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function)
-  function to invoke once all connections have closed.
+[`softClose`]: #softclosereason-onerror-callback
+
+- `reason` [`<string>`] a label describing the type of close, used in error messages and passed to
+  soft close helpers.
+- `onError` [`<Function>`] function to invoke if a soft close handler throws an error (receives
+  `error`, `context` [`<string>`], and `req` [`<http.IncomingMessage>`]). May be invoked multiple
+  times (once for each request that throws).
+- `callback` [`<Function>`] function to invoke once all connections have closed.
 
 Sends soft close events to all current connections, and to all new connections immediately on
 creation. Also ensures `connection: close` is set in response headers to prevent "keepalive" idle
@@ -261,17 +242,16 @@ close their connections immediately or in the near future in response to the eve
 
 #### `hardClose([callback])`
 
-- `callback`
-  [`<Function>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function)
-  function to invoke once all connections have closed.
+- `callback` [`<Function>`] function to invoke once all connections have closed.
 
 Immediately closes all current connections and rejects new connections. Requests which have not
-received a response are closed with HTTP status
-[503 Service Unavailable](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/503).
-Upgrade requests which have been [accepted](#acceptupgradereq-upgrade) or
-[delegated](#delegateupgradereq) are closed at the socket level with no additional data sent.
+received a response are closed with HTTP status [503 Service Unavailable]. Upgrade requests which
+have been [accepted][`acceptUpgrade`] or [delegated][`delegateUpgrade`] are closed at the socket
+level with no additional data sent.
 
 #### `countConnections()`
+
+- Returns: [`<number>`]
 
 Returns the number of active connections (not counting idle connections) being served by these
 listeners. This may be less than the total number of connections on the server (e.g. if some
@@ -279,8 +259,10 @@ connections are idle, or are being served by other listeners).
 
 ### `Router`
 
-A [`Handler`](#handler) which routes requests to registered middleware depending on the request
-type, method, and path. Also supports error handling and templating.
+[`<Router>`]: #router
+
+A [`<Handler>`] which routes requests to registered middleware depending on the request type,
+method, and path. Also supports error handling and templating.
 
 #### `new Router()`
 
@@ -308,41 +290,38 @@ base.mount('/:id', sub);
 
 #### `router.use(...handlers)`
 
-- `handlers` [`<Handler[]>`](#handler) any number of request, upgrade, or error handlers.
+- `handlers` [`<Handler[]>`][`<Handler>`] any number of request, upgrade, or error handlers.
+- Returns: [`<Router>`] the router object (for chaining).
 
 Register `handlers` for all requests which reach this router.
 
 As a convenience, `handlers` can also contain raw request handling functions (which are implicily
-wrapped by [`requestHandler`](#requesthandlerfn)).
+wrapped by [`requestHandler`]).
 
 #### `router.mount(path, ...handlers)`
 
-- `path`
-  [`<string>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#string_type)
-  a path prefix to filter on. See [Paths](#paths) for information about path patterns.
-- `handlers` [`<Handler[]>`](#handler) any number of request, upgrade, or error handlers.
+[`router.mount`]: #routermountpath-handlers
+
+- `path` [`<string>`] a path prefix to filter on. See [Paths] for information about path patterns.
+- `handlers` [`<Handler[]>`][`<Handler>`] any number of request, upgrade, or error handlers.
+- Returns: [`<Router>`] the router object (for chaining).
 
 Register `handlers` for all requests which match the `path` prefix (includes sub-paths).
 
 As a convenience, `handlers` can also contain raw request handling functions (which are implicily
-wrapped by [`requestHandler`](#requesthandlerfn)).
+wrapped by [`requestHandler`]).
 
-To register handlers for the path _excluding sub-paths_, use [`router.at`](#routeratpath-handlers)
-instead.
+To register handlers for the path _excluding sub-paths_, use [`router.at`] instead.
 
-The [`IncomingMessage`](https://nodejs.org/api/http.html#class-httpincomingmessage) (request) passed
-to the handlers will have a `url` containing only the remaining path not already matched by the
-prefix. You can retrieve or restore the full absolute path if needed with
-[`getAbsolutePath`](#getabsolutepathreq) and [`restoreAbsolutePath`](#restoreabsolutepathreq).
+The [`<http.IncomingMessage>`] (request) passed to the handlers will have a `url` containing only
+the remaining path not already matched by the prefix. You can retrieve or restore the full absolute
+path if needed with [`getAbsolutePath`] and [`restoreAbsolutePath`].
 
 #### `router.within(path, init)`
 
-- `path`
-  [`<string>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#string_type)
-  a path prefix to filter on. See [Paths](#paths) for information about path patterns.
-- `init`
-  [`<Function>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function)
-  a function which takes a `Router` and initialises it.
+- `path` [`<string>`] a path prefix to filter on. See [Paths] for information about path patterns.
+- `init` [`<Function>`] a function which takes a `Router` and initialises it.
+- Returns: [`<Router>`] the router object (for chaining).
 
 Convenience function, shorthand for:
 
@@ -354,103 +333,93 @@ router.mount(path, subRouter);
 
 #### `router.at(path, ...handlers)`
 
-- `path`
-  [`<string>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#string_type)
-  an exact path to filter on. See [Paths](#paths) for information about path patterns.
-- `handlers` [`<Handler[]>`](#handler) any number of request, upgrade, or error handlers.
+[`router.at`]: #routeratpath-handlers
+
+- `path` [`<string>`] an exact path to filter on. See [Paths] for information about path patterns.
+- `handlers` [`<Handler[]>`][`<Handler>`] any number of request, upgrade, or error handlers.
+- Returns: [`<Router>`] the router object (for chaining).
 
 Register `handlers` for all requests which match the `path`.
 
 As a convenience, `handlers` can also contain raw request handling functions (which are implicily
-wrapped by [`requestHandler`](#requesthandlerfn)).
+wrapped by [`requestHandler`]).
 
-To register handlers for the path _including sub-paths_, use
-[`router.mount`](#routermountpath-handlers) instead.
+To register handlers for the path _including sub-paths_, use [`router.mount`] instead.
 
-The [`IncomingMessage`](https://nodejs.org/api/http.html#class-httpincomingmessage) (request) passed
-to the handlers will have a `url` with the matching path removed. You can retrieve or restore the
-full absolute path if needed with [`getAbsolutePath`](#getabsolutepathreq) and
-[`restoreAbsolutePath`](#restoreabsolutepathreq).
+The [`<http.IncomingMessage>`] (request) passed to the handlers will have a `url` with the matching
+path removed. You can retrieve or restore the full absolute path if needed with [`getAbsolutePath`]
+and [`restoreAbsolutePath`].
 
 #### `router.onRequest(method, path, ...handlers)`
 
-- `method`
-  [`<string>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#string_type)
-  |
-  [`<string[]>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#string_type)
-  the [HTTP verb](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods)(s) to filter
-  on (e.g. `GET`, `POST`, etc.)
-- `path`
-  [`<string>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#string_type)
-  an exact path to filter on. See [Paths](#paths) for information about path patterns.
-- `handlers` [`<Handler[]>`](#handler) any number of request or error handlers.
+[`router.onRequest`]: #routeronrequestmethod-path-handlers
+
+- `method` [`<string>`] | [`<string[]>`][`<string>`] the [HTTP verb]\(s) to filter on (e.g. `GET`,
+  `POST`, etc.)
+- `path` [`<string>`] an exact path to filter on. See [Paths] for information about path patterns.
+- `handlers` [`<Handler[]>`][`<Handler>`] any number of request or error handlers.
+- Returns: [`<Router>`] the router object (for chaining).
 
 Register `handlers` for all non-upgrade requests which match the `method` and `path`.
 
 As a convenience, `handlers` can also contain raw request handling functions (which are implicily
-wrapped by [`requestHandler`](#requesthandlerfn)).
+wrapped by [`requestHandler`]).
 
 For common methods, you can use the convenience shorthand functions:
 
-- [`router.get`](#routergetpath-handlers)
-- [`router.delete`](#routerdeletepath-handlers)
-- [`router.getOnly`](#routergetonlypath-handlers)
-- [`router.head`](#routerheadpath-handlers)
-- [`router.options`](#routeroptionspath-handlers)
-- [`router.patch`](#routerpatchpath-handlers)
-- [`router.post`](#routerpostpath-handlers)
-- [`router.put`](#routerputpath-handlers)
+- [`router.get`]
+- [`router.delete`]
+- [`router.getOnly`]
+- [`router.head`]
+- [`router.options`]
+- [`router.patch`]
+- [`router.post`]
+- [`router.put`]
 
-The [`IncomingMessage`](https://nodejs.org/api/http.html#class-httpincomingmessage) (request) passed
-to the handlers will have a `url` with the matching path removed. You can retrieve or restore the
-full absolute path if needed with [`getAbsolutePath`](#getabsolutepathreq) and
-[`restoreAbsolutePath`](#restoreabsolutepathreq).
+The [`<http.IncomingMessage>`] (request) passed to the handlers will have a `url` with the matching
+path removed. You can retrieve or restore the full absolute path if needed with [`getAbsolutePath`]
+and [`restoreAbsolutePath`].
 
 #### `router.onUpgrade(method, protocol, path, ...handlers)`
 
-- `method`
-  [`<string>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#string_type)
-  |
-  [`<string[]>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#string_type)
-  | [`<null>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#null_type)
-  the [HTTP verb](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods)(s) to filter
-  on (e.g. `GET`, `POST`, etc.)
-- `protocol`
-  [`<string>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#string_type)
-  a protocol which must be listed in the request's `upgrade` header.
-- `path`
-  [`<string>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#string_type)
-  an exact path to filter on. See [Paths](#paths) for information about path patterns.
-- `handlers` [`<Handler[]>`](#handler) any number of upgrade or error handlers.
+[`router.onUpgrade`]: #routeronupgrademethod-protocol-path-handlers
+
+- `method` [`<string>`] | [`<string[]>`][`<string>`] | [`<null>`] the [HTTP verb]\(s) to filter on
+  (e.g. `GET`, `POST`, etc.)
+- `protocol` [`<string>`] a protocol which must be listed in the request's `upgrade` header.
+- `path` [`<string>`] an exact path to filter on. See [Paths] for information about path patterns.
+- `handlers` [`<Handler[]>`][`<Handler>`] any number of upgrade or error handlers.
+- Returns: [`<Router>`] the router object (for chaining).
 
 Register `handlers` for all upgrade requests which match the `method`, `protocol`, and `path`.
 
 As a convenience, `handlers` can also contain raw upgrade handling functions (which are implicily
-wrapped by [`upgradeHandler`](#upgradehandlerfn-shouldupgrade)).
+wrapped by [`upgradeHandler`]).
 
 For common protocols, you can use the convenience shorthand functions:
 
-- [`router.ws`](#routerwspath-handlers)
+- [`router.ws`]
 
-The [`IncomingMessage`](https://nodejs.org/api/http.html#class-httpincomingmessage) (request) passed
-to the handlers will have a `url` with the matching path removed. You can retrieve or restore the
-full absolute path if needed with [`getAbsolutePath`](#getabsolutepathreq) and
-[`restoreAbsolutePath`](#restoreabsolutepathreq).
+The [`<http.IncomingMessage>`] (request) passed to the handlers will have a `url` with the matching
+path removed. You can retrieve or restore the full absolute path if needed with [`getAbsolutePath`]
+and [`restoreAbsolutePath`].
 
 #### `router.onError(...handlers)`
 
-- `handlers` [`<Handler[]>`](#handler) any number of error handlers.
+- `handlers` [`<Handler[]>`][`<Handler>`] any number of error handlers.
+- Returns: [`<Router>`] the router object (for chaining).
 
 Register `handlers` for errors thrown by any earlier handlers.
 
 As a convenience, `handlers` can also contain raw error handling functions (which are implicily
-wrapped by [`errorHandler`](#errorhandlerfn)).
+wrapped by [`errorHandler`]).
 
 #### `router.onReturn(...fns)`
 
-- `fns`
-  [`<Function[]>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function)
-  any number of return handling functions.
+[`router.onReturn`]: #routeronreturnfns
+
+- `fns` [`<Function[]>`][`<Function>`] any number of return handling functions.
+- Returns: [`<Router>`] the router object (for chaining).
 
 Register `fns` to be called when any request handler or error handler in this `Router` returns a
 value which is not a routing instruction (including values returned indirectly from sub-routers).
@@ -467,241 +436,263 @@ request handler which triggered it.
 
 #### `router.get(path, ...handlers)`
 
-Shorthand for
-[`router.onRequest(['GET', 'HEAD'], path, ...handlers)`](#routeronrequestmethod-path-handlers).
+[`router.get`]: #routergetpath-handlers
+
+Shorthand for [`router.onRequest(['GET', 'HEAD'], path, ...handlers)`][`router.onRequest`].
 
 Note that this registers both `GET` and `HEAD` handlers. If you want to use a custom `HEAD` handler,
-either register it first, or use [`router.getOnly`](#routergetonlypath-handlers) instead.
+either register it first, or use [`router.getOnly`] instead.
 
 #### `router.delete(path, ...handlers)`
 
-Shorthand for
-[`router.onRequest('DELETE', path, ...handlers)`](#routeronrequestmethod-path-handlers).
+[`router.delete`]: #routerdeletepath-handlers
+
+Shorthand for [`router.onRequest('DELETE', path, ...handlers)`][`router.onRequest`].
 
 #### `router.getOnly(path, ...handlers)`
 
-Shorthand for [`router.onRequest('GET', path, ...handlers)`](#routeronrequestmethod-path-handlers).
+[`router.getOnly`]: #routergetonlypath-handlers
+
+Shorthand for [`router.onRequest('GET', path, ...handlers)`][`router.onRequest`].
 
 Use this if you want to perform your own `HEAD` handling. Otherwise it is usually better to use
-[`router.get`](#routergetpath-handlers) to register handlers for both `GET` _and_ `HEAD`
-simultaneously.
+[`router.get`] to register handlers for both `GET` _and_ `HEAD` simultaneously.
 
 #### `router.head(path, ...handlers)`
 
-Shorthand for [`router.onRequest('HEAD', path, ...handlers)`](#routeronrequestmethod-path-handlers).
+[`router.head`]: #routerheadpath-handlers
+
+Shorthand for [`router.onRequest('HEAD', path, ...handlers)`][`router.onRequest`].
 
 #### `router.options(path, ...handlers)`
 
-Shorthand for
-[`router.onRequest('OPTIONS', path, ...handlers)`](#routeronrequestmethod-path-handlers).
+[`router.options`]: #routeroptionspath-handlers
+
+Shorthand for [`router.onRequest('OPTIONS', path, ...handlers)`][`router.onRequest`].
 
 #### `router.patch(path, ...handlers)`
 
-Shorthand for
-[`router.onRequest('PATCH', path, ...handlers)`](#routeronrequestmethod-path-handlers).
+[`router.patch`]: #routerpatchpath-handlers
+
+Shorthand for [`router.onRequest('PATCH', path, ...handlers)`][`router.onRequest`].
 
 #### `router.post(path, ...handlers)`
 
-Shorthand for [`router.onRequest('POST', path, ...handlers)`](#routeronrequestmethod-path-handlers).
+[`router.post`]: #routerpostpath-handlers
+
+Shorthand for [`router.onRequest('POST', path, ...handlers)`][`router.onRequest`].
 
 #### `router.put(path, ...handlers)`
 
-Shorthand for [`router.onRequest('PUT', path, ...handlers)`](#routeronrequestmethod-path-handlers).
+[`router.put`]: #routerputpath-handlers
+
+Shorthand for [`router.onRequest('PUT', path, ...handlers)`][`router.onRequest`].
 
 #### `router.ws(path, ...handlers)`
 
-Shorthand for
-[`router.onUpgrade('GET', 'websocket', path, ...handlers)`](#routeronupgrademethod-protocol-path-handlers).
+[`router.ws`]: #routerwspath-handlers
 
-Registers a WebSocket handler. You may want to call
-[`acceptWebSocket`](#makeacceptwebsocketserverclass-options) in the handler to actually establish
-the WebSocket connection, or delegate the request to another WebSocket-handling library.
+Shorthand for [`router.onUpgrade('GET', 'websocket', path, ...handlers)`][`router.onUpgrade`].
+
+Registers a WebSocket handler. You may want to call [`acceptWebSocket`][`makeAcceptWebSocket`] in
+the handler to actually establish the WebSocket connection, or delegate the request to another
+WebSocket-handling library.
 
 ### `Handler`
 
-The `Handler` interface is used in several places, notably as input to [`Router`](#router) methods
-and the [`WebListener`](#weblistener) constructor. `Handler`s can be created manually, or via helper
-functions: [`requestHandler`](#requesthandlerfn),
-[`upgradeHandler`](#upgradehandlerfn-shouldupgrade), [`errorHandler`](#errorhandlerfn),
-[`anyHandler`](#anyhandlerfn-shouldupgrade), etc.
+[`<Handler>`]: #handler
 
-[`Router`](#router) implements the `Handler` interface.
+The `Handler` interface is used in several places, notably as input to [`<Router>`] methods and the
+[`<WebListener>`] constructor. `Handler`s can be created manually, or via helper functions:
+[`requestHandler`], [`upgradeHandler`], [`errorHandler`], [`anyHandler`], etc.
+
+[`<Router>`] implements the `Handler` interface.
 
 #### `handler.handleRequest(req, res)`
 
-- `req` [`<IncomingMessage>`](https://nodejs.org/api/http.html#class-httpincomingmessage)
-- `res` [`<ServerResponse>`](https://nodejs.org/api/http.html#class-httpserverresponse)
+[`handleRequest`]: #handlerhandlerequestreq-res
+
+- `req` [`<http.IncomingMessage>`]
+- `res` [`<http.ServerResponse>`]
+- Returns: [`<any>`] | [`<Promise>`] | [`<RoutingInstruction>`]
 
 Optional, potentially asynchronous function for handling requests. Called for requests which do not
-have an `upgrade` header, or if no matching [`shouldUpgrade`](#handlershouldupgradereq) handler
-returned `true` for the request (Node.js 24.9+).
+have an `upgrade` header, or if no matching [`handler.shouldUpgrade`] handler returned `true` for
+the request (Node.js 24.9+).
 
-Can return or throw a [`RoutingInstruction`](#routinginstruction) to continue running additional
-handlers in the chain.
+Can return or throw a [`<RoutingInstruction>`] to continue running additional handlers in the chain.
+Any other returned value (including `undefined`) will be sent to all registered [`router.onReturn`]
+functions.
 
 #### `handler.handleUpgrade(req, socket, head)`
 
-- `req` [`<IncomingMessage>`](https://nodejs.org/api/http.html#class-httpincomingmessage)
-- `socket` [`<stream.Duplex>`](https://nodejs.org/api/stream.html#class-streamduplex)
-- `head` [`<Buffer>`](https://nodejs.org/api/buffer.html#class-buffer)
+[`handler.handleUpgrade`]: #handlerhandleupgradereq-socket-head
+
+- `req` [`<http.IncomingMessage>`]
+- `socket` [`<stream.Duplex>`]
+- `head` [`<Buffer>`]
+- Returns: [`<any>`] | [`<Promise>`] | [`<RoutingInstruction>`]
 
 Optional, potentially asynchronous function for handling upgrade requests.
 
-Can return or throw a [`RoutingInstruction`](#routinginstruction) to continue running additional
-handlers in the chain.
+Can return or throw a [`<RoutingInstruction>`] to continue running additional handlers in the chain.
+Returning any other value is equivalent to [`STOP`].
 
 #### `handler.shouldUpgrade(req)`
 
-- `req` [`<IncomingMessage>`](https://nodejs.org/api/http.html#class-httpincomingmessage)
+[`handler.shouldUpgrade`]: #handlershouldupgradereq
+
+- `req` [`<http.IncomingMessage>`]
+- Returns: [`<boolean>`]
 
 Optional, _synchronous_ function for determining whether an upgrade request should be accepted
 (returns `true`), or handled as a regular request (returns `false`).
 
-By default, this is assumed to return `true` if
-[`handleUpgrade`](#handlerhandleupgradereq-socket-head) is defined.
+By default, this is assumed to return `true` if [`handler.handleUpgrade`] is defined.
 
 #### `handler.handleError(error, req, output)`
 
+[`handler.handleError`]: #handlerhandleerrorerror-req-output
+
 - `error` the error to handle (may be of any type)
-- `req` [`<IncomingMessage>`](https://nodejs.org/api/http.html#class-httpincomingmessage)
-- `output`
-  [`<Object>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object)
-  an object containing _either_:
-  - for errors thrown from [`handleRequest`](#handlerhandlerequestreq-res):
-    - `response` [`<ServerResponse>`](https://nodejs.org/api/http.html#class-httpserverresponse)
-  - or for errors thrown from [`handleUpgrade`](#handlerhandleupgradereq-socket-head):
-    - `socket` [`<stream.Duplex>`](https://nodejs.org/api/stream.html#class-streamduplex)
-    - `head` [`<Buffer>`](https://nodejs.org/api/buffer.html#class-buffer)
-    - `hasUpgraded`
-      [`<boolean>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#boolean_type)
+- `req` [`<http.IncomingMessage>`]
+- `output` [`<Object>`] an object containing _either_:
+  - for errors thrown from [`handleRequest`]:
+    - `response` [`<http.ServerResponse>`]
+  - or for errors thrown from [`handler.handleUpgrade`]:
+    - `socket` [`<stream.Duplex>`]
+    - `head` [`<Buffer>`]
+    - `hasUpgraded` [`<boolean>`]
+- Returns: [`<any>`] | [`<Promise>`] | [`<RoutingInstruction>`]
 
 Optional, potentially asynchronous function for handling errors. This is used for both regular and
 upgrade requests.
 
-Can return or throw a [`RoutingInstruction`](#routinginstruction) to continue running additional
-handlers in the chain.
+Can return or throw a [`<RoutingInstruction>`] to continue running additional handlers in the chain.
 
 To skip handling an error (e.g. if the error type is not recognised or the output type is not
 recognised), re-throw it.
 
-Note that this function is not typically defined on the same handler entity as
-[`handleRequest`](#handlerhandlerequestreq-res) or
-[`handleUpgrade`](#handlerhandleupgradereq-socket-head). In particular: if a request or upgrade
-handler throws, the error will _not_ be sent to its own `handleError`, but to the next one in the
-chain.
+Note that this function is not typically defined on the same handler entity as [`handleRequest`] or
+[`handler.handleUpgrade`]. In particular: if a request or upgrade handler throws, the error will
+_not_ be sent to its own `handleError`, but to the next one in the chain.
 
 #### `handler.shouldHandleError(error, req, output)`
 
-Optional, _synchronous_ function for determining whether
-[`handleError`](#handlerhandleerrorerror-req-output) should be called for an error. This can be used
-as a minor performance optimisation to avoid the overhead of re-throwing the error, but should not
-be relied upon, as it is not always checked (i.e. in cases where this returns `true`, `handleError`
-should re-throw the error).
+- `error` the error to handle (may be of any type)
+- `req` [`<http.IncomingMessage>`]
+- `output` [`<Object>`] see [`handler.handleError`] for details
+- Returns: [`<boolean>`]
+
+Optional, _synchronous_ function for determining whether [`handler.handleError`] should be called
+for an error. This can be used as a minor performance optimisation to avoid the overhead of
+re-throwing the error, but should not be relied upon, as it is not always checked (i.e. in cases
+where this returns `true`, `handleError` should re-throw the error).
 
 ### `RoutingInstruction`
 
-This is a special type of error which can be used to control request routing (by either throwing or
-returning it from a [`Handler`](#handler) function). Do not create instances directly but use an
+[`<RoutingInstruction>`]: #routinginstruction
+
+This is a special type of [`<Error>`] which can be used to control request routing (by either
+throwing or returning it from a [`<Handler>`] function). Do not create instances directly but use an
 existing constant:
 
 #### `STOP`
+
+[`STOP`]: #stop
 
 Stop all processing for this request. Equivalent to returning `undefined`. This can be useful in
 validation helpers, or for handling aborted requests.
 
 #### `CONTINUE`
 
+[`CONTINUE`]: #continue
+
 Continue to the next registered handler for this route. This may be the next handler in a chain, the
 next route, or the next router. If there are no further handlers, this will cause an automatic HTTP
-status [404 Not Found](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/404) to be
-returned.
+status [404 Not Found] to be returned.
 
-If this is thrown or returned by a [`handleError`](#handlerhandleerrorerror-req-output) handler, the
-error is considered handled successfully and the next
-[`handleRequest`](#handlerhandlerequestreq-res) or
-[`handleUpgrade`](#handlerhandleupgradereq-socket-head) will be called (to continue to the next
-error handler, re-throw the error instead).
+If this is thrown or returned by a [`handler.handleError`] handler, the error is considered handled
+successfully and the next [`handleRequest`] or [`handler.handleUpgrade`] will be called (to continue
+to the next error handler, re-throw the error instead).
 
 #### `NEXT_ROUTE`
 
 Continue to the next registered handler for this route, skipping any remaining handlers in the
 current chain. This may be the next route, or the next router. If there are no further handlers,
-this will cause an automatic HTTP status
-[404 Not Found](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/404) to be
-returned.
+this will cause an automatic HTTP status [404 Not Found] to be returned.
 
-If this is thrown or returned by a [`handleError`](#handlerhandleerrorerror-req-output) handler, the
-error is considered handled successfully and the next
-[`handleRequest`](#handlerhandlerequestreq-res) or
-[`handleUpgrade`](#handlerhandleupgradereq-socket-head) will be called (to continue to the next
-error handler, re-throw the error instead).
+If this is thrown or returned by a [`handler.handleError`] handler, the error is considered handled
+successfully and the next [`handleRequest`] or [`handler.handleUpgrade`] will be called (to continue
+to the next error handler, re-throw the error instead).
 
 #### `NEXT_ROUTER`
 
 Continue to the next registered handler for this route, skipping any remaining handlers in the
-current router. If there are no further handlers, this will cause an automatic HTTP status
-[404 Not Found](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/404) to be
-returned.
+current router. If there are no further handlers, this will cause an automatic HTTP status [404 Not
+Found] to be returned.
 
-If this is thrown or returned by a [`handleError`](#handlerhandleerrorerror-req-output) handler, the
-error is considered handled successfully and the next
-[`handleRequest`](#handlerhandlerequestreq-res) or
-[`handleUpgrade`](#handlerhandleupgradereq-socket-head) will be called (to continue to the next
-error handler, re-throw the error instead).
+If this is thrown or returned by a [`handler.handleError`] handler, the error is considered handled
+successfully and the next [`handleRequest`] or [`handler.handleUpgrade`] will be called (to continue
+to the next error handler, re-throw the error instead).
 
 ### `Property`
+
+[`<Property>`]: #property
 
 Represents a value bound to a request. This can be used to share data for a request between
 handlers.
 
 #### `new Property([defaultValue])`
 
-- `defaultValue`
-  [`<any>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Data_types) |
-  [`<Function>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function)
-  a default value for the property if it has not been set on a request, or a function which
-  generates a default value (given an
-  [`IncomingMessage`](https://nodejs.org/api/http.html#class-httpincomingmessage)). **Default:** a
-  function which throws `Error('property has not been set')`.
+- `defaultValue` [`<any>`] | [`<Function>`] a default value for the property if it has not been set
+  on a request, or a function which generates a default value (given an [`<http.IncomingMessage>`]).
+  **Default:** a function which throws `Error('property has not been set')`.
 
 Creates a new `Property` object. This can then be used to access a shared value across multiple
 handlers.
 
 If a function is given for the default value, it will be invoked when the property is first
 requested, if it has not already been set for the request. This can also be used for memoising a
-calculation (but see [`makeMemo`](#makememofn-args) for a simpler memoisation API).
+calculation (but see [`makeMemo`] for a simpler memoisation API).
 
-Example useage: [Using properties](#usingproperties)
+Example usage: [Using properties](#using-properties).
 
 #### `property.set(req, value)`
 
-- `req` [`<IncomingMessage>`](https://nodejs.org/api/http.html#class-httpincomingmessage)
-- `value`
-  [`<any>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Data_types)
+[`property.set`]: #propertysetreq-value
+
+- `req` [`<http.IncomingMessage>`]
+- `value` [`<any>`]
 
 Assigns `value` to this property for the given request.
 
 #### `property.get(req)`
 
-- `req` [`<IncomingMessage>`](https://nodejs.org/api/http.html#class-httpincomingmessage)
+[`property.get`]: #propertygetreq
+
+- `req` [`<http.IncomingMessage>`]
+- Returns: [`<any>`] the value for the property for the given request
 
 Returns the currently assigned `value` for this property for the given request. If the property has
 not already been set, calls `Property.defaultValue`.
 
 #### `property.clear(req)`
 
-- `req` [`<IncomingMessage>`](https://nodejs.org/api/http.html#class-httpincomingmessage)
+[`property.clear`]: #propertyclearreq
+
+- `req` [`<http.IncomingMessage>`]
 
 Removes any assigned `value` for this property for the given request. Subsequent calls to `get` will
 call `Property.defaultValue` if necessary.
 
 #### `property.withValue(value)`
 
-- `value`
-  [`<any>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Data_types)
+- `value` [`<any>`]
+- Returns: [`<Handler>`]
 
-Returns a request and upgrade [`Handler`](#handler) which will set the property to the given value
-for all matching requests. Shorthand for:
+Returns a request and upgrade handler which will set the property to the given value for all
+matching requests. Shorthand for:
 
 ```js
 anyHandler((req) => {
@@ -712,45 +703,31 @@ anyHandler((req) => {
 
 ### `HTTPError`
 
-- Extends:
-  [`Error`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error)
+[`<HTTPError>`]: #httperror
+
+- Extends: [`<Error>`]
 
 These errors are thrown by various helper functions and can be thrown by user code as well. They are
 handled automatically, making them an easy way to respond to requests with error messages.
 
-You can also use [`jsonErrorHandler`](#jsonerrorhandlerconversion-options) to automatically send
-these errors in JSON format.
+You can also use [`jsonErrorHandler`] to automatically send these errors in JSON format.
 
 #### `new HTTPError(statusCode[, options])`
 
-- `statusCode`
-  [`<number>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#number_type)
-  a [HTTP status code](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status) to send
-  to the client
-- `options`
-  [`<Object>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object)
-  A set of options for the error
-  - `message`
-    [`<string>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#string_type)
-    an internal error message (not sent to the client, but may appear in logs). **Default:** the
-    value of `body`.
-  - `statusMessage`
-    [`<string>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#string_type)
-    the HTTP status message to send. This is populated automatically from the `statusCode` (e.g. 404
-    becomes `'Not Found'`) but you can specify custom messages here. Typically you should only do
-    this if you are using a custom status code - do not use alternative messages for recognised
-    status codes.
-  - `headers` [`<Headers>`](https://developer.mozilla.org/en-US/docs/Web/API/Headers) |
-    [`<Object>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object)
-    |
-    [`<Array>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array)
-    additional headers to set on the response
-  - `body`
-    [`<string>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#string_type)
-    content of the response to send. This is sent with `Content-Type: text/plain` by default
-  - `cause`
-    [`<any>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Data_types)
-    another error which caused this error (not sent to the client, but may appear in logs)
+- `statusCode` [`<number>`] a [HTTP status code] to send to the client
+- `options` [`<Object>`] A set of options for the error
+  - `message` [`<string>`] an internal error message (not sent to the client, but may appear in
+    logs). **Default:** the value of `body`.
+  - `statusMessage` [`<string>`] the HTTP status message to send. This is populated automatically
+    from the `statusCode` (e.g. 404 becomes `'Not Found'`) but you can specify custom messages here.
+    Typically you should only do this if you are using a custom status code - do not use alternative
+    messages for recognised status codes.
+  - `headers` [`<Headers>`] | [`<Object>`] | [`<string[]>`][`<string>`] additional headers to set on
+    the response
+  - `body` [`<string>`] content of the response to send. This is sent with
+    [`Content-Type: text/plain`][`Content-Type`] by default
+  - `cause` [`<any>`] another error which caused this error (not sent to the client, but may appear
+    in logs)
 
 Create a new `HTTPError` object and set various properties on it.
 
@@ -758,98 +735,97 @@ By default, `HTTPError`s with `statusCode` < `500` are not logged.
 
 #### `httpError.message`
 
-- Type:
-  [`<string>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#string_type)
+- Type: [`<string>`]
 
-The non-client-facing message for this error. Defaults to [`httpError.body`](#httperrorbody) if not
-set.
+The non-client-facing message for this error. Defaults to [`httpError.body`] if not set.
 
 #### `httpError.statusCode`
 
-- Type:
-  [`<number>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#number_type)
+[`httpError.statusCode`]: #httperrorstatuscode
 
-The [HTTP status code](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status) which
-should be sent to the client for this error.
+- Type: [`<number>`]
+
+The [HTTP status code] which should be sent to the client for this error.
 
 #### `httpError.statusMessage`
 
-- Type:
-  [`<string>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#string_type)
+- Type: [`<string>`]
 
-The [HTTP status message](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status) which
-should be sent to the client for this error.
+The [HTTP status message][HTTP status code] which should be sent to the client for this error.
 
 #### `httpError.headers`
 
-- Type: [`<Headers>`](https://developer.mozilla.org/en-US/docs/Web/API/Headers)
+- Type: [`<Headers>`]
 
 Additional headers which should be sent to the client for this error.
 
 #### `httpError.body`
 
-- Type:
-  [`<string>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#string_type)
+[`httpError.body`]: #httperrorbody
+
+- Type: [`<string>`]
 
 A message description which can be sent to the client. For `HTTPError`s generated internally, this
 is typically a short human-readable sentence.
 
-By default, this is sent to the client as the raw body content (with a `Content-Type: text/plain`
-header), but this can be customised with error handling middleware (e.g.
-[`jsonErrorHandler`](#jsonerrorhandlerconversion-options) can be used to wrap the message in a JSON
-response.
+By default, this is sent to the client as the raw body content (with a
+[`Content-Type: text/plain`][`Content-Type`] header), but this can be customised with error handling
+middleware (e.g. [`jsonErrorHandler`] can be used to wrap the message in a JSON response.
 
 ## Core Functions
 
 ### `toListeners(handler[, options])`
 
-- `handler` [`<Handler>`](#handler)
-- `options`
-  [`<Object>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object)
-  A set of options configuring the listeners
-  - `onError`
-    [`<Function>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function)
-    function to call if a handler throws an error which is not handled by the end of the chain. The
-    function is called with the error
-    [`<any>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Data_types), a
-    context
-    [`<string>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#string_type),
-    and the request
-    [`<IncomingMessage>`](https://nodejs.org/api/http.html#class-httpincomingmessage). **Default:**
-    a function which logs the error unless it is a `HTTPError` with `statusCode` < `500`.
-  - `socketCloseTimeout`
-    [`<number>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#number_type)
-    a delay (in milliseconds) to wait before forcibly closing sockets after beginning the close
-    handshake. This avoids lingering half-closed sockets consuming resources. **Default:** `500`.
+[`toListeners`]: #tolistenershandler-options
 
-Returns a [`NativeListeners`](#nativelisteners) object which contains various listeners which can be
-attached to a [`http.Server`](https://nodejs.org/api/http.html#class-httpserver).
+- `handler` [`<Handler>`]
+- `options` [`<Object>`] A set of options configuring the listeners
+  - `onError` [`<Function>`] function to call if a handler throws an error which is not handled by
+    the end of the chain. The function is called with the error [`<any>`], a context [`<string>`],
+    and the request [`<http.IncomingMessage>`]. **Default:** a function which logs the error unless
+    it is a `HTTPError` with `statusCode` < `500`.
+  - `socketCloseTimeout` [`<number>`] a delay (in milliseconds) to wait before forcibly closing
+    sockets after beginning the close handshake. This avoids lingering half-closed sockets consuming
+    resources. **Default:** `500`.
+- Returns: [`<NativeListeners>`] an object which contains various listeners which can be attached to
+  a [`<http.Server>`].
+
+This wraps the given handler with book-keeping functionality for tracking requests and handling
+errors, and returns a collection of listeners which can be attached to a server. It is usually
+easier to use [`weblistener.attach`], but this function is available for situations where more
+control over the listeners is needed.
 
 ### `emitError(req, error[, context])`
 
-- `req` [`<IncomingMessage>`](https://nodejs.org/api/http.html#class-httpincomingmessage)
-- `error`
-  [`<any>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Data_types)
-- `context`
-  [`<string>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#string_type)
-  a text string describing the action which triggered the error. **Default:** `'handling request'`
-  if `req` is a regular request, and `'handling upgrade'` if `req` is an upgrade request.
+[`emitError`]: #emiterrorreq-error-context
+
+- `req` [`<http.IncomingMessage>`]
+- `error` [`<any>`]
+- `context` [`<string>`] a text string describing the action which triggered the error. **Default:**
+  `'handling request'` if `req` is a regular request, and `'handling upgrade'` if `req` is an
+  upgrade request.
 
 Send an error directly to the registered [`onError` function](#tolistenershandler-options) (or
-['error' event](#weblisteneronerror-fn) when wrapped by `WebListener`). The error will _not_ be
-passed to error handler middleware.
+['error' event](#event-error) when wrapped by `WebListener`). The error will _not_ be passed to
+error handler middleware.
 
 ### `acceptUpgrade(req, upgrade)`
 
-- `req` [`<IncomingMessage>`](https://nodejs.org/api/http.html#class-httpincomingmessage)
-- `upgrade`
-  [`<Function>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function)
+[`acceptUpgrade`]: #acceptupgradereq-upgrade
+
+- `req` [`<http.IncomingMessage>`]
+- `upgrade` [`<Function>`]
+- Returns: [`<any>`]
 
 TODO
 
+See also: [`makeAcceptWebSocket`].
+
 ### `delegateUpgrade(req)`
 
-- `req` [`<IncomingMessage>`](https://nodejs.org/api/http.html#class-httpincomingmessage)
+[`delegateUpgrade`]: #delegateupgradereq
+
+- `req` [`<http.IncomingMessage>`]
 
 Mark the request as upgraded to another protocol. This disables automatic HTTP error responses if a
 handler throws an error. This should be used if you wish to pass the request to another library for
@@ -857,26 +833,24 @@ handling.
 
 Can only be called for upgrade requests (i.e. from an upgrade handler).
 
-Alternatively, use [`acceptUpgrade`](#acceptupgradereq-upgrade) to configure custom error handling,
-rather than disabling it completely.
+Alternatively, use [`acceptUpgrade`] to configure custom error handling, rather than disabling it
+completely.
 
 ### `isSoftClosed(req)`
 
-- `req` [`<IncomingMessage>`](https://nodejs.org/api/http.html#class-httpincomingmessage)
+- `req` [`<http.IncomingMessage>`]
+- Returns: [`<boolean>`]
 
 Returns `true` if the request has already received a soft-close event.
 
 ### `setSoftCloseHandler(req, fn)`
 
-- `req` [`<IncomingMessage>`](https://nodejs.org/api/http.html#class-httpincomingmessage)
-- `fn`
-  [`<Function>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function)
-  a function to call when the request is soft-closed. Receives a reason
-  [`<string>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#string_type)
+- `req` [`<http.IncomingMessage>`]
+- `fn` [`<Function>`] a function to call when the request is soft-closed. Receives a reason
+  [`<string>`]
 
-Sets the function to call for this request if it is soft-closed (by calling
-[`softClose`](#softclosereason-onerror-callback), or indirectly by calling
-[`augmentedServer.closeWithTimeout`](#augmentedserverclosewithtimeoutreason-timeout)).
+Sets the function to call for this request if it is soft-closed (by calling [`softClose`], or
+indirectly by calling [`augmentedServer.closeWithTimeout`]).
 
 If the request has already been soft-closed, the function is invoked immediately (on the next tick
 after being registered).
@@ -887,24 +861,22 @@ but it is useful for handlers of long-lived connections, such as WebSockets or S
 
 ### `defer(req, fn)`
 
-- `req` [`<IncomingMessage>`](https://nodejs.org/api/http.html#class-httpincomingmessage)
-- `fn`
-  [`<Function>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function)
-  a (possibly asynchronous) deferred function.
+- `req` [`<http.IncomingMessage>`]
+- `fn` [`<Function>`] a (possibly asynchronous) deferred function.
 
 Registers `fn` to be executed after the current handler has returned.
 
 This is useful for cleaning up temporary state which will not be needed by subsequent handlers.
 
 Deferred functions are executed in the reverse order of registration, and always execute before
-[teardown functions](#addteardownreq-fn).
+[teardown functions][`addTeardown`].
 
 ### `addTeardown(req, fn)`
 
-- `req` [`<IncomingMessage>`](https://nodejs.org/api/http.html#class-httpincomingmessage)
-- `fn`
-  [`<Function>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function)
-  a (possibly asynchronous) teardown function.
+[`addTeardown`]: #addteardownreq-fn
+
+- `req` [`<http.IncomingMessage>`]
+- `fn` [`<Function>`] a (possibly asynchronous) teardown function.
 
 Registers `fn` to be executed after the request has been handled and the response sent. `fn` is
 guaranteed to be executed, except cases where the process ends before the response has been closed
@@ -916,11 +888,11 @@ Teardown functions are executed in the reverse order of registration.
 
 ### `getAbortSignal(req)`
 
-- `req` [`<IncomingMessage>`](https://nodejs.org/api/http.html#class-httpincomingmessage)
+- `req` [`<http.IncomingMessage>`]
+- Returns: [`<AbortSignal>`]
 
-Returns an [`AbortSignal`](https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal) which will
-fire when the request completes (either because the response has finished being sent, or because the
-client cancelled the request).
+The returned `AbortSignal` will fire when the request completes (either because the response has
+finished being sent, or because the client cancelled the request).
 
 The signal's `reason` will be `'complete'` if the request completed, or `'client abort'` if the
 client cancelled the request.
@@ -929,11 +901,12 @@ Multiple calls to this method for the same request will return the same `AbortSi
 
 ### `requestHandler(fn)`
 
-- `fn`
-  [`<Function>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function)
-  a (possibly asynchronous) request handler function. Receives:
-  - `req` [`<IncomingMessage>`](https://nodejs.org/api/http.html#class-httpincomingmessage)
-  - `res` [`<ServerResponse>`](https://nodejs.org/api/http.html#class-httpserverresponse)
+[`requestHandler`]: #requesthandlerfn
+
+- `fn` [`<Function>`] a (possibly asynchronous) request handler function. Receives:
+  - `req` [`<http.IncomingMessage>`]
+  - `res` [`<http.ServerResponse>`]
+- Returns: [`<Handler>`]
 
 Wraps the given request handling function in a `Handler`. Equivalent to:
 
@@ -945,17 +918,17 @@ Wraps the given request handling function in a `Handler`. Equivalent to:
 
 ### `upgradeHandler(fn[, shouldUpgrade])`
 
-- `fn`
-  [`<Function>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function)
-  a (possibly asynchronous) upgrade handler function. Receives:
-  - `req` [`<IncomingMessage>`](https://nodejs.org/api/http.html#class-httpincomingmessage)
-  - `socket` [`<stream.Duplex>`](https://nodejs.org/api/stream.html#class-streamduplex)
-  - `head` [`<Buffer>`](https://nodejs.org/api/buffer.html#class-buffer)
-- `shouldUpgrade`
-  [`<Function>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function)
-  a _synchronous_ function which should return `true` if the request should be handled as an
-  upgrade, and `false` to handle it as a regular request. This is only checked for requests which
-  include an `upgrade` header, and is only suppported on Node.js 24.9+. **Default:** `() => true`.
+[`upgradeHandler`]: #upgradehandlerfn-shouldupgrade
+
+- `fn` [`<Function>`] a (possibly asynchronous) upgrade handler function. Receives:
+  - `req` [`<http.IncomingMessage>`]
+  - `socket` [`<stream.Duplex>`]
+  - `head` [`<Buffer>`]
+- `shouldUpgrade` [`<Function>`] a _synchronous_ function which should return `true` if the request
+  should be handled as an upgrade, and `false` to handle it as a regular request. This is only
+  checked for requests which include an `upgrade` header, and is only suppported on Node.js 24.9+.
+  **Default:** `() => true`.
+- Returns: [`<Handler>`]
 
 Wraps the given upgrade handling function in a `Handler`. Equivalent to:
 
@@ -968,21 +941,19 @@ Wraps the given upgrade handling function in a `Handler`. Equivalent to:
 
 ### `errorHandler(fn)`
 
-- `fn`
-  [`<Function>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function)
-  a (possibly asynchronous) error handler function. Receives:
+[`errorHandler`]: #errorhandlerfn
+
+- `fn` [`<Function>`] a (possibly asynchronous) error handler function. Receives:
   - `error` the error to handle (may be of any type)
-  - `req` [`<IncomingMessage>`](https://nodejs.org/api/http.html#class-httpincomingmessage)
-  - `output`
-    [`<Object>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object)
-    an object containing _either_:
-    - for errors thrown from [`handleRequest`](#handlerhandlerequestreq-res):
-      - `response` [`<ServerResponse>`](https://nodejs.org/api/http.html#class-httpserverresponse)
-    - or for errors thrown from [`handleUpgrade`](#handlerhandleupgradereq-socket-head):
-      - `socket` [`<stream.Duplex>`](https://nodejs.org/api/stream.html#class-streamduplex)
-      - `head` [`<Buffer>`](https://nodejs.org/api/buffer.html#class-buffer)
-      - `hasUpgraded`
-        [`<boolean>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#boolean_type)
+  - `req` [`<http.IncomingMessage>`]
+  - `output` [`<Object>`] an object containing _either_:
+    - for errors thrown from [`handleRequest`]:
+      - `response` [`<http.ServerResponse>`]
+    - or for errors thrown from [`handler.handleUpgrade`]:
+      - `socket` [`<stream.Duplex>`]
+      - `head` [`<Buffer>`]
+      - `hasUpgraded` [`<boolean>`]
+- Returns: [`<Handler>`]
 
 Wraps the given error handling function in a `Handler`. Equivalent to:
 
@@ -994,18 +965,16 @@ Wraps the given error handling function in a `Handler`. Equivalent to:
 
 ### `typedErrorHandler(type, fn)`
 
-- `type`
-  [`<Function>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function)
-  the error class to filter for.
-- `fn`
-  [`<Function>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function)
-  a (possibly asynchronous) error handler function. Receives:
-  - `error` the error to handle (will be an instance of `type` or a sub-class)
-  - `req` [`<IncomingMessage>`](https://nodejs.org/api/http.html#class-httpincomingmessage)
-  - `response` [`<ServerResponse>`](https://nodejs.org/api/http.html#class-httpserverresponse)
+[`typedErrorHandler`]: #typederrorhandlertype-fn
 
-Shorthand for
-[`conditionalErrorHandler((e) => e instanceof type, fn)`](#conditionalerrorhandlercondition-fn)
+- `type` [`<Function>`] the error class to filter for.
+- `fn` [`<Function>`] a (possibly asynchronous) error handler function. Receives:
+  - `error` the error to handle (will be an instance of `type` or a sub-class)
+  - `req` [`<http.IncomingMessage>`]
+  - `response` [`<http.ServerResponse>`]
+- Returns: [`<Handler>`]
+
+Shorthand for [`conditionalErrorHandler((e) => e instanceof type, fn)`][`conditionalErrorHandler`]
 
 Creates an error handler which only applies to a specific error class, and only regular requests
 (does not apply to upgrade requests). Can be used to give specific responses, or to map errors to
@@ -1021,15 +990,15 @@ router.onError(
 
 ### `conditionalErrorHandler(condition, fn)`
 
-- `condition`
-  [`<Function>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function)
-  a _synchronous_ function which takes an error and returns `true` if it should be handled
-- `fn`
-  [`<Function>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function)
-  a (possibly asynchronous) error handler function. Receives:
+[`conditionalErrorHandler`]: #conditionalerrorhandlercondition-fn
+
+- `condition` [`<Function>`] a _synchronous_ function which takes an error and returns `true` if it
+  should be handled
+- `fn` [`<Function>`] a (possibly asynchronous) error handler function. Receives:
   - `error` the error to handle (will be an instance of `type` or a sub-class)
-  - `req` [`<IncomingMessage>`](https://nodejs.org/api/http.html#class-httpincomingmessage)
-  - `response` [`<ServerResponse>`](https://nodejs.org/api/http.html#class-httpserverresponse)
+  - `req` [`<http.IncomingMessage>`]
+  - `response` [`<http.ServerResponse>`]
+- Returns: [`<Handler>`]
 
 Creates an error handler which only applies to a matching errors, and only regular requests (does
 not apply to upgrade requests). Equivalent to:
@@ -1061,19 +1030,17 @@ router.onError(
 
 ### `anyHandler(fn[, shouldUpgrade])`
 
-- `fn`
-  [`<Function>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function)
-  a (possibly asynchronous) request or upgrade handler function. May receive
-  [request arguments](#requesthandlerfn) _or_ [upgrade arguments](#upgradehandlerfn-shouldupgrade).
-- `shouldUpgrade`
-  [`<Function>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function)
-  a _synchronous_ function which should return `true` if the request should be handled as an
-  upgrade, and `false` otherwise. **Default:** `() => false`.
+[`anyHandler`]: #anyhandlerfn-shouldupgrade
 
-Note that `shouldUpgrade` defaults to `false` when using this helper, unlike
-[`upgradeHandler`](#upgradehandlerfn-shouldupgrade). This is primarily aimed at creating access
-control middleware and similar, where the existance of the middleware does not imply ability to
-handle a particular upgrade request.
+- `fn` [`<Function>`] a (possibly asynchronous) request or upgrade handler function. May receive
+  [request arguments][`requestHandler`] _or_ [upgrade arguments][`upgradeHandler`].
+- `shouldUpgrade` [`<Function>`] a _synchronous_ function which should return `true` if the request
+  should be handled as an upgrade, and `false` otherwise. **Default:** `() => false`.
+- Returns: [`<Handler>`]
+
+Note that `shouldUpgrade` defaults to `false` when using this helper, unlike [`upgradeHandler`].
+This is primarily aimed at creating access control middleware and similar, where the existance of
+the middleware does not imply ability to handle a particular upgrade request.
 
 Wraps the given request or upgrade handling function in a `Handler`. Equivalent to:
 
@@ -1087,10 +1054,12 @@ Wraps the given request or upgrade handling function in a `Handler`. Equivalent 
 
 ### `getPathParameter(req, name)`
 
-- `req` [`<IncomingMessage>`](https://nodejs.org/api/http.html#class-httpincomingmessage)
-- `name`
-  [`<string>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#string_type)
-  name of the path parameter to fetch
+[`getPathParameter`]: #getpathparameterreq-name
+
+- `req` [`<http.IncomingMessage>`]
+- `name` [`<string>`] name of the path parameter to fetch
+- Returns: [`<string>`] | [`<string[]>`][`<string>`] | [`<undefined>`] (depending on the type of the
+  path parameter)
 
 Returns an individual path parameter for the current request. If the path parameter was
 [defined with `:`](#single-component-path-parameters), this will return a `string`. If it was
@@ -1101,11 +1070,12 @@ If `name` does not match any path parameters for the current request, this retur
 
 ### `getPathParameters(req)`
 
-- `req` [`<IncomingMessage>`](https://nodejs.org/api/http.html#class-httpincomingmessage)
+[`getPathParameters`]: #getpathparametersreq
 
-Returns an
-[`Object`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object)
-with all path parameters for the request.
+- `req` [`<http.IncomingMessage>`]
+- Returns: [`<Object>`]
+
+The returned object contains keys for each path parameter in the request.
 
 Each value in the object may be a `string` (if the path parameter was
 [defined with `:`](#single-component-path-parameters)), `string[]` (if it was
@@ -1123,35 +1093,35 @@ router.get('/:id/*sub', (req, res) => {
 
 ### `setProperty(req, property, value)`
 
-- `req` [`<IncomingMessage>`](https://nodejs.org/api/http.html#class-httpincomingmessage)
-- `property` [`<Property>`](#property)
-- `value`
-  [`<any>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Data_types)
+- `req` [`<http.IncomingMessage>`]
+- `property` [`<Property>`]
+- `value` [`<any>`]
 
-Equivalent to [`property.set(req, value)`](#propertysetreq-value)
+Equivalent to [`property.set(req, value)`][`property.set`]
 
 ### `getProperty(req, property)`
 
-- `req` [`<IncomingMessage>`](https://nodejs.org/api/http.html#class-httpincomingmessage)
-- `property` [`<Property>`](#property)
+- `req` [`<http.IncomingMessage>`]
+- `property` [`<Property>`]
+- Returns: [`<any>`]
 
-Equivalent to [`property.get(req)`](#propertygetreq)
+Equivalent to [`property.get(req)`][`property.get`]
 
 ### `clearProperty(req, property)`
 
-- `req` [`<IncomingMessage>`](https://nodejs.org/api/http.html#class-httpincomingmessage)
-- `property` [`<Property>`](#property)
+- `req` [`<http.IncomingMessage>`]
+- `property` [`<Property>`]
 
-Equivalent to [`property.clear(req)`](#propertyclearreq)
+Equivalent to [`property.clear(req)`][`property.clear`]
 
 ### `makeMemo(fn, ...args)`
 
-- `fn`
-  [`<Function>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function)
-  a (possibly asynchronous) function to memoise. Receives the current request
-  [`<IncomingMessage>`](https://nodejs.org/api/http.html#class-httpincomingmessage) and the
-  specified `args`.
+[`makeMemo`]: #makememofn-args
+
+- `fn` [`<Function>`] a (possibly asynchronous) function to memoise. Receives the current request
+  [`<http.IncomingMessage>`] and the specified `args`.
 - `args` additional arguments to pass to `fn`.
+- Returns: [`<Function>`]
 
 This creates a memoised function which can be called for a request, for example:
 
@@ -1164,18 +1134,16 @@ router.get('/', (req, res) => {
 });
 ```
 
-An example of this being used internally is [`makeGetClient`](#makegetclientoptions), which uses it
-to avoid parsing headers each time the returned `getClient` function is called.
+An example of this being used internally is [`makeGetClient`], which uses it to avoid parsing
+headers each time the returned `getClient` function is called.
 
 ### `registerCharset(charsetName, definition)`
 
-- `charsetName`
-  [`<string>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#string_type)
-  the (case insensitive) name of the character set to register (this is matched against, e.g.
-  `Content-Type` `encoding` parameters in requests).
-- `definition`
-  [`<Object>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object)
-  an object with:
+[`registerCharset`]: #registercharsetcharsetname-definition
+
+- `charsetName` [`<string>`] the (case insensitive) name of the character set to register (this is
+  matched against, e.g. [`Content-Type`] `encoding` parameters in requests).
+- `definition` [`<Object>`] an object with:
   - `decoder(options)` a function that accepts
     [`TextDecoder` options](https://developer.mozilla.org/en-US/docs/Web/API/TextDecoder/TextDecoder#options)
     and returns a decoder instance which is compatible with
@@ -1184,86 +1152,126 @@ to avoid parsing headers each time the returned `getClient` function is called.
     [`stream`](https://developer.mozilla.org/en-US/docs/Web/API/TextDecoder/decode#stream) option
     _must_ be supported.
   - `decoderStream(options)` an optional function which returns a
-    [`TransformStream<Uint8Array, string>`](https://developer.mozilla.org/en-US/docs/Web/API/TransformStream).
-    If this is not specified, it is generated automatically from the `decoder`.
+    [`TransformStream<Uint8Array, string>`][`<TransformStream>`]. If this is not specified, it is
+    generated automatically from the `decoder`.
 
 Registers a new (or replacement) decoder for the given character set. By default, only
 [character sets](https://developer.mozilla.org/en-US/docs/Web/API/Encoding_API/Encodings) recognised
-by Node's built-in
-[`TextDecoder`](https://developer.mozilla.org/en-US/docs/Web/API/TextDecoder/TextDecoder) are
-supported, which covers most requirements but is not an exhaustive set. If you have particular needs
-for your server, you can write your own decoder implementation or bring in another library (such as
+by Node's built-in [`<TextDecoder>`] are supported, which covers most requirements but is not an
+exhaustive set. If you have particular needs for your server, you can write your own decoder
+implementation or bring in another library (such as
 [iconv-lite](https://www.npmjs.com/package/iconv-lite)) and register it so that it is available for
 all built-in body parsing helpers.
 
 ### `registerUTF32()`
 
-Registers `utf-32be` and `utf-32le` character sets for use with
-[`getTextDecoder`](#gettextdecodercharsetname-options) and
-[`getTextDecoderStream`](#gettextdecoderstreamcharsetname-options). These are technically required
-to fully conform to JSON parsing requirements, but are not used in practice due to UTF-16 or UTF-8
-being the more efficient choice for all content.
+Registers `utf-32be` and `utf-32le` character sets for use with [`getTextDecoder`] and
+[`getTextDecoderStream`]. These are technically required to fully conform to JSON parsing
+requirements, but are not used in practice due to UTF-16 or UTF-8 being the more efficient choice
+for all content.
 
 ### `getTextDecoder(charsetName[, options])`
 
-- `charsetName`
-  [`<string>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#string_type)
-  the (case insensitive) name of the character set to find
-- `options`
-  [`<Object>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object)
-  [`TextDecoder` constructor options](https://developer.mozilla.org/en-US/docs/Web/API/TextDecoder/TextDecoder)
-  - `fatal`
-    [`<boolean>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#boolean_type)
-    **Default:** `false`.
-  - `ignoreBOM`
-    [`<boolean>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#boolean_type)
-    **Default:** `false`.
+[`getTextDecoder`]: #gettextdecodercharsetname-options
 
-Return a new
-[`TextDecoder`](https://developer.mozilla.org/en-US/docs/Web/API/TextDecoder)-compatible instance
-for the requested character set. For standard character sets, this will be an actual `TextDecoder`.
-For custom character sets registered using
-[`registerCharset`](#registercharsetcharsetname-definition), this will be the value returned by
-`decoder(options)`.
+- `charsetName` [`<string>`] the (case insensitive) name of the character set to find
+- `options` [`<Object>`]
+  [`TextDecoder` constructor options](https://developer.mozilla.org/en-US/docs/Web/API/TextDecoder/TextDecoder)
+  - `fatal` [`<boolean>`] **Default:** `false`.
+  - `ignoreBOM` [`<boolean>`] **Default:** `false`.
+- Returns: [`<TextDecoder>`]-compatible instance for the requested character set.
+
+For standard character sets, this will return an actual [`<TextDecoder>`]. For custom character sets
+registered using [`registerCharset`], this will return the value returned by `decoder(options)`.
 
 ### `getTextDecoderStream(charsetName[, options])`
 
-- `charsetName`
-  [`<string>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#string_type)
-  the (case insensitive) name of the character set to find
-- `options`
-  [`<Object>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object)
-  [`TextDecoder` constructor options](https://developer.mozilla.org/en-US/docs/Web/API/TextDecoder/TextDecoder)
-  - `fatal`
-    [`<boolean>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#boolean_type)
-    **Default:** `false`.
-  - `ignoreBOM`
-    [`<boolean>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#boolean_type)
-    **Default:** `false`.
+[`getTextDecoderStream`]: #gettextdecoderstreamcharsetname-options
 
-Return a new
-[`TextDecoderStream`](https://developer.mozilla.org/en-US/docs/Web/API/TextDecoderStream)-compatible
-instance for the requested character set. For standard character sets, this will be an actual
-`TextDecoderStream`. For custom character sets registered using
-[`registerCharset`](#registercharsetcharsetname-definition), this will be the value returned by
+- `charsetName` [`<string>`] the (case insensitive) name of the character set to find
+- `options` [`<Object>`]
+  [`TextDecoder` constructor options](https://developer.mozilla.org/en-US/docs/Web/API/TextDecoder/TextDecoder)
+  - `fatal` [`<boolean>`] **Default:** `false`.
+  - `ignoreBOM` [`<boolean>`] **Default:** `false`.
+- Returns: [`<TextDecoderStream>`]-compatible instance for the requested character set.
+
+For standard character sets, this will return an actual [`<TextDecoderStream>`]. For custom
+character sets registered using [`registerCharset`], this will return the value returned by
 `decoderStream(options)` (if provided), or a wrapper around the value returned by
 `decoder(options)`.
 
 ### `registerMime(definitions)`
 
-TODO
+[`registerMime`]: #registermimedefinitions
+
+- `definitions` [`<Map>`]
+
+Add mime types to the internal registry. The keys of the `definitions` are the case-insensitive
+extensions to match (_excluding_ any leading `.`), and the values are the corresponding mime types.
+
+For example:
+
+```js
+registerMime(
+  new Map([
+    ['txt', 'text/plain'],
+    ['foo', 'application/foobar'],
+  ]),
+);
+```
+
+Various mime types which are common in websites are registered by default.
 
 ### `readMimeTypes(types)`
 
-TODO
+- `types` [`<string>`]
+- Returns: [`<Map>`]
+
+Read an
+[Apache .types](https://svn.apache.org/repos/asf/httpd/httpd/trunk/docs/conf/mime.types)-formatted
+file. Can be combined with [`registerMime`] to register the result.
 
 ### `decompressMime(definitions)`
 
-TODO
+- `definitions` [`<string>`]
+- Returns: [`<Map>`]
+
+Read a compressed mime mapping. Can be combined with [`registerMime`] to register the result.
+
+The `definitions` string is a list of `;`- or newline-separated definitions. Each definition begins
+with a `,`-separated list of extensions (without leading `.`), then an `=`, then a mime type. The
+file extensions can contain optional sections wrapped in `{}`, and the mime type can contain the
+literal string `{ext}` to populate the current (full) extension. For example:
+
+```js
+decompressMime(`
+png,jp{e}g=image/{ext}
+txt=text/plain
+`);
+```
+
+Will produce:
+
+```
+Map(
+  png  => image/png
+  jpg  => image/jpeg
+  jpeg => image/jpeg
+  txt  => text/plain
+)
+```
 
 ### `getMime(ext[, charset])`
 
-TODO
+- `ext` [`<string>`] a file extension to look up (with or without a leading `.`)
+- `charset` [`<string>`]. **Default:** `'utf-8'`.
+- Returns: [`<string>`]
+
+Returns the mime type for the requested extension. If the extension is not known, this will return
+`application/octet-stream`.
+
+If the mime type matches `text/*`, it will have `; charset={charset}` appended to the end (unless
+the registered mime type already includes an explicit `charset`).
 
 ### `resetMime()`
 
@@ -1275,68 +1283,84 @@ leaking from old configuration.
 
 ### `WebSocketMessages`
 
-A convenience class for receiving WebSocket messages via `Promise`s and `AsyncIterator`s, rather
-than events.
+[`<WebSocketMessages>`]: #websocketmessages
+
+A convenience class for receiving WebSocket messages via [`<Promise>`]s and [`<AsyncIterator>`]s,
+rather than events.
 
 #### `new WebSocketMessages(websocket[, options])`
 
-TODO
+- `websocket` [`<Object>`] the WebSocket to receive messages from
+- `options` [`<Object>`]
+  - `limit` [`<number>`] the maximum number of messages to receive before disconnecting from the
+    WebSocket (this can be useful for completing a handshake then passing the WebSocket to another
+    handler). **Default:** `Infinity`.
+  - `signal` [`<AbortSignal>`] a signal which can be used to cancel any active polling and
+    disconnect from the WebSocket (does not close the WebSocket itself).
 
-#### `webSocketMessages.next([timeout])`
+Create a new `WebSocketMessages` instance, adding `'message'` and `'close'` listeners to the given
+`websocket`.
 
-TODO
+#### `websocketmessages.next([timeout])`
 
-#### `for await (const message of webSocketMessages)`
+- `timeout` [`<number>`] the maximum time to wait (in milliseconds) for a message
+- Returns: [`<Promise>`] Fulfills with [`<WebSocketMessage>`] upon success, or rejects if the
+  connection closes before a message arrives, or the timeout is reached.
 
-TODO
+Wait for a single message to be received. Throws if the websocket is closed before a message
+arrives, or the configured maximum number of messages has already been reached.
+
+#### `for await (const message of websocketmessages)`
+
+- Type: [`<AsyncIterator>`] of [`<WebSocketMessage>`]
+
+Closes when the WebSocket is closed, or the configured maximum number of messages is reached.
 
 ### `WebSocketMessage`
 
-Data class returned by [`WebSocketMessages`](#websocketmessages) representing a single WebSocket
-message.
+[`<WebSocketMessage>`]: #websocketmessage
+
+Data class returned by [`<WebSocketMessages>`] representing a single WebSocket message.
 
 #### `new WebSocketMessage(data, isBinary)`
 
-- `data` [`<Buffer>`](https://nodejs.org/api/buffer.html#class-buffer) the raw data of the message
-- `isBinary`
-  [`<boolean>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#boolean_type)
-  `true` if the message is binary, `false` if text
+- `data` [`<Buffer>`] the raw data of the message
+- `isBinary` [`<boolean>`] `true` if the message is binary, `false` if text
 
 Create a new `WebSocketMessage` wrapper. This is not typically needed in application code, but may
 be used in tests.
 
 #### `webSocketMessage.data`
 
-- Type: [`<Buffer>`](https://nodejs.org/api/buffer.html#class-buffer)
+- Type: [`<Buffer>`]
 
 The raw data from the websocket. If the message is text, this contains the utf-8 encoded text.
 
 #### `webSocketMessage.isBinary`
 
-- Type:
-  [`<boolean>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#boolean_type)
+- Type: [`<boolean>`]
 
 `true` if the message is binary, `false` if it is text.
 
 #### `webSocketMessage.text`
 
-- Type:
-  [`<string>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#string_type)
+- Type: [`<string>`]
 
-Returns the message as a string, or throws a [`WebSocketError`](#websocketerror)
-[1003](https://developer.mozilla.org/en-US/docs/Web/API/CloseEvent/code) if the message is binary.
+Returns the message as a string, or throws [`<WebSocketError>`] [1003][close code] if the message is
+binary.
 
 #### `webSocketMessage.binary`
 
-- Type: [`<Buffer>`](https://nodejs.org/api/buffer.html#class-buffer)
+- Type: [`<Buffer>`]
 
-Returns the message as a Buffer, or throws a [`WebSocketError`](#websocketerror)
-[1003](https://developer.mozilla.org/en-US/docs/Web/API/CloseEvent/code) if the message is text.
+Returns the message as a Buffer, or throws [`<WebSocketError>`] [1003][close code] if the message is
+text.
 
 ### `WebSocketError`
 
-- Extends:
-  [`Error`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error)
+[`<WebSocketError>`]: #websocketerror
+
+- Extends: [`<Error>`]
 
 These errors are thrown by various WebSocket helper functions and can be thrown by user code as
 well. They are handled automatically, making them an easy way to respond to requests with error
@@ -1344,23 +1368,13 @@ messages.
 
 #### `new WebSocketError(closeCode[, options])`
 
-- `closeCode`
-  [`<number>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#number_type)
-  a [close code](https://developer.mozilla.org/en-US/docs/Web/API/CloseEvent/code) to send to the
-  client
-- `options`
-  [`<Object>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object)
-  A set of options for the error
-  - `message`
-    [`<string>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#string_type)
-    an internal error message (not sent to the client, but may appear in logs)
-  - `closeReason`
-    [`<string>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#string_type)
-    the [close reason](https://developer.mozilla.org/en-US/docs/Web/API/CloseEvent/reason) to send.
-    **Default:** `''`.
-  - `cause`
-    [`<any>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Data_types)
-    another error which caused this error (not sent to the client, but may appear in logs)
+- `closeCode` [`<number>`] a [close code] to send to the client
+- `options` [`<Object>`] A set of options for the error
+  - `message` [`<string>`] an internal error message (not sent to the client, but may appear in
+    logs)
+  - `closeReason` [`<string>`] the [close reason] to send. **Default:** `''`.
+  - `cause` [`<any>`] another error which caused this error (not sent to the client, but may appear
+    in logs)
 
 Create a new `WebSocketError` object and set various properties on it.
 
@@ -1370,36 +1384,46 @@ for `5xx` errors, or `4xxx` for `2xx`, `3xx`, or `4xx` errors (e.g. `404` maps t
 
 #### `webSocketError.message`
 
-- Type:
-  [`<string>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#string_type)
+- Type: [`<string>`]
 
 The non-client-facing message for this error.
 
 #### `webSocketError.closeCode`
 
-- Type:
-  [`<number>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#number_type)
+- Type: [`<number>`]
 
-The [close code](https://developer.mozilla.org/en-US/docs/Web/API/CloseEvent/code) which should be
-sent to the client for this error.
+The [close code] which should be sent to the client for this error.
 
 #### `webSocketError.closeReason`
 
-- Type:
-  [`<string>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#string_type)
+- Type: [`<string>`]
 
-The [close reason](https://developer.mozilla.org/en-US/docs/Web/API/CloseEvent/reason) which should
-be sent to the client for this error.
+The [close reason] which should be sent to the client for this error.
 
 ## WebSocket Functions
 
 ### `makeAcceptWebSocket(ServerClass[, options])`
 
-TODO
+[`makeAcceptWebSocket`]: #makeacceptwebsocketserverclass-options
+
+- `ServerClass` [`<Function>`]
+- `options` [`<Object>`]
+  - `softCloseStatusCode` [`<number>`]. **Default:** `1001`.
+  - additional options are passed to the `ServerClass`' constructor.
+- Returns: [`<Function>`]
+
+This wraps an external library's WebSocket server class (such as `WebSocketServer` from
+[ws](https://www.npmjs.com/package/ws)).
+
+It internally calls [`acceptUpgrade`], providing the necessary wrappers for error and soft close
+handling.
+
+Example usage: [WebSocket requests](#websocket-requests).
 
 ### `getWebSocketOrigin(req)`
 
-- `req` [`<IncomingMessage>`](https://nodejs.org/api/http.html#class-httpincomingmessage)
+- `req` [`<http.IncomingMessage>`]
+- Returns: [`<string>`] | [`<undefined>`]
 
 Returns the value of the `Origin` header, or the `Sec-WebSocket-Origin` header if `Origin` is not
 set. This provides compatibility with old versions of the WebSocket standard (`Sec-WebSocket-Origin`
@@ -1407,84 +1431,88 @@ is no longer used by newer versions).
 
 ### `isWebSocketRequest(req)`
 
-- `req` [`<IncomingMessage>`](https://nodejs.org/api/http.html#class-httpincomingmessage)
+- `req` [`<http.IncomingMessage>`]
+- Returns: [`<boolean>`]
 
 Returns `true` if the request is an upgrade request, is using the `GET` method, and lists
 `websocket` as an upgrade option.
 
 ### `makeWebSocketFallbackTokenFetcher(acceptWebSocket[, timeout])`
 
+- `acceptWebSocket` [`<Function>`] the function returned from [`makeAcceptWebSocket`]
+- `timeout` [`<number>`] the maximum time to wait (in milliseconds) for the token to be sent as a
+  message
+- Returns: [`<Function>`]
+
 TODO
 
 ### `nextWebSocketMessage(websocket[, options])`
 
-TODO
+[`nextWebSocketMessage`]: #nextwebsocketmessagewebsocket-options
+
+- `websocket` [`<Object>`]
+- `options` [`<Object>`]
+  - `timeout` [`<number>`]
+  - `signal` [`<AbortSignal>`]
+- Returns: [`<Promise>`] Fulfills with [`<WebSocketMessage>`] upon success.
+
+Returns a single message from the WebSocket, then detaches its event listeners to allow other
+handlers to receive messages.
+
+Shorthand for:
+
+```js
+const messages = new WebSocketMessages(websocket, { limit: 1, signal });
+return messages.next(timeout).finally(() => messages.detach());
+```
 
 ## Request Handling Classes
 
 ### `FileFinder`
 
-This class is used by [`fileServer`](#fileserverbasedir-options) internally. It is responsible for
-finding files in a directory for a given path, and includes various safety checks.
+[`<FileFinder>`]: #filefinder
+
+This class is used by [`fileServer`] internally. It is responsible for finding files in a directory
+for a given path, and includes various safety checks.
 
 #### `FileFinder.build(baseDir[, options])`
 
-- `baseDir`
-  [`<string>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#string_type)
-  the base directory to serve files from. Only content within this directory (or sub-directories)
-  will be served. This should be an absolute path.
-- `options`
-  [`<Object>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object)
-  A set of options controlling how files are matched, and which files are visible
-  - `subDirectories`
-    [`<boolean>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#boolean_type)
-    |
-    [`<number>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#number_type)
-    `true` to allow access to all sub-directories, `false` to only allow access to files directly
-    inside the base directory. If this is set to a number, it is the depth of sub-directories which
-    can be traversed (`0` is equivalent to `false`). **Default:** `true`.
+- `baseDir` [`<string>`] the base directory to serve files from. Only content within this directory
+  (or sub-directories) will be served. This should be an absolute path.
+- `options` [`<Object>`] A set of options controlling how files are matched, and which files are
+  visible
+  - `subDirectories` [`<boolean>`] | [`<number>`] `true` to allow access to all sub-directories,
+    `false` to only allow access to files directly inside the base directory. If this is set to a
+    number, it is the depth of sub-directories which can be traversed (`0` is equivalent to
+    `false`). **Default:** `true`.
   - `caseSensitive` `'exact'` | `'filesystem'` | `'force-lowercase'`. **Default:** `'exact'`.
-  - `allowAllDotfiles`
-    [`<boolean>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#boolean_type)
-    **Default:** `false`.
-  - `allowAllTildefiles`
-    [`<boolean>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#boolean_type)
-    **Default:** `false`.
-  - `allowDirectIndexAccess`
-    [`<boolean>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#boolean_type)
-    **Default:** `false`.
-  - `allow`
-    [`<Array>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array)
-    list of files and directories to explicitly allow access to (which may otherwise be blocked by
-    another rule). **Default:** `['.well-known']`.
-  - `hide`
-    [`<Array>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array)
-    list of files and directories to hide. This is not a security guarantee, as the files may still
-    be served by other means (e.g. content negotiation or directory index), but can be used to
-    provide a cleaner API. **Default:** `[]`.
-  - `indexFiles`
-    [`<Array>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array)
-    list of filenames which should be used as index files if a directory is requested. **Default:**
-    `['index.htm', 'index.html']`.
-  - `implicitSuffixes`
-    [`<Array>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array)
-    list of implicit suffixes to add to requested filenames. For example, specifying `['.html']`
-    will serve `foo.html` at `/foo`. **Default:** `[]`.
-  - `negotiation`
-    [`<Array>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array)
-    Content negotiation rules to apply to files (see description below for details). **Default:**
+  - `allowAllDotfiles` [`<boolean>`] **Default:** `false`.
+  - `allowAllTildefiles` [`<boolean>`] **Default:** `false`.
+  - `allowDirectIndexAccess` [`<boolean>`] **Default:** `false`.
+  - `allow` [`<string[]>`][`<string>`] list of files and directories to explicitly allow access to
+    (which may otherwise be blocked by another rule). **Default:** `['.well-known']`.
+  - `hide` [`<string[]>`][`<string>`] list of files and directories to hide. This is not a security
+    guarantee, as the files may still be served by other means (e.g. content negotiation or
+    directory index), but can be used to provide a cleaner API. **Default:** `[]`.
+  - `indexFiles` [`<string[]>`][`<string>`] list of filenames which should be used as index files if
+    a directory is requested. **Default:** `['index.htm', 'index.html']`.
+  - `implicitSuffixes` [`<string[]>`][`<string>`] list of implicit suffixes to add to requested
+    filenames. For example, specifying `['.html']` will serve `foo.html` at `/foo`. **Default:**
     `[]`.
+  - `negotiation` [`<Array>`] Content negotiation rules to apply to files (see description below for
+    details). **Default:** `[]`.
+- Returns: [`<Promise>`] Fulfills with [`<FileFinder>`].
 
 Static method. Returns a `Promise` which resolves with a new `FileFinder` instance. This is the way
 to construct new instances.
 
-`negotiation` can be used to respond to the `Accept`, `Accept-Language`, and `Accept-Encoding`
+`negotiation` can be used to respond to the [`Accept`], [`Accept-Language`], and [`Accept-Encoding`]
 headers. For example: on a server with `foo.txt`, `foo.txt.gz`, and a negotiation rule mapping
 `gzip` &rarr; `{name}.gz`:
 
-- users requesting `foo.txt` may get `foo.txt.gz` with `Content-Encoding: gzip` if their client
-  supports gzip encoding
-- users requesting `foo.txt` may get `foo.txt` with no `Content-Encoding` if their client does not
+- users requesting `foo.txt` may get `foo.txt.gz` with
+  [`Content-Encoding: gzip`][`Content-Encoding`] if their client supports gzip encoding
+- users requesting `foo.txt` may get `foo.txt` with no [`Content-Encoding`] if their client does not
   support gzip encoding
 
 Note that file access is checked _before_ content negotiation, so you must still provide a base
@@ -1492,449 +1520,963 @@ Note that file access is checked _before_ content negotiation, so you must still
 do not send any `Accept-*` headers, and where no match is found).
 
 Multiple rules can match simultaneously, if a specific enough file exists (for example you might
-have `foo-en.txt.gz` for `Accept-Language: en` and `Accept-Encoding: gzip`).
+have `foo-en.txt.gz` for [`Accept-Language: en`][`Accept-Language`] and
+[`Accept-Encoding: gzip`][`Accept-Encoding`]).
 
 In the case of conflicting rules, earlier rules take priority (so `encoding` rules should typically
 be specified last)
 
-See the helper [`negotiateEncoding`](#negotiateencodingoptions) for a simple way to support
-pre-compressed files.
+See the helper [`negotiateEncoding`] for a simple way to support pre-compressed files.
 
-#### `fileFinder.toNormalisedPath(pathParts)`
+#### `filefinder.toNormalisedPath(pathParts)`
 
-- `pathParts`
-  [`<Array>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array)
-  the desired path, split into individual components
+- `pathParts` [`<string[]>`][`<string>`] the desired path, split into individual components
+- Returns: [`<string[]>`][`<string>`]
 
 Returns a 'normalised' path array. This is used internally for fallback file paths: if the path is
 an index file, the returned value will be the _directory_ it is an index for. This ensures index
 files can be served as fallback files even if the index file itself is hidden by other rules.
 
-#### `fileFinder.find(pathParts[, negotiation[, warnings]])`
+#### `filefinder.find(pathParts[, negotiation[, warnings]])`
 
-- `pathParts`
-  [`<Array>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array)
-  the desired path, split into individual components
-- `negotiation`
-  [`<Object>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object)
-  an object containing `mime`, `language`, and/or `encoding` quality values from the request, which
-  will be used with the configured `negotiation` to identify the best file variant to serve.
-- `warnings`
-  [`<Array>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array)
-  if provided, any warnings that occur will be appended to this list (as descriptive strings). This
-  can be used for debugging.
+[`filefinder.find`]: #filefinderfindpathparts-negotiation-warnings
 
-Identify the file which should be served for a particular request. Returns a `Promise` which
-resolves to an object containing file information (and an open file handle which must be closed by
-the caller), or to `null` if no file matches.
+- `pathParts` [`<string[]>`][`<string>`] the desired path, split into individual components
+- `negotiation` [`<Object>`] an object containing `mime`, `language`, and/or `encoding` quality
+  values from the request, which will be used with the configured `negotiation` to identify the best
+  file variant to serve.
+- `warnings` [`<string[]>`][`<string>`] if provided, any warnings that occur will be appended to
+  this list (as descriptive strings). This can be used for debugging.
+- Returns: [`<Promise>`] Fulfills with [`<ResolvedFileInfo>`], or [`<null>`] if no file matches.
 
-#### `fileFinder.debugAllPaths()`
+Identify the file which should be served for a particular request.
 
-A debug function which returns a `Promise` that resolves to a list of request paths that can be
-served by this object.
+Note that the returned [`<ResolvedFileInfo>`] contains an open file handle which must be closed by
+the caller.
 
-#### `fileFinder.precompute()`
+#### `filefinder.debugAllPaths()`
 
-Returns a `Promise` which resolves to an object which is API-compatible with `FileFinder` and
-contains pre-fetched path information for the available files. This can be used for improved
-performance in production (as long as the available file paths are not expected to change). This is
-used internally by the `'static-paths'` mode of [`fileServer`](#fileserverbasedir-options).
+- Returns: [`<Promise>`] Fulfills with [`<string[]>`][`<string>`].
+
+A debug function which returns a list of all request paths that can be served by this object.
+
+#### `filefinder.precompute()`
+
+[`filefinder.precompute`]: #filefinderprecompute
+
+- Returns: [`<Promise>`] Fulfills with a [`<FileFinder>`]-compatible object.
+
+The returned object contains pre-fetched path information for the available files. This can be used
+for improved performance in production (as long as the available file paths are not expected to
+change). This is used internally by the `'static-paths'` `mode` of [`fileServer`].
+
+### `ResolvedFileInfo`
+
+[`<ResolvedFileInfo>`]: #resolvedfileinfo
+
+Structure returned by [`filefinder.find`]. This structure contains an open [`<fs.FileHandle>`] which
+must be closed by the caller.
+
+#### `handle`
+
+- Type: [`<fs.FileHandle>`]
+
+An active `FileHandle` for the resolved file. Note that this **must** be closed by the caller.
+
+#### `canonicalPath`
+
+- Type: [`<string>`]
+
+The full path of the requested file (after adding implicit extensions and index files).
+
+#### `negotiatedPath`
+
+- Type: [`<string>`]
+
+The full path of the resolved file (which may differ from canonicalPath by including e.g. `.gz` if
+gzip encoding was negotiated).
+
+#### `stats`
+
+- Type: [`<fs.Stats>`]
+
+Filesystem stats about the resolved file.
+
+#### `mime`
+
+- Type: [`<string>`] | [`<undefined>`]
+
+The negotiated mime type for the resolved file, or `undefined` if mime type negotiation did not
+occur.
+
+#### `language`
+
+- Type: [`<string>`] | [`<undefined>`]
+
+The negotiated language for the resolved file, or `undefined` if language negotiation did not occur.
+
+#### `encoding`
+
+- Type: [`<string>`] | [`<undefined>`]
+
+The negotiated encoding for the resolved file, or `undefined` if encoding negotiation did not occur.
 
 ### `ServerSentEvents`
+
+[`<ServerSentEvents>`]: #serversentevents
 
 Helper class for using a connection to send
 [Server-sent events](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events) to a
 client.
 
-Clients can connect using
-[`EventSource`](https://developer.mozilla.org/en-US/docs/Web/API/EventSource).
+Clients can connect using [`<EventSource>`].
 
 #### `new ServerSentEvents(req, res[, options])`
 
-- `req` [`<IncomingMessage>`](https://nodejs.org/api/http.html#class-httpincomingmessage)
-- `res` [`<ServerResponse>`](https://nodejs.org/api/http.html#class-httpserverresponse)
-- `options`
-  [`<Object>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object)
-  A set of options configuring the connection
-  - `keepaliveInterval`
-    [`<number>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#number_type)
-    interval (in milliseconds) between automatic calls to [`ping`](#serversenteventsping).
-    **Default:** `15000`.
-  - `softCloseReconnectDelay`
-    [`<number>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#number_type)
-    delay (in milliseconds) to tell the client to wait before attempting to reconnect after a soft
-    close. **Default:** `500`.
-  - `softCloseReconnectStagger`
-    [`<number>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#number_type)
-    randomising delay (in milliseconds) to add to `softCloseReconnectDelay`. This is used to avoid a
-    sudden influx of reconnections after restarting a server, for example. **Default:** `2000`.
+- `req` [`<http.IncomingMessage>`]
+- `res` [`<http.ServerResponse>`]
+- `options` [`<Object>`] A set of options configuring the connection
+  - `keepaliveInterval` [`<number>`] interval (in milliseconds) between automatic calls to
+    [`serversentevents.ping`]. **Default:** `15000`.
+  - `softCloseReconnectDelay` [`<number>`] delay (in milliseconds) to tell the client to wait before
+    attempting to reconnect after a soft close. **Default:** `500`.
+  - `softCloseReconnectStagger` [`<number>`] randomising delay (in milliseconds) to add to
+    `softCloseReconnectDelay`. This is used to avoid a sudden influx of reconnections after
+    restarting a server, for example. **Default:** `2000`.
 
 Create a new server-sent events channel on the connection, sending relevant headers and setting up
 soft close handling.
 
 Calling this constructor sends the following headers:
 
-- `Content-Type: text/event-stream`
+- [`Content-Type: text/event-stream`][`Content-Type`]
 - `X-Accel-Buffering: no` (to disable buffering in proxies)
 - `Cache-Control: no-store`
 
-#### `serverSentEvents.signal`
+#### `serversentevents.signal`
 
-- Type: [`AbortSignal`](https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal)
+[`serversentevents.signal`]: #serversenteventssignal
 
-An `AbortSignal` which fires when [`close`](#serversenteventsclosereconnectdelay-reconnectstagger)
-is called (and no further server-sent events should be sent).
+- Type: [`<AbortSignal>`]
 
-#### `serverSentEvents.open`
+An `AbortSignal` which fires when [`serversentevents.close`] is called (and no further server-sent
+events should be sent).
 
-- Type:
-  [`<boolean>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#boolean_type)
+#### `serversentevents.open`
 
-Shorthand for [`!serverSentEvents.signal.aborted`](#serversenteventssignal).
+- Type: [`<boolean>`]
 
-#### `serverSentEvents.ping()`
+Shorthand for [`!serversentevents.signal.aborted`][`serversentevents.signal`].
+
+#### `serversentevents.ping()`
+
+[`serversentevents.ping`]: #serversenteventsping
 
 Send a "ping" to the client. The ping is represented as a single `:` (plus framing), which is
 interpreted as a comment and ignored by the client.
 
 This is automatically called periodically to keep the TCP connection alive.
 
-#### `serverSentEvents.send(data)`
+#### `serversentevents.send(data)`
 
-- `data`
-  [`<Object>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object)
-  object containing one or more of:
-  - `event`
-    [`<string>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#string_type)
-    the name of the event to send to the client (see
+[`serversentevents.send`]: #serversenteventssenddata
+
+- `data` [`<Object>`] object containing one or more of:
+  - `event` [`<string>`] the name of the event to send to the client (see
     [Listening for custom events on MDN](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events#listening_for_custom_events))
-  - `id`
-    [`<string>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#string_type)
-    an identifier which will be available to
-    [`EventSource`](https://developer.mozilla.org/en-US/docs/Web/API/EventSource) clients as
+  - `id` [`<string>`] an identifier which will be available to [`<EventSource>`] clients as
     [`lastEventId`](https://developer.mozilla.org/en-US/docs/Web/API/MessageEvent/lastEventId)
-  - `data`
-    [`<string>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#string_type)
-    the data to send. This can be an arbitrary string which may include newlines, but note that `\r`
-    characters cannot be sent via server-sent events (they will be dropped if part of a `\r\n` pair,
-    or converted to `\n` if separate). You should generally encode raw strings (e.g. as JSON or URL
-    encoded) to avoid this limitation.
-  - `reconnectDelay`
-    [`<number>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#number_type)
-    number of milliseconds the client should wait before attempting to reconnect if the connection
-    is lost. This can be set alongside another event, or in isolation. If you want to set a
-    reconnection delay, it is a good idea to send this as soon as a connection is established. By
-    default clients will attempt to reconnect immediately (i.e. this delay is `0`).
+  - `data` [`<string>`] the data to send. This can be an arbitrary string which may include
+    newlines, but note that `\r` characters cannot be sent via server-sent events (they will be
+    dropped if part of a `\r\n` pair, or converted to `\n` if separate). You should generally encode
+    raw strings (e.g. as JSON or URL encoded) to avoid this limitation.
+  - `reconnectDelay` [`<number>`] number of milliseconds the client should wait before attempting to
+    reconnect if the connection is lost. This can be set alongside another event, or in isolation.
+    If you want to set a reconnection delay, it is a good idea to send this as soon as a connection
+    is established. By default clients will attempt to reconnect immediately (i.e. this delay is
+    `0`).
 
 Send a standard event to the client.
 
-#### `serverSentEvents.sendFields(parts)`
+#### `serversentevents.sendFields(parts)`
 
-- `parts`
-  [`<Array>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array)
-  list of tuples of key/value pairs. Keys and values must be
-  [`string`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#string_type)s.
+- `parts` [`<Array>`] list of tuples of key/value pairs. Keys and values must be [`<string>`]s.
 
-Send raw fields to the client. Generally you should use
-[`serverSentEvents.send`](#serversenteventssenddata) to send events, but if you have a custom client
-which recognises additional keys, or you wish to send comments, you can use this method for more
-control.
+Send raw fields to the client. Generally you should use [`serversentevents.send`] to send events,
+but if you have a custom client which recognises additional keys, or you wish to send comments, you
+can use this method for more control.
 
-#### `serverSentEvents.close([reconnectDelay[, reconnectStagger]])`
+#### `serversentevents.close([reconnectDelay[, reconnectStagger]])`
 
-- `reconnectDelay`
-  [`<number>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#number_type)
-  delay (in milliseconds) to tell the client to wait before attempting to reconnect after a soft
-  close. **Default:** `0`.
-- `reconnectStagger`
-  [`<number>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#number_type)
-  randomising delay (in milliseconds) to add to `softCloseReconnectDelay`. This is used to avoid a
-  sudden influx of reconnections after restarting a server, for example. **Default:** `0`.
+[`serversentevents.close`]: #serversenteventsclosereconnectdelay-reconnectstagger
+
+- `reconnectDelay` [`<number>`] delay (in milliseconds) to tell the client to wait before attempting
+  to reconnect after a soft close. **Default:** `0`.
+- `reconnectStagger` [`<number>`] randomising delay (in milliseconds) to add to
+  `softCloseReconnectDelay`. This is used to avoid a sudden influx of reconnections after restarting
+  a server, for example. **Default:** `0`.
 
 Close the connection, optionally sending a final message with a `reconnectDelay` (this will not be
 sent if both `reconnectDelay` and `reconnectStagger` are `0`).
 
-Note that [`EventSource`](https://developer.mozilla.org/en-US/docs/Web/API/EventSource) clients will
-always attempt to reconnect after the connection is lost. To close the connection permanently, it
-must be closed from the client side.
+Note that [`<EventSource>`] clients will always attempt to reconnect after the connection is lost.
+To close the connection permanently, it must be closed from the client side.
+
+### `HTTPRange`
+
+[`<HTTPRange>`]: #httprange
+
+Interface returned by [`getRange`] and [`simplifyRange`]. Can be passed to [`sendRanges`].
+
+#### `ranges`
+
+- Type: [`<Object[]>`][`<Object>`]
+
+List of range parts. Each entry has:
+
+- `start`: [`<number>`] start offset, in bytes (inclusive)
+- `end`: [`<number>`] end offset, in bytes (inclusive)
+
+Note that both `start` and `end` are inclusive, so it is not possible to represent an empty range.
+
+#### `totalSize`
+
+- Type: [`<number>`] | [`<undefined>`]
+
+Total size of the content the range applies to, in bytes.
+
+### `ProxyNode`
+
+[`<ProxyNode>`]: #proxynode
+
+Interface returned by [`getClient`][`makeGetClient`].
+
+#### `client`
+
+- Type: [`<Object>`] | [`<undefined>`] an address as returned by [`parseAddress`]
+
+Represents the client address making a request (this will often be the `server` address of the next
+proxy in the chain, but the address may differ in some situations).
+
+#### `server`
+
+- Type: [`<Object>`] | [`<undefined>`] an address as returned by [`parseAddress`]
+
+Represents the server address a request was sent to.
+
+#### `host`
+
+- Type: [`<string>`] | [`<undefined>`] the host name in the request (e.g. the value of the `Host`
+  header).
+
+#### `proto`
+
+- Type: [`<string>`] | [`<undefined>`] the connection protocol used by the request (e.g. `http` or
+  `https`).
 
 ## Request Handling Functions
 
 ### `getAbsolutePath(req)`
 
-- `req` [`<IncomingMessage>`](https://nodejs.org/api/http.html#class-httpincomingmessage)
+[`getAbsolutePath`]: #getabsolutepathreq
 
-TODO
+- `req` [`<http.IncomingMessage>`]
+- Returns: [`<string>`] the original path for the request.
+
+When routing requests, matching URL prefixes are removed from the `url` property. This is to provide
+better compatibility with external request handling functions which expect to be mounted at the
+root.
 
 ### `restoreAbsolutePath(req)`
 
-- `req` [`<IncomingMessage>`](https://nodejs.org/api/http.html#class-httpincomingmessage)
+[`restoreAbsolutePath`]: #restoreabsolutepathreq
 
-TODO
+- `req` [`<http.IncomingMessage>`]
 
-### `getSearch(req, name)`
+Modifies `req` to restore its full original path.
 
-- `req` [`<IncomingMessage>`](https://nodejs.org/api/http.html#class-httpincomingmessage)
-- `name`
-  [`<string>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#string_type)
+When routing requests, matching URL prefixes are removed from the `url` property. This is to provide
+better compatibility with external request handling functions which expect to be mounted at the
+root.
 
-TODO
+When passing a request to another library which expects to receive the _full_ path, you can call
+this function first to restore it. If you just need to access the full path yourself, prefer using
+[`getAbsolutePath`].
+
+### `getSearch(req)`
+
+- `req` [`<http.IncomingMessage>`]
+- Returns: [`<string>`] the `search` part of the request URL.
+
+If the request has no `search` section, this returns an empty string `''`. Otherwise, it returns the
+full `search` section, including the leading `?`.
 
 ### `getSearchParams(req)`
 
-- `req` [`<IncomingMessage>`](https://nodejs.org/api/http.html#class-httpincomingmessage)
+[`getSearchParams`]: #getsearchparamsreq
 
-TODO
+- `req` [`<http.IncomingMessage>`]
+- Returns: [`<URLSearchParams>`]
+
+The returned `URLSearchParams` is unique for each caller to prevent mutations leaking between
+invocations. If you only need to access a handful of parameters, it can be slightly more performant
+to use [`getQuery`] for each one, as it avoids the need to make this copy.
 
 ### `getQuery(req, name)`
 
-- `req` [`<IncomingMessage>`](https://nodejs.org/api/http.html#class-httpincomingmessage)
-- `name`
-  [`<string>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#string_type)
+[`getQuery`]: #getqueryreq-name
 
-TODO
+- `req` [`<http.IncomingMessage>`]
+- `name` [`<string>`]
+- Returns: [`<string>`] | [`<null>`]
+
+Returns a specific entry from [`getSearchParams`].
 
 ### `getAuthorization(req)`
 
-- `req` [`<IncomingMessage>`](https://nodejs.org/api/http.html#class-httpincomingmessage)
+- `req` [`<http.IncomingMessage>`]
+- Returns: [`<string[]>`][`<string>`] | [`<undefined>`]
 
-TODO
+Normalises the `Authorization` header. Returns a 2-element tuple: the first contains the trimmed and
+lowercased authorization type (e.g. `bearer` or `basic`), and the second contains the trimmed
+authorization value.
+
+If the header is not set, or the format is not recognised, this returns `undefined`.
 
 ### `requireBearerAuth(options)`
+
+[`requireBearerAuth`]: #requirebearerauthoptions
+
+- `options` [`<Object>`]
+- Returns: [`<Handler>`]
 
 TODO
 
 ### `requireAuthScope(scope)`
 
+[`requireAuthScope`]: #requireauthscopescope
+
+- `scope` [`<string>`]
+- Returns: [`<Handler>`]
+
 TODO
 
 ### `hasAuthScope(req, scope)`
 
-- `req` [`<IncomingMessage>`](https://nodejs.org/api/http.html#class-httpincomingmessage)
-- `scope`
-  [`<string>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#string_type)
+- `req` [`<http.IncomingMessage>`]
+- `scope` [`<string>`]
+- Returns: [`<boolean>`]
 
 TODO
 
 ### `generateWeakETag(encoding, fileStats)`
 
-TODO
+[`generateWeakETag`]: #generateweaketagencoding-filestats
+
+- `encoding` [`<string>`]
+- `fileStats` [`<fs.Stats>`]
+- Returns: [`<string>`]
+
+Generates a weak [`ETag`] header value from the given encoding and file stats (using modification
+time and file size). The returned value is of the form `W/"weak-etag-here"`
+
+The exact format of this ETag is not guaranteed to remain stable in future versions and should not
+be relied on.
 
 ### `generateStrongETag(file)`
 
-TODO
+- `file` [`<string>`] | [`<fs.FileHandle>`]
+- Returns: [`<string>`]
+
+Generates a strong [`ETag`] header value for the given file (using a SHA-256 hash of the entire
+file's contents). The returned value is of the form `"strong-etag-here"`.
+
+It is relatively expensive to compute this value, so [`generateWeakETag`] is often the better
+choice, but some HTTP features (such as range requests) require strong ETags according to the spec.
+
+If you need strong ETags, try to store the values if possible to avoid recalculating them for every
+request. Depending on your situation, you may also be able to use higher-level information to
+generate your own [`ETag`] value in a much simpler way (such as a version number).
 
 ### `jsonErrorHandler(conversion[, options])`
 
-TODO
+[`jsonErrorHandler`]: #jsonerrorhandlerconversion-options
+
+- `conversion` [`<Function>`] a function which takes a [`<HTTPError>`] representing the error
+  encountered, and returns an object which will be sent to the client as a JSON document.
+- `options` [`<Object>`]
+  - `onlyIfRequested` [`<boolean>`] if `true`, the handler will only apply if the client sent
+    `Accept: application/json` (or similar). If `false`, the handler will ignore the client's
+    requested content type. **Default:** `true`.
+  - `emitError` [`<boolean>`] if `true`, also sends the error to any registered `'error'` listeners
+    or `onError` callback (e.g. for logging). **Default:** `true`.
+  - `forceStatus` [`<number>`] optional [HTTP status code] to send regardless of the
+    [`httperror.statusCode`] (e.g. if your `conversion` function includes `statusCode` in the JSON
+    document itself).
+  - `contentType` [`<string>`] **Default:** `'application/json'`.
+- Returns: [`<Handler>`]
+
+Handles errors by sending them to the client in a JSON format.
+
+For example:
+
+```js
+router.use(jsonErrorHandler((error) => ({ error: error.body })));
+```
 
 ### `proxy(forwardHost[, options])`
 
-TODO
+[`proxy`]: #proxyforwardhost-options
+
+- `forwardHost` [`<string>`] | [`<URL>`] the target host (with a `http://` or `https://` protocol)
+  to send requests to. If this includes a path section, it will be prefixed to all requests.
+- `options` [`<Object>`]
+  - `agent` a [`<http.Agent>`] or [`<https.Agent>`] to use instead of building one internally (if
+    you need more control or want to share an agent across multiple handlers)
+  - `blockRequestHeaders` [`<string[]>`][`<string>`] a list of headers to remove from proxied
+    requests (runs before `requestHeaders`). Note that headers listed in the `connection` header are
+    removed automatically. **Default:**
+    `['connection', 'expect', 'host', 'keep-alive', 'proxy-authorization', 'transfer-encoding', 'upgrade', 'via']`.
+  - `blockResponseHeaders` [`<string[]>`][`<string>`] a list of headers to remove from proxied
+    responses (runs before `responseHeaders`). Note that headers listed in the `connection` header
+    are removed automatically. **Default:** `['connection', 'keep-alive', 'transfer-encoding']`.
+  - `requestHeaders` [`<Function[]>`][`<Function>`] mutators for the proxied request headers. e.g.
+    [`replaceForwarded`]. **Default:** `[]`.
+  - `responseHeaders` [`<Function[]>`][`<Function>`] mutators for the proxied response headers.
+  - additional options are passed to the [`<http.Agent>`] or [`<https.Agent>`] constructor (if an
+    explicit `agent` was not provided). Unlike the normal defaults for these constructors, here
+    `keepAlive` defaults to `true`.
+- Returns: [`<Handler>`]
+
+Creates a simple proxy handler which forwards requests to a configured host. This can be useful, for
+example, for serving both an API and frontend content from the same server, especially during
+development (when the frontend content may be served by a dynamic server).
+
+Note that this proxy does _not_ support proxying Upgrade or `CONNECT` requests.
+
+Internally, a [`<http.Agent>`] or [`<https.Agent>`] pool is used to reduce communication overhead.
+This pool is never `destroy`ed, so if you are creating lots of short-lived `proxy`s, you should
+create your own agent to share between them.
 
 ### `removeForwarded(req, headers)`
 
-TODO
+[`removeForwarded`]: #removeforwardedreq-headers
+
+- `req` [`<http.IncomingMessage>`]
+- `headers` [`<Object>`]
+- Returns: [`<Object>`]
+
+A function which can be passed as a `requestHeaders` mutator function to [`proxy`]. Removes all
+common forwarding headers:
+
+- `Forwarded`
+- `X-Forwarded-For`
+- `X-Forwarded-Host`
+- `X-Forwarded-Proto`
+- `X-Forwarded-Protocol`
+- `X-Url-Scheme`
 
 ### `replaceForwarded(req, headers)`
 
-TODO
+[`replaceForwarded`]: #replaceforwardedreq-headers
+
+- `req` [`<http.IncomingMessage>`]
+- `headers` [`<Object>`]
+- Returns: [`<Object>`]
+
+A function which can be passed as a `requestHeaders` mutator function to [`proxy`]. Removes all
+common forwarding headers (see [`removeForwarded`]) and adds a new `Forwarded` header which contains
+information about the immediate client (ignoring any information from existing forwarding headers).
 
 ### `sanitiseAndAppendForwarded(getClient[, options])`
 
-TODO
+[`sanitiseAndAppendForwarded`]: #sanitiseandappendforwardedgetclient-options
+
+- `getClient` [`<Function>`] function returned by [`makeGetClient`]
+- `options` [`<Object>`]
+  - `onlyTrusted` [`<boolean>`] if `true`, any proxies which the given `getClient` function does not
+    trust will be removed from the header. This can be useful if you want the target server to be
+    able to trust all proxy information without additional configuration (assuming there are no
+    other ways to reach it). **Default:** `false`.
+- Returns: [`<Function>`]
+
+Returns a function which can be passed as a `requestHeaders` mutator function to [`proxy`].
+Sanitises any existing forwarding headers into a consistent `Forwarded` header, and combines
+information about the current proxy. Removes all other forwarding headers (see [`removeForwarded`]).
+
+Example usage:
+
+```js
+const getClient = makeGetClient({
+  trustedProxyCount: 1,
+  trustedHeaders: ['x-forwarded-for', 'x-forwarded-by'],
+});
+
+router.use(
+  proxy('http://localhost:9000', {
+    requestHeaders: [sanitiseAndAppendForwarded(getClient)],
+  }),
+);
+```
 
 ### `simpleAppendForwarded(req, headers)`
 
-TODO
+- `req` [`<http.IncomingMessage>`]
+- `headers` [`<Object>`]
+- Returns: [`<Object>`]
+
+A function which can be passed as a `requestHeaders` mutator function to [`proxy`]. Removes all
+common forwarding headers (see [`removeForwarded`]) except `Forwarded`, which has information about
+the current proxy appended via simple string concatenation.
+
+It is usually better to use [`sanitiseAndAppendForwarded`].
 
 ### `checkIfModified(req, res, fileStats)`
 
-TODO
+- `req` [`<http.IncomingMessage>`]
+- `res` [`<http.ServerResponse>`]
+- `fileStats` [`<fs.Stats>`]
+- Returns: [`<boolean>`]
+
+Checks [`If-Modified-Since`] and [`If-None-Match`] for the request. Returns `true` if the file
+should be served in full (i.e. has been modified, or no conditions were sent), or `false` if the
+cached content can be used (by returning [304 Not Modified]).
+
+ETags from [`If-None-Match`] are checked against any existing [`ETag`] header in the provided
+response, and against the result of [`generateWeakETag`] for the `fileStats`.
 
 ### `checkIfRange(req, res, fileStats)`
 
-TODO
+- `req` [`<http.IncomingMessage>`]
+- `res` [`<http.ServerResponse>`]
+- `fileStats` [`<fs.Stats>`]
+- Returns: [`<boolean>`]
+
+Checks [`If-Range`] for the request. Returns `true` if the conditions are met and range responses
+should be allowed, or `false` if any conditions are not met and the file should be served in full.
 
 ### `compareETag(res, fileStats, etags)`
 
-TODO
+- `res` [`<http.ServerResponse>`]
+- `fileStats` [`<fs.Stats>`]
+- `etags` [`<string[]>`][`<string>`]
+- Returns: [`<boolean>`]
+
+Compares the [`ETag`] header of the response against a list of accepted ETags, returning `true` if
+any match. If `etags` includes `'*'`, this will always return `true`.
+
+If `etags` includes weak ETags (`W/"..."`), this will also compare the result of
+[`generateWeakETag`] against them, returning `true` if there is a match.
 
 ### `getBodyStream(req[, options])`
 
-- `req` [`<IncomingMessage>`](https://nodejs.org/api/http.html#class-httpincomingmessage)
-- `options`
-  [`<Object>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object)
+- `req` [`<http.IncomingMessage>`]
+- `options` [`<Object>`]
+  - `maxContentBytes` [`<number>`] the maximum size (in bytes) of the decompressed content. If the
+    context exceeds this size, [`<HTTPError>`] [413 Content Too Large] will be thrown. **Default:**
+    `Infinity`.
+  - `maxNetworkBytes` [`<number>`] the maximum size (in bytes) of the content as sent (potentially
+    compressed). If the context exceeds this size, [`<HTTPError>`] [413 Content Too Large] will be
+    thrown. **Default:** `maxContentBytes`.
+  - `maxEncodingSteps` [`<number>`] the maximum number of sequential [`Content-Encoding`] stages to
+    support. The spec allows chaining multiple stages, but in practice non-malicious clients only
+    use at most one. If the request exceeds this limit, [`<HTTPError>`] [415 Unsupported Media Type]
+    will be thrown. **Default:** `1`.
+- Returns: [`<ReadableStream<Uint8Array>>`][`<ReadableStream>`]
 
-TODO
+Applies any [`Content-Encoding`] decoding stages and optionally enforces a maximum content size.
+
+Supported encodings:
+
+- `deflate`
+- `gzip` / `x-gzip`
+- `br` (Brotli)
+- `zstd` (Node.js 22.15+)
 
 ### `getBodyTextStream(req[, options])`
 
-- `req` [`<IncomingMessage>`](https://nodejs.org/api/http.html#class-httpincomingmessage)
-- `options`
-  [`<Object>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object)
+- `req` [`<http.IncomingMessage>`]
+- `options` [`<Object>`]
+- Returns: [`<ReadableStream<string>>`][`<ReadableStream>`]
 
 TODO
 
 ### `getBodyText(req[, options])`
 
-- `req` [`<IncomingMessage>`](https://nodejs.org/api/http.html#class-httpincomingmessage)
-- `options`
-  [`<Object>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object)
+- `req` [`<http.IncomingMessage>`]
+- `options` [`<Object>`]
+- Returns: [`<Promise>`] Fulfills with [`<string>`].
 
 TODO
 
 ### `getBodyJson(req[, options])`
 
-- `req` [`<IncomingMessage>`](https://nodejs.org/api/http.html#class-httpincomingmessage)
-- `options`
-  [`<Object>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object)
+- `req` [`<http.IncomingMessage>`]
+- `options` [`<Object>`]
+- Returns: [`<Promise>`] Fulfills with [`<any>`].
 
 TODO
 
 ### `acceptBody(req)`
 
-- `req` [`<IncomingMessage>`](https://nodejs.org/api/http.html#class-httpincomingmessage)
+[`acceptBody`]: #acceptbodyreq
 
-TODO
+- `req` [`<http.IncomingMessage>`]
+
+If the request included [`Expect: 100-continue`][`Expect`], sends [100 Continue] to the client so
+that it will start sending the request body. Subsequent calls, and calls for requests which do not
+need [100 Continue], are a no-op.
+
+The bundled request parsing helpers call this automatically.
+
+This is only required if `autoContinue` was set to `false` in [`weblistener.attach`] (or
+equivalently, if a [`'checkContinue'`](https://nodejs.org/api/http.html#event-checkcontinue)
+listener was set on the [`<http.Server>`]).
 
 ### `getFormData(req[, options])`
 
-- `req` [`<IncomingMessage>`](https://nodejs.org/api/http.html#class-httpincomingmessage)
-- `options`
-  [`<Object>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object)
+[`getFormData`]: #getformdatareq-options
+
+- `req` [`<http.IncomingMessage>`]
+- `options` [`<Object>`]
+- Returns: [`<Promise>`] Fulfills with [`<FormData>`].
 
 TODO
 
 ### `getFormFields(req[, options])`
 
-- `req` [`<IncomingMessage>`](https://nodejs.org/api/http.html#class-httpincomingmessage)
-- `options`
-  [`<Object>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object)
+- `req` [`<http.IncomingMessage>`]
+- `options` [`<Object>`]
+- Returns: [`<AsyncIterable>`][`<AsyncIterator>`] of [`<Object>`]
 
 TODO
 
 ### `getCharset(req)`
 
-- `req` [`<IncomingMessage>`](https://nodejs.org/api/http.html#class-httpincomingmessage)
+- `req` [`<http.IncomingMessage>`]
+- Returns: [`<string>`] | [`<undefined>`]
 
 TODO
 
 ### `getIfRange(req)`
 
-- `req` [`<IncomingMessage>`](https://nodejs.org/api/http.html#class-httpincomingmessage)
+- `req` [`<http.IncomingMessage>`]
+- Returns: [`<Object>`]
 
 TODO
 
 ### `getRange(req, totalSize[, options])`
 
+[`getRange`]: #getrangereq-totalsize-options
+
+- `req` [`<http.IncomingMessage>`]
+- `totalSize` [`<number>`]
+- `options` [`<Object>`]
+- Returns: [`<HTTPRange>`] | [`<undefined>`]
+
 TODO
 
 ### `readHTTPUnquotedCommaSeparated(raw)`
 
-- `raw`
-  [`<string>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#string_type)
-  |
-  [`<string[]>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#string_type)
-  |
-  [`<number>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#number_type)
-  |
-  [`<undefined>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#undefined_type)
-  the raw value of the header
+- `raw` [`<string>`] | [`<string[]>`][`<string>`] | [`<number>`] | [`<undefined>`] the raw value of
+  the header
+- Returns: [`<string[]>`][`<string>`]
 
 TODO
 
 ### `readHTTPDateSeconds(raw)`
 
-- `raw`
-  [`<string>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#string_type)
-  |
-  [`<string[]>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#string_type)
-  |
-  [`<number>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#number_type)
-  |
-  [`<undefined>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#undefined_type)
-  the raw value of the header
+- `raw` [`<string>`] | [`<string[]>`][`<string>`] | [`<number>`] | [`<undefined>`] the raw value of
+  the header
+- Returns: [`<number>`] | [`<undefined>`]
 
-TODO
+Reads the string as an RFC822 date (e.g. `Wed, 02 Oct 2002 13:00:00 GMT`), returning it as the
+number of seconds since the UNIX epoch (1st January 1970) in UTC. Note that RFC822 does not support
+sub-second precision.
 
 ### `readHTTPInteger(raw)`
 
-- `raw`
-  [`<string>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#string_type)
-  |
-  [`<undefined>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#undefined_type)
-  the raw value of the header
+- `raw` [`<string>`] | [`<undefined>`] the raw value of the header
+- Returns: [`<number>`] | [`<undefined>`]
 
-TODO
+Reads the input as a signed integer, returning `undefined` if it is not valid (e.g. not a number, or
+contains a decimal part).
 
 ### `readHTTPKeyValues(raw)`
 
-- `raw`
-  [`<string>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#string_type)
-  |
-  [`<undefined>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#undefined_type)
-  the raw value of the header
+- `raw` [`<string>`] | [`<undefined>`] the raw value of the header
+- Returns: [`<Map>`]
 
-TODO
+Reads a `;`-delimited string of `key=value`, with optionally quoted values.
 
 ### `readHTTPQualityValues(raw)`
 
-- `raw`
-  [`<string>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#string_type)
-  |
-  [`<undefined>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#undefined_type)
-  the raw value of the header
+- `raw` [`<string>`] | [`<undefined>`] the raw value of the header
+- Returns: [`<Object[]>`][`<Object>`]
 
-TODO
+Reads a `,`-delimited string of `key=value; q=n` (i.e. the format of the `Accept-*` headers).
 
 ### `makeNegotiator(rules[, maxFailedAttempts])`
+
+- `rules` [`<Array>`]
+- `maxFailedAttempts` [`<number>`]
+- Returns: TODO
 
 TODO
 
 ### `negotiateEncoding(options)`
 
+[`negotiateEncoding`]: #negotiateencodingoptions
+
+- `options` [`<string[]>`][`<string>`]
+- Returns: TODO
+
 TODO
 
 ### `getRemainingPathComponents(req[, options])`
 
-- `req` [`<IncomingMessage>`](https://nodejs.org/api/http.html#class-httpincomingmessage)
-- `options`
-  [`<Object>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object)
+- `req` [`<http.IncomingMessage>`]
+- `options` [`<Object>`]
+  - `rejectPotentiallyUnsafe` [`<boolean>`] if `true` and any part of the path is deemed unsafe (see
+    explanation below), this will throw [`<HTTPError>`] [400 Bad Request]. **Default:** `true`
+- Returns: [`<string[]>`][`<string>`]
 
-TODO
+Returns the remaining path for the request, split by `/` and URL decoded.
 
-### `sendCSVStream(res, table[, options])`
+To provide some protection against unexpected behaviours which could expose files accidentally, this
+will validate the path by default and reject "unsafe" paths. Unsafe paths are those which:
 
-TODO
+- contain control characters (e.g. `0x00` - `0x1F`, or `0x7F`); or
+- have a `.` or `..` component; or
+- on UNIX: have a `~` component; or
+- on Windows: have a special character (`"*/:<>?\`); or
+- on Windows: consist only of whitespace and `.`; or
+- on Windows: match a
+  [reserved filename](https://learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-conventions)
+  (e.g. `NUL`, `COM1.txt`, etc.).
 
 ### `sendFile(req, res, source[, fileStats[, options]])`
 
-TODO
+[`sendFile`]: #sendfilereq-res-source-filestats-options
 
-### `sendJSON(res, entity[, options])`
+- `req` [`<http.IncomingMessage>`]
+- `res` [`<http.ServerResponse>`]
+- `source` [`<string>`] | [`<fs.FileHandle>`] | [`<stream.Readable>`] | [`<ReadableStream>`]
+- `fileStats` [`<fs.Stats>`] | [`<null>`] the stats for the file referenced by `source`. If this is
+  `null` and `source` is a path or a file handle, the stats will be fetched internally.
+- `options` [`<Object>`] options which are passed to [`getRange`] and [`simplifyRange`] (called
+  internally to check for range requests)
+- Returns: [`<Promise>`] Fulfills with [`<undefined>`] once the entire file has been sent.
 
-TODO
+Sends the `source` to the client, accounting for various cache control options:
 
-### `sendJSONStream(res, entity[, options])`
+- [`If-Modified-Since`] and [`If-None-Match`] are checked if the request is a `GET` or `HEAD`;
+- `Content-Range` is checked if the request is a `GET` or `HEAD`;
+- only headers are sent if the request is a `HEAD`.
 
-TODO
+Note that if the `source` is a [`<fs.FileHandle>`] or a stream, it will _not_ be closed
+automatically by this method. It is the caller's responsibility to close it:
+
+```js
+try {
+  await sendFile(req, res, myStream);
+} finally {
+  myStream.destroy();
+}
+```
 
 ### `sendRanges(req, res, source, httpRange)`
 
-TODO
+[`sendRanges`]: #sendrangesreq-res-source-httprange
 
-### `makeGetClient(options)`
+- `req` [`<http.IncomingMessage>`]
+- `res` [`<http.ServerResponse>`]
+- `source` [`<string>`] | [`<fs.FileHandle>`] | [`<stream.Readable>`] | [`<ReadableStream>`]
+- `httpRange` [`<HTTPRange>`]
 
-TODO
+Send a specific range or ranges of a file, according to
+[RFC7233](https://datatracker.ietf.org/doc/html/rfc7233), setting all the required headers. This is
+used internally by [`sendFile`].
+
+If the source is a stream (i.e. not seekable), [`simplifyRange`] is called internally to ensure the
+ranges are sequential and non-overlapping.
+
+Note that if the `source` is a [`<fs.FileHandle>`] or a stream, it will _not_ be closed
+automatically by this method. It is the caller's responsibility to close it.
+
+### `sendCSVStream(res, table[, options])`
+
+- `res` [`<http.ServerResponse>`]
+- `table` [`<Array>`] | [`<AsyncIterable>`][`<AsyncIterator>`] of [`<Array>`] |
+  [`<AsyncIterable>`][`<AsyncIterator>`] of [`<string>`] | [`<null>`] | [`<undefined>`]
+- `options` [`<Object>`]
+  - `delimiter` [`<string>`] **Default:** `','`
+  - `newline` [`<string>`] **Default:** `'\n'`
+  - `quote` [`<string>`] **Default:** `'"'`
+  - `encoding` [`<string>`] **Default:** `'utf-8'`
+  - `headerRow` [`<boolean>`] | [`<undefined>`] **Default:** `undefined`
+  - `end` [`<boolean>`] **Default:** `true`
+- Returns: [`<Promise>`] Fulfills with [`<undefined>`] once the entire table has been sent.
+
+Sends the table of data as a CSV (or TSV) formatted file.
+
+If headers have not already been sent and [`Content-Type`] has not been set, this automatically sets
+[`Content-Type: text/csv`][`Content-Type`] with the given charset (`encoding`). If `headerRow` is
+`true`, it also sets `header=present`. If `headerRow` is `false`, it sets `header=absent`.
+
+Cells are sent in plain text if possible, or quoted if they contain a special character. Quote
+characters inside quoted text are escaped by doubling (e.g. `my "value"` encodes to
+`"my ""value"""`).
+
+### `sendJSON(res, entity[, options])`
+
+[`sendJSON`]: #sendjsonres-entity-options
+
+- `res` [`<http.ServerResponse>`]
+- `entity` [`<any>`] the value to encode and send
+- `options` [`<Object>`]
+  - `replacer` [`<Function>`] | [`<Array>`] | [`<null>`] see
+    [`JSON.stringify`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/stringify#replacer).
+    **Default:** `null`.
+  - `space` [`<number>`] | [`<string>`] | [`<null>`] indentation to use for pretty-printing. See
+    [`JSON.stringify`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/stringify#space).
+    **Default:** `null`.
+  - `undefinedAsNull` [`<boolean>`] if the `entity` is `undefined` and this is `true`, it will be
+    sent as `null`. If ths is `false`, it will be sent as an empty document. **Default:** `false`.
+  - `encoding` [`<string>`] **Default:** `'utf-8'`.
+  - `end` [`<boolean>`] if `true`, `res` will be `end`ed after the JSON document has been written.
+    **Default:** `true`.
+
+Sends the `entity` as JSON. If headers have not already been sent, and [`Content-Type`] has not been
+set, this automatically sets [`Content-Type: application/json`][`Content-Type`].
+
+### `sendJSONStream(res, entity[, options])`
+
+- `res` [`<http.ServerResponse>`]
+- `entity` [`<any>`] the value to encode and send
+- `options` [`<Object>`]
+  - `replacer` [`<Function>`] | [`<Array>`] | [`<null>`] see
+    [`JSON.stringify`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/stringify#replacer).
+    **Default:** `null`.
+  - `space` [`<number>`] | [`<string>`] | [`<null>`] indentation to use for pretty-printing. See
+    [`JSON.stringify`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/stringify#space).
+    **Default:** `null`.
+  - `undefinedAsNull` [`<boolean>`] if the `entity` is `undefined` and this is `true`, it will be
+    sent as `null`. If ths is `false`, it will be sent as an empty document. **Default:** `false`.
+  - `encoding` [`<string>`] **Default:** `'utf-8'`.
+  - `end` [`<boolean>`] if `true`, `res` will be `end`ed after the JSON document has been written.
+    **Default:** `true`.
+- Returns: [`<Promise>`] Fulfills with [`<undefined>`] once the entire document has been sent.
+
+This has the same behaviour as [`sendJSON`], but supports [`<stream.Readable>`]s and
+[`<AsyncIterable>`][`<AsyncIterator>`]s at any location in the `entity`.
+
+Note that this will not necessarily send data as soon as it is available; some buffering is used to
+increase the network efficiency. If you want to send events in real-time to the client, consider
+using [`<ServerSentEvents>`] instead.
 
 ### `fileServer(baseDir[, options])`
 
-TODO
+[`fileServer`]: #fileserverbasedir-options
+
+- `baseDir` [`<string>`]
+- `options` [`<Object>`]
+  - `mode` [`<string>`] either `'dynamic'` or `'static-paths'`. See below for an explanation.
+    **Default:** `'dynamic'`.
+  - `fallback` [`<Object>`] | [`<undefined>`] if set, sets a fallback file to serve if the requested
+    path is not found
+    - `statusCode` [`<number>`] **Default:** `200`.
+    - `filePath` [`<string>`] path to the file to serve, relative to `baseDir`. Note that this
+      should use `/` separators, even on Windows.
+  - `verbose` [`<boolean>`] emit verbose error messages when a file is not found. This can be
+    helpful for debugging why a file is not being served. **Default:** `false`.
+  - `callback` [`<Function>`] a (possibly asynchronous) function to call when a file is being
+    served. Can modify headers in the response. **Default:** [`setDefaultCacheHeaders`]. The
+    function is called with:
+    - `req` [`<http.IncomingMessage>`]
+    - `res` [`<http.ServerResponse>`]
+    - `file` [`<ResolvedFileInfo>`] details of the file which will be sent
+    - `isFallback` [`<boolean>`] `true` if the `fallback.filePath` file is being served due to a
+      requested path not being found.
+  - additional options are passed to [`<FileFinder>`].
+- Returns: [`<Promise>`] Fulfills with [`<Handler>`].
+
+Creates a request handler for serving files from the filesystem. Uses [`<FileFinder>`] and
+[`sendFile`] internally.
+
+If `mode` is `'dynamic'`, the filesystem will be checked for each request. This means files can be
+dynamically added and removed, but adds some latency to each request. If `mode` is `'static-paths'`,
+[`filefinder.precompute`] is called at startup to pre-calculate the available paths. This means that
+files created after startup will not be visible, but modifications to existing files will be served
+as expected. The behaviour is otherwise identical. `'static-paths'` is usually the best choice for
+serving static files in production.
 
 ### `setDefaultCacheHeaders(req, res, file)`
 
-TODO
+[`setDefaultCacheHeaders`]: #setdefaultcacheheadersreq-res-file
+
+This is the default `callback` for [`fileServer`]. It is implemented as:
+
+```js
+function setDefaultCacheHeaders(req, res, file) {
+  res.setHeader('etag', generateWeakETag(res.getHeader('content-encoding'), file.stats));
+  res.setHeader('last-modified', file.stats.mtime.toUTCString());
+}
+```
+
+### `makeGetClient(options)`
+
+[`makeGetClient`]: #makegetclientoptions
+
+- `options`: [`<Object>`]
+  - `trustedProxyCount` [`<number>`] **Default:** `0`.
+  - `trustedProxyAddresses` [`<string[]>`][`<string>`] a list of CIDR range strings for trusted
+    upstream proxies. See [`makeAddressTester`] for details. **Default:** `[]`.
+  - `trustedHeaders` [`<string[]>`][`<string>`] list of proxy-related headers to trust (see below
+    for the supported values). **Required**.
+- Returns: [`<Function>`]
+
+The returned function can be used to get information about a request, such as the requested host and
+protocol used. If proxies are trusted, it will retrieve data from the outermost trusted proxy.
+Otherwise, it will only use data from the current request. The available data will vary depending on
+the source.
+
+You can configure the number of "hops" to trust (`trustedProxyCount`) if you are using a fixed
+number of reverse proxies and it is not possible to reach your server by other means. Note that this
+is potentially vulnerable to spoofing if there is any way to reach your server in fewer hops, or if
+any of the proxies do not add a value to the trusted headers.
+
+For a more secure (but more deployment-specific) setup, you can use `trustedProxyAddresses` instead
+to set exact IP ranges of trusted proxies. Once an untrusted address is found, _all_ subsequent
+proxies are untrusted (even if their IP would otherwise be trusted), because the untrusted proxy
+could have manipulated the data.
+
+If `trustedProxyAddresses` is combined with `trustedProxyCount`, _both_ conditions must be satisfied
+for a proxy to be trusted.
+
+`trustedHeaders` should be set to a list of headers which the proxy you are using is guaranteed to
+set / replace. If you list a header which is _not_ set by your proxy, a malicious client will be
+able to spoof the data. The supported headers are:
+
+- `Forwarded`: Populates `client`, `server`, `host`, and `proto` (but note that these fields are all
+  optional in the header, so may not be set for all entries).
+- `X-Forwarded-For`: Populates `client`.
+- `X-Forwarded-Host`: Populates `server`. Only used if `X-Forwarded-For` is set.
+- `X-Forwarded-Proto`: Populates `proto`. Only used if `X-Forwarded-For` is set.
+- `X-Forwarded-Protocol`: Populates `proto`. Only used if `X-Forwarded-For` is set.
+- `X-Url-Scheme`: Populates `proto`. Only used if `X-Forwarded-For` is set.
+- `Via`: Populates `server`
+
+The returned function accepts a request [`<http.IncomingMessage>`] and returns an object with:
+
+- `trusted`: [`<ProxyNode[]>`][`<ProxyNode>`] the trusted proxies, closest first. Always contains at
+  least one entry (representing the current request).
+- `untrusted`: [`<ProxyNode[]>`][`<ProxyNode>`] the untrusted proxies, closest first. May be empty.
+- `outwardChain`: [`<ProxyNode[]>`][`<ProxyNode>`] the full chain of trusted and untrusted proxies,
+  closest first. Equivalent to `[...trusted, ...untrusted]`. Always contains at least one entry
+  (representing the current request).
+- `edge`: [`<ProxyNode>`] the outermost trusted proxy (which may be the current request rather than
+  an actual proxy). Shorthand for `trusted[trusted.length - 1]`.
 
 ## Utility Classes
 
@@ -1948,16 +2490,19 @@ A first-in-first-out blocking queue for arbitrary items.
 
 Create a new empty `BlockingQueue`.
 
-#### `blockingQueue.push(value)`
+#### `blockingqueue.push(value)`
 
-Add an item to the queue, immediately unblocking the oldest pending [`shift`](#queueshift) call if
+[`blockingqueue.push`]: #blockingqueuepushvalue
+
+Add an item to the queue, immediately unblocking the oldest pending [`blockingqueue.shift`] call if
 there is one, or adding it to an internal queue if nothing is waiting.
 
-#### `blockingQueue.shift([timeout])`
+#### `blockingqueue.shift([timeout])`
 
-- `timeout`
-  [`<number>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#number_type)
-  the maximum number of milliseconds to wait for an item to be available.
+[`blockingqueue.shift`]: #blockingqueueshifttimeout
+
+- `timeout` [`<number>`] the maximum number of milliseconds to wait for an item to be available.
+- Returns: [`<Promise>`] Fulfills with [`<any>`].
 
 Extract an item from the queue. If no items are in the queue, this waits for up to `timeout`
 milliseconds for an item to become available.
@@ -1965,26 +2510,30 @@ milliseconds for an item to become available.
 Returns a `Promise` which resolves to the item (or rejects if the timeout is reached or the queue is
 closed).
 
-#### `blockingQueue.close(reason)`
+#### `blockingqueue.close(reason)`
+
+[`blockingqueue.close`]: #blockingqueueclosereason
 
 - `reason` the reason for the closure, used as the reject value for `shift`. Typically an `Error`.
 
-Mark the queue as closed, signaling that no further items will be [`push`](#queuepushitem)ed. All
-existing and new [`shift`](#queueshift) calls will reject with the given `reason`. Async iterators
+Mark the queue as closed, signaling that no further items will be [`blockingqueue.push`]ed. All
+existing and new [`blockingqueue.shift`] calls will reject with the given `reason`. Async iterators
 will complete successfully after this has been called.
 
-#### `blockingQueue.fail(reason)`
+#### `blockingqueue.fail(reason)`
+
+[`blockingqueue.fail`]: #blockingqueuefailreason
 
 - `reason` the reason for the closure, used as the reject value for `shift`. Typically an `Error`.
 
 Mark the queue as closed and failed, signaling that no further items will be
-[`push`](#queuepushitem)ed. All existing and new [`shift`](#queueshift) calls will reject with the
+[`blockingqueue.push`]ed. All existing and new [`blockingqueue.shift`] calls will reject with the
 given `reason`. Also causes async iterators to throw rather than complete.
 
-#### `for await (const item of blockingQueue)`
+#### `for await (const item of blockingqueue)`
 
-Extracts one item at a time from the queue until [`close`](#blockingqueueclosereason) or
-[`fail`](#blockingqueuefailreason) is called.
+Extracts one item at a time from the queue until [`blockingqueue.close`] or [`blockingqueue.fail`]
+is called.
 
 ### `Queue`
 
@@ -2025,49 +2574,36 @@ Extracts one item at a time from the queue. Never completes.
 
 ### `parseAddress(address)`
 
-- `address`
-  [`<string>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#string_type)
-  |
-  [`<undefined>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#undefined_type)
+[`parseAddress`]: #parseaddressaddress
+
+- `address` [`<string>`] | [`<undefined>`]
 
 Reads an IPv4, IPv6, or alias address with an optional port (as used in `via`, `forwarded`, and
 `x-forwarded-for` headers).
 
-Returns an object with `type` (`'IPv4'`, `'IPv6'`, or `'alias'`), `ip`
-[`<string>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#string_type),
-and `port`
-[`<number>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#number_type) |
-[`<undefined>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#undefined_type).
-This structure is a superset of the address info structure returned by
-[`server.address()`](https://nodejs.org/api/net.html#serveraddress).
+Returns an object with `type` (`'IPv4'`, `'IPv6'`, or `'alias'`), `ip` [`<string>`], and `port`
+[`<number>`] | [`<undefined>`]. This structure is a superset of the address info structure returned
+by [`server.address`].
 
 If `address` is `undefined`, `''`, or `'unknown'`, this returns `undefined`.
 
 ### `makeAddressTester(cidrRanges)`
 
-- `cidrRanges`
-  [`<Array>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array)
-  a list of CIDR range strings to test against
+[`makeAddressTester`]: #makeaddresstestercidrranges
 
-Returns a function which takes an address (as returned by [`parseAddress`](#parseaddressaddress))
-and returns `true` if it matches any configured CIDR range, or `false` otherwise.
+- `cidrRanges` [`<string[]>`][`<string>`] a list of CIDR range strings to test against
+
+Returns a function which takes an address (as returned by [`parseAddress`]) and returns `true` if it
+matches any configured CIDR range, or `false` otherwise.
 
 The CIDR ranges can be a mix of IPv4 ranges (e.g. `10.0.0.0/8`), IPv6 ranges (e.g. `fc00::/7`), and
 explicit aliases (e.g. `_my_proxy`).
 
 ### `getAddressURL(addressInfo[, protocol])`
 
-- `addressInfo`
-  [`<string>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#string_type)
-  |
-  [`<Object>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object)
-  | [`<null>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#null_type) |
-  [`<undefined>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#undefined_type)
-  an address, as returned by [server.address()](https://nodejs.org/api/net.html#serveraddress) or
-  [`parseAddress`](#parseaddressaddress)
-- `protocol`
-  [`<string>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#string_type)
-  the protocol to use in the URL. **Default:** `http`.
+- `addressInfo` [`<string>`] | [`<Object>`] | [`<null>`] | [`<undefined>`] an address, as returned
+  by [server.address] or [`parseAddress`]
+- `protocol` [`<string>`] the protocol to use in the URL. **Default:** `http`.
 
 Returns a string of the form `protocol://host:port` which matches the address. This can be used to
 display the URL of the server to a user, or for tests.
@@ -2081,18 +2617,16 @@ await fetch(url + '/path');
 
 ### `findCause(error, type)`
 
-- `error`
-  [`<any>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Data_types)
-- `type`
-  [`<Function>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function)
-  the error class to look for
+[`findCause`]: #findcauseerror-type
+
+- `error` [`<any>`]
+- `type` [`<Function>`] the error class to look for
 
 Searches `error`'s `cause`s for an error of the requested type, and returns the first one found (or
 `undefined` if no matching error is found). Also checks `.error` for compatibility with
-[`SuppressedError`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/SuppressedError).
+[`<SuppressedError>`].
 
-This is used by the internal error handlers to find [`HTTPError`](#httperror)s and
-[`WebSocketError`](#websocketerror)s.
+This is used by the internal error handlers to find [`<HTTPError>`]s and [`<WebSocketError>`]s.
 
 Example usage:
 
@@ -2117,56 +2651,51 @@ TODO
 
 ### `makeTempFileStorage(req)`
 
-- `req` [`<IncomingMessage>`](https://nodejs.org/api/http.html#class-httpincomingmessage)
+- `req` [`<http.IncomingMessage>`]
+- Returns: [`<Promise>`] Fulfills with [`<Object>`].
 
-Creates a temporary directory (in [`os.tmpdir`](https://nodejs.org/api/os.html#ostmpdir)) which will
-be deleted (along with all of its contents) when the given request completes.
+Creates a temporary directory (in [`os.tmpdir`]) which will be deleted (along with all of its
+contents) when the given request completes.
 
 If this is called multiple times for the same request, it will return the same temporary directory
 rather than creating a new one each time.
 
 Returns a `Promise` which resolves to an object with the following properties:
 
-- `dir`
-  [`<string>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#string_type)
-  the full path to the created directory.
+- `dir` [`<string>`] the full path to the created directory.
 - `nextFile()` returns the full path to a new unique file in the directory. Internally this uses
   6-digit numeric sequential filenames, but you should not rely on any particular format for the
   filenames as it may change in future releases.
-- `save(stream[, options])` saves the given `stream`
-  [`stream.Readable`](https://nodejs.org/api/stream.html#class-streamreadable) |
-  [`ReadableStream`](https://developer.mozilla.org/en-US/docs/Web/API/ReadableStream) to a new file
-  (named by calling `nextFile()` internally). `options` can specify a `mode` for the created file
-  (`0o600` by default).
+- `save(stream[, options])` saves the given `stream` [`<stream.Readable>`] | [`<ReadableStream>`] to
+  a new file (named by calling `nextFile()` internally). `options` can specify a `mode` for the
+  created file (`0o600` by default).
 
-This is used internally by [`getFormData`](#getformdatareq-options) to store uploaded files
-temporarily rather than keeping them entirely in RAM.
+This is used internally by [`getFormData`] to store uploaded files temporarily rather than keeping
+them entirely in RAM.
 
 ### `simplifyRange(original[, options])`
 
-- `original` `<HTTPRange>` a range request as returned by
-  [`getRange`](#getrangereq-totalsize-options)
-- `options`
-  [`<Object>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object)
-  options for the simplifications to apply
-  - `forceSequential`
-    [`<boolean>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#boolean_type)
-    `true` to reorder the ranges requested from lowest index to highest. This is typically more
-    efficient to process, but can be less efficient for the client if (for example) they want to
-    receive index data from a known offset first. **Default:** `false`.
-  - `mergeOverlapDistance`
-    [`<number>`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#number_type)
-    the distance (in bytes) between ranges which will cause them to be combined. If this is 0,
-    ranges will only be combined if they touch or overlap. If this is negative, no ranges will be
-    merged. **Default:** `100`.
+[`simplifyRange`]: #simplifyrangeoriginal-options
+
+- `original` [`<HTTPRange>`] a range request as returned by [`getRange`]
+- `options` [`<Object>`] options for the simplifications to apply
+  - `forceSequential` [`<boolean>`] `true` to reorder the ranges requested from lowest index to
+    highest. This is typically more efficient to process, but can be less efficient for the client
+    if (for example) they want to receive index data from a known offset first. **Default:**
+    `false`.
+  - `mergeOverlapDistance` [`<number>`] the distance (in bytes) between ranges which will cause them
+    to be combined. If this is 0, ranges will only be combined if they touch or overlap. If this is
+    negative, no ranges will be merged. **Default:** `100`.
 
 Simplifies a parsed HTTP range request by combining overlapping ranges and optionally sorting the
 resulting ranges.
 
 # Paths
 
-Most [`Router`](#router) methods accept `path` patterns. These are often simple exact matches such
-as `/foo/bar`, but can also contain wildcards and flags.
+[Paths]: #paths
+
+Most [`<Router>`] methods accept `path` patterns. These are often simple exact matches such as
+`/foo/bar`, but can also contain wildcards and flags.
 
 The general format is: `[flags]/path`. Except for the optional flags at the start of the string, all
 path patterns must begin with a `/`.
@@ -2336,8 +2865,7 @@ const weblistener = new WebListener(router);
 const server = await weblistener.listen(8080, 'localhost');
 ```
 
-Reference: [`fileServer`](#fileserverbasedir-options), [`Router`](#router),
-[`sendJSON`](#sendjsonres-entity-options), [`WebListener`](#weblistener)
+Reference: [`fileServer`], [`<Router>`], [`sendJSON`], [`<WebListener>`]
 
 ## HTTPS
 
@@ -2369,12 +2897,12 @@ weblistener.addEventListener('error', (evt) => {
 });
 ```
 
-Reference: [`findCause`](#findcauseerror-type), [`HTTPError`](#httperror)
+Reference: [`findCause`], [`<HTTPError>`]
 
 ## Path parameters
 
 ```js
-import { getPathParameter, Router } from 'web-listener';
+import { getPathParameter, getPathParameters, Router } from 'web-listener';
 
 const router = new Router();
 
@@ -2396,7 +2924,7 @@ subRouter.get('/item/:subid', (req, res) => {
 });
 ```
 
-Reference: [`getPathParameter`](#getpathparameterreq-name), [`Router`](#router)
+Reference: [`getPathParameter`], [`getPathParameters`], [`<Router>`]
 
 In TypeScript, nested routers can be strictly typed:
 
@@ -2433,8 +2961,7 @@ router.get('/thing1', requireAuthScope('thing1'), async (req, res) => {
 });
 ```
 
-Reference: [`requireAuthScope`](#requireauthscopescope),
-[`requireBearerAuth`](#requirebearerauthoptions), [`Router`](#router)
+Reference: [`requireAuthScope`], [`requireBearerAuth`], [`<Router>`]
 
 ## Custom authentication middleware
 
@@ -2456,8 +2983,7 @@ router.get('/private', authCheck, async (req, res) => {
 });
 ```
 
-Reference: [`CONTINUE`](#continue), [`HTTPError`](#httperror), [`Router`](#router),
-[`sendJSON`](#sendjsonres-entity-options)
+Reference: [`CONTINUE`], [`<HTTPError>`], [`<Router>`], [`sendJSON`]
 
 ## Using properties
 
@@ -2479,4 +3005,118 @@ router.get('/', (req, res) => {
 });
 ```
 
-Reference: [`Property`](#property), [`Router`](#router)
+Reference: [`<Property>`], [`<Router>`]
+
+## WebSocket requests
+
+`web-listener` supports Upgrade requests but does not include its own WebSocket handling. If you
+want to support WebSockets, you can bring in another library (such as
+[ws](https://www.npmjs.com/package/ws)) and wrap it to gain the advantages of routing and error
+handling:
+
+```js
+import { getPathParameters, makeAcceptWebSocket, nextWebSocketMessage, Router } from 'web-listener';
+import { WebSocketServer } from 'ws';
+
+const acceptWebSocket = makeAcceptWebSocket(WebSocketServer);
+
+const router = new Router();
+router.get('/things/:id', (req, res) => {
+  const { id } = getPathParameters(req);
+  res.end(`Regular GET response for ${id}`);
+});
+
+router.ws('/things/:id', async (req) => {
+  const { id } = getPathParameters(req);
+  const ws = await acceptWebSocket(req);
+
+  ws.send(`WebSocket response for ${id}`);
+
+  const message = await nextWebSocketMessage(ws);
+  ws.send(`You said ${message.text}`);
+
+  ws.close();
+});
+```
+
+Reference: [`getPathParameters`], [`makeAcceptWebSocket`], [`nextWebSocketMessage`], [`<Router>`]
+
+[`<any>`]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Data_structures#Data_types
+[`<null>`]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Data_structures#null_type
+[`<undefined>`]:
+  https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Data_structures#undefined_type
+[`<boolean>`]:
+  https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Data_structures#boolean_type
+[`<number>`]:
+  https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Data_structures#number_type
+[`<bigint>`]:
+  https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Data_structures#bigint_type
+[`<string>`]:
+  https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Data_structures#string_type
+[`<Symbol>`]:
+  https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Data_structures#symbol_type
+[`<Object>`]:
+  https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
+[`<Array>`]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array
+[`<Function>`]:
+  https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function
+[`<Promise>`]:
+  https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise
+[`<AsyncIterator>`]:
+  https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/AsyncIterator
+[`<URL>`]: https://developer.mozilla.org/en-US/docs/Web/API/URL
+[`<Map>`]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map
+[`<Error>`]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error
+[`<SuppressedError>`]:
+  https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/SuppressedError
+[`<CustomEvent>`]: https://developer.mozilla.org/en-US/docs/Web/API/CustomEvent
+[`<AbortSignal>`]: https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal
+[`<Headers>`]: https://developer.mozilla.org/en-US/docs/Web/API/Headers
+[`<URLSearchParams>`]: https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams
+[`<FormData>`]: https://developer.mozilla.org/en-US/docs/Web/API/FormData
+[`<TextDecoder>`]: https://developer.mozilla.org/en-US/docs/Web/API/TextDecoder
+[`<TextDecoderStream>`]: https://developer.mozilla.org/en-US/docs/Web/API/TextDecoderStream
+[`<EventSource>`]: https://developer.mozilla.org/en-US/docs/Web/API/EventSource
+[`<ReadableStream>`]: https://developer.mozilla.org/en-US/docs/Web/API/ReadableStream
+[`<TransformStream>`]: https://developer.mozilla.org/en-US/docs/Web/API/TransformStream
+[`<Buffer>`]: https://nodejs.org/api/buffer.html#class-buffer
+[`<stream.Readable>`]: https://nodejs.org/api/stream.html#class-streamreadable
+[`<stream.Duplex>`]: https://nodejs.org/api/stream.html#class-streamduplex
+[`<fs.Stats>`]: https://nodejs.org/api/fs.html#class-fsstats
+[`<fs.FileHandle>`]: https://nodejs.org/api/fs.html#class-filehandle
+[`<http.Server>`]: https://nodejs.org/api/http.html#class-httpserver
+[`http.createServer`]: https://nodejs.org/api/http.html#httpcreateserveroptions-requestlistener
+[`server.setTimeout`]: https://nodejs.org/api/http.html#serversettimeoutmsecs-callback
+[`server.listen`]: https://nodejs.org/api/net.html#serverlistenport-host-backlog-callback
+[`server.address`]: https://nodejs.org/api/net.html#serveraddress
+[`os.tmpdir`]: https://nodejs.org/api/os.html#ostmpdir
+[`<http.IncomingMessage>`]: https://nodejs.org/api/http.html#class-httpincomingmessage
+[`<http.ServerResponse>`]: https://nodejs.org/api/http.html#class-httpserverresponse
+[`<http.Agent>`]: https://nodejs.org/api/http.html#class-httpagent
+[`<https.Agent>`]: https://nodejs.org/api/https.html#class-httpsagent
+[HTTP verb]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods
+[HTTP status code]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status
+[100 Continue]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/100
+[304 Not Modified]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/304
+[404 Not Found]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/404
+[400 Bad Request]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/400
+[413 Content Too Large]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/413
+[415 Unsupported Media Type]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/415
+[417 Expectation Failed]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/417
+[503 Service Unavailable]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/503
+[close code]: https://developer.mozilla.org/en-US/docs/Web/API/CloseEvent/code
+[close reason]: https://developer.mozilla.org/en-US/docs/Web/API/CloseEvent/reason
+[`Accept`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Accept
+[`Accept-Encoding`]:
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Accept-Encoding
+[`Accept-Language`]:
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Accept-Language
+[`Content-Encoding`]:
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Encoding
+[`Content-Type`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Type
+[`ETag`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/ETag
+[`Expect`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Expect
+[`If-Modified-Since`]:
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/If-Modified-Since
+[`If-None-Match`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/If-None-Match
+[`If-Range`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/If-Range

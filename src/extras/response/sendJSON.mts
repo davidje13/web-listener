@@ -13,7 +13,7 @@ export interface JSONOptions {
    * The amount of spacing to use for indentation. If this is 0, no spacing is used anywhere.
    * @default 0
    */
-  space?: string | number;
+  space?: string | number | null;
   /**
    * If the top-level value being encoded is `undefined`, setting this to `true` will output `null`. `false` will output nothing.
    * @default false
@@ -37,7 +37,8 @@ export function sendJSON(
   { replacer, space, undefinedAsNull = false, encoding = 'utf-8', end = true }: JSONOptions = {},
 ) {
   const encoded =
-    JSON.stringify(entity, replacer as any, space) ?? (undefinedAsNull ? 'null' : undefined);
+    JSON.stringify(entity, replacer as any, space ?? undefined) ??
+    (undefinedAsNull ? 'null' : undefined);
   if (target instanceof ServerResponse && !target.headersSent) {
     if (!target.hasHeader('content-type')) {
       target.setHeader('content-type', 'application/json');
@@ -58,7 +59,7 @@ export async function sendJSONStream(
   entity: unknown,
   {
     replacer = null,
-    space = '',
+    space = null,
     undefinedAsNull = false,
     encoding = 'utf-8',
     end = true,
@@ -77,7 +78,7 @@ export async function sendJSONStream(
     _send: (v: string) => target.write(v, encoding),
     _flush: () => internalDrainUncorked(target),
     _replacer: replacer,
-    _space: space,
+    _space: space ?? '',
   };
   if (
     target instanceof ServerResponse &&

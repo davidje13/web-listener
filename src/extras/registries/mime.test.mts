@@ -82,4 +82,15 @@ describe('decompressMime', () => {
       ]),
     );
   });
+
+  it('replaces {ext} with the current full extension', () => {
+    const decompressed = decompressMime('blah,wh(a)t=another/{ext}');
+    expect(decompressed).equals(
+      new Map([
+        ['blah', 'another/blah'],
+        ['what', 'another/what'],
+        ['wht', 'another/what'],
+      ]),
+    );
+  });
 });

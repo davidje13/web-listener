@@ -25,7 +25,7 @@ export interface ProxyOptions extends AgentOptions {
    */
   blockResponseHeaders?: string[] | undefined;
   /**
-   * Mutators for the proxied request headers. e.g. `sanitiseAndAppendForwarded`.
+   * Mutators for the proxied request headers. e.g. `replaceForwarded`.
    */
   requestHeaders?: ProxyRequestHeaderAdapter[] | undefined;
   /**
@@ -35,7 +35,7 @@ export interface ProxyOptions extends AgentOptions {
 }
 
 export function proxy(
-  forwardHost: string,
+  forwardHost: string | URL,
   {
     blockRequestHeaders = [
       'connection',
@@ -51,24 +51,24 @@ export function proxy(
     blockResponseHeaders = ['connection', 'keep-alive', 'transfer-encoding'],
     responseHeaders = [],
     agent,
-    keepAlive = true,
-    maxSockets = 10,
     ...options
   }: ProxyOptions = {},
 ) {
-  const https = forwardHost.startsWith('https://');
+  const forwardHostURL = new URL(forwardHost);
   let request: typeof httpRequest;
-  if (https) {
-    agent ??= new httpsAgent({ keepAlive, maxSockets, ...options });
+  if (forwardHostURL.protocol === 'https:') {
+    agent ??= new httpsAgent({ keepAlive: true, ...options });
     request = httpRequest;
   } else {
-    agent ??= new httpAgent({ keepAlive, maxSockets, ...options });
+    agent ??= new httpAgent({ keepAlive: true, ...options });
     request = httpsRequest;
   }
   // note: agent.destroy() is never called, because we do not know if/when the user is done with this proxy (even if detached it could be reattached)
   // - for cases where that is important, users should pass their own agent and manage it externally.
 
-  const forwardWithSlash = forwardHost.endsWith('/') ? forwardHost : forwardHost + '/';
+  const forwardPath = forwardHostURL.pathname;
+  const forwardWithSlash = forwardPath + (forwardPath.endsWith('/') ? '' : '/');
+  const forwardPrefix = 'a://a' + forwardWithSlash;
 
   return requestHandler(
     (req, res) =>
@@ -76,9 +76,8 @@ export function proxy(
         const signal = getAbortSignal(req);
         const send502 = (error: unknown) =>
           reject(signal.aborted ? STOP : new HTTPError(502, { cause: error }));
-        const proxyURL = new URL(forwardWithSlash + req.url?.substring(1));
-        const proxyURLString = proxyURL.toString();
-        if (!proxyURLString.startsWith(forwardWithSlash) && proxyURLString !== forwardHost) {
+        const proxyURL = new URL(forwardPrefix + req.url?.substring(1));
+        if (!proxyURL.pathname.startsWith(forwardWithSlash) && proxyURL.pathname !== forwardPath) {
           return reject(new HTTPError(400, { message: 'directory traversal blocked' }));
         }
 
@@ -89,8 +88,9 @@ export function proxy(
         for (const adapter of requestHeaders) {
           headers = adapter(req, headers);
         }
-        const proxyReq = request(proxyURL, {
+        const proxyReq = request(forwardHostURL, {
           agent,
+          path: proxyURL.pathname + proxyURL.search,
           method: req.method,
           headers,
           signal,

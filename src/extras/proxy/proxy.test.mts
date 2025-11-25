@@ -285,6 +285,12 @@ describe('proxy', () => {
           'handling request /%2e%2e: HTTPError(400 Bad Request): directory traversal blocked',
         );
 
+        expect(await rawRequest(url + '/http://other:80/a')).contains(
+          'upstream handling GET /nested/http://other:80/a',
+        );
+
+        expect(await rawRequest(url + '/%00/a')).contains('upstream handling GET /nested/%00/a');
+
         expect(await rawRequest(url + '/http://example.com')).contains(
           'upstream handling GET /nested/http://example.com',
         );

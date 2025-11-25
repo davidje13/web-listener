@@ -13,5 +13,5 @@ export const getSearchParams = (req: IncomingMessage) =>
   new URLSearchParams(internalGetURL(req).searchParams); // make a copy to prevent mutating the shared value
 
 /** get a specific query parameter from the URL */
-export const getQuery = (req: IncomingMessage, id: string) =>
-  internalGetURL(req).searchParams.get(id);
+export const getQuery = (req: IncomingMessage, name: string) =>
+  internalGetURL(req).searchParams.get(name);
