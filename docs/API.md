@@ -101,6 +101,8 @@ manually).
 
 Attach listeners to the given `server`.
 
+Example usage: [HTTPS](#https)
+
 ##### `detach([reason[, existingConnectionTimeout[, forShutdown[, callback]]]])`
 
 - `reason` [`<string>`] optional label describing the type of close, used in error messages and
@@ -163,6 +165,8 @@ an error.
 Call `event.preventDefault()` if you do not want to use the default logging behaviour (which calls
 `console.error` for all errors except `HTTPError`s with `statusCode` < `500`.
 
+Example usage: [Error handling](#error-handling)
+
 ### `AugmentedServer`
 
 [`<AugmentedServer>`]: #augmentedserver
@@ -171,9 +175,9 @@ Call `event.preventDefault()` if you do not want to use the default logging beha
 
 Helper class returned by [`weblistener.createServer`] and [`weblistener.listen`].
 
-#### `augmentedServer.closeWithTimeout(reason, timeout)`
+#### `augmentedserver.closeWithTimeout(reason, timeout)`
 
-[`augmentedServer.closeWithTimeout`]: #augmentedserverclosewithtimeoutreason-timeout
+[`augmentedserver.closeWithTimeout`]: #augmentedserverclosewithtimeoutreason-timeout
 
 - `reason` [`<string>`] a label describing the type of close, used in error messages and passed to
   soft close helpers.
@@ -230,15 +234,18 @@ An error listener compatible with
 
 - `reason` [`<string>`] a label describing the type of close, used in error messages and passed to
   soft close helpers.
-- `onError` [`<Function>`] function to invoke if a soft close handler throws an error (receives
-  `error`, `context` [`<string>`], and `req` [`<http.IncomingMessage>`]). May be invoked multiple
-  times (once for each request that throws).
+- `onError` [`<Function>`] function to invoke if a soft close handler throws an error. May be
+  invoked multiple times (once for each request that throws). Receives:
+  - `error` [`<any>`]
+  - `context` [`<string>`]
+  - `req` [`<http.IncomingMessage>`]
 - `callback` [`<Function>`] function to invoke once all connections have closed.
 
 Sends soft close events to all current connections, and to all new connections immediately on
-creation. Also ensures `connection: close` is set in response headers to prevent "keepalive" idle
-connections. This does not automatically close any connections, but soft close handlers may chose to
-close their connections immediately or in the near future in response to the event.
+creation. Also ensures [`Connection: close`][`Connection`] is set in response headers to prevent
+"keepalive" idle connections. This does not automatically close any connections, but soft close
+handlers may chose to close their connections immediately or in the near future in response to the
+event.
 
 #### `hardClose([callback])`
 
@@ -433,6 +440,8 @@ outermost rooter. Return handlers are not called for upgrade requests.
 Return handlers are not ordered with the other handlers, so they can be registered upfront if
 desired. If a return handler throws, the error will be passed to the next error handler after the
 request handler which triggered it.
+
+Example usage: [Using templates](#using-templates).
 
 #### `router.get(path, ...handlers)`
 
@@ -814,10 +823,55 @@ error handler middleware.
 [`acceptUpgrade`]: #acceptupgradereq-upgrade
 
 - `req` [`<http.IncomingMessage>`]
-- `upgrade` [`<Function>`]
-- Returns: [`<any>`]
+- `upgrade` [`<Function>`] function which performs the necessary handshake to upgrade the request.
+  Receives:
+  - `req` [`<http.IncomingMessage>`]
+  - `socket` [`<stream.Duplex>`]
+  - `head` [`<Buffer>`]
+  - Returns: [`<Promise>`] Fulfills with [`<Object>`] containing:
+    - `return` [`<any>`] the value to return from `acceptUpgrade`
+    - `onError` [`<Function>`] | [`<undefined>`] a function to call if an error is thrown which is
+      not handled by any error handler.
+    - `softCloseHandler` [`<Function>`] | [`<undefined>`] a function to call if the request is
+      soft-closed.
+- Returns: [`<Promise>`] Fulfills with [`<any>`] (the value of `return`) once the `upgrade` function
+  completes.
 
-TODO
+This can be called from an upgrade [`<Handler>`]. It allows delegation of Upgrade requests to other
+libraries, while still hooking in to the error and soft close handling provide by `web-listener`.
+
+If this is called multiple times for the same request, the `upgrade` function is not re-invoked, but
+the value returned by the first call is returned again.
+
+Example usage:
+
+```js
+router.onUpgrade('GET', 'special', '/', async (req) => {
+  const myCustomProtocol = await acceptUpgrade(req, async (req, socket, head) => {
+    socket.write(
+      'HTTP/1.1 101 Switching Protocols\r\n' +
+        'Upgrade: special\r\n' +
+        'Connection: Upgrade\r\n\r\n',
+    );
+
+    const myCustomProtocol = {
+      send: (message) => socket.write(`<<${message}>>`),
+    };
+
+    return {
+      return: myCustomProtocol,
+      onError: (error) => {
+        socket.end('<<!ERROR>>');
+      },
+      softCloseHandler: (reason) => {
+        socket.end('<<closing>>');
+      },
+    };
+  });
+
+  myCustomProtocol.send('something');
+});
+```
 
 See also: [`makeAcceptWebSocket`].
 
@@ -850,7 +904,7 @@ Returns `true` if the request has already received a soft-close event.
   [`<string>`]
 
 Sets the function to call for this request if it is soft-closed (by calling [`softClose`], or
-indirectly by calling [`augmentedServer.closeWithTimeout`]).
+indirectly by calling [`augmentedserver.closeWithTimeout`]).
 
 If the request has already been soft-closed, the function is invoked immediately (on the next tick
 after being registered).
@@ -1165,6 +1219,8 @@ all built-in body parsing helpers.
 
 ### `registerUTF32()`
 
+[`registerUTF32`]: #registerutf32
+
 Registers `utf-32be` and `utf-32le` character sets for use with [`getTextDecoder`] and
 [`getTextDecoderStream`]. These are technically required to fully conform to JSON parsing
 requirements, but are not used in practice due to UTF-16 or UTF-8 being the more efficient choice
@@ -1406,17 +1462,23 @@ The [close reason] which should be sent to the client for this error.
 
 [`makeAcceptWebSocket`]: #makeacceptwebsocketserverclass-options
 
-- `ServerClass` [`<Function>`]
+- `ServerClass` [`<Function>`] a server class to use, such as `WebSocketServer` from
+  [ws](https://www.npmjs.com/package/ws). Instances must, at a minimum, implement
+  [`handleUpgrade`](https://github.com/websockets/ws/blob/HEAD/doc/ws.md#serverhandleupgraderequest-socket-head-callback).
 - `options` [`<Object>`]
   - `softCloseStatusCode` [`<number>`]. **Default:** `1001`.
   - additional options are passed to the `ServerClass`' constructor.
 - Returns: [`<Function>`]
 
-This wraps an external library's WebSocket server class (such as `WebSocketServer` from
-[ws](https://www.npmjs.com/package/ws)).
+This wraps an external library's WebSocket server class.
 
-It internally calls [`acceptUpgrade`], providing the necessary wrappers for error and soft close
-handling.
+The returned function takes a [`<http.IncomingMessage>`] and returns a [`<Promise>`] which fulfills
+with a WebSocket instance, as created by `ServerClass.handleUpgrade`.
+
+It internally uses [`acceptUpgrade`], providing the necessary wrappers for error and soft close
+handling. It is safe to call this multiple times for the same request (e.g. from different
+handlers), but only the configuration for the first call will be used (subsequent calls will simply
+return the same websocket instance).
 
 Example usage: [WebSocket requests](#websocket-requests).
 
@@ -1439,12 +1501,38 @@ Returns `true` if the request is an upgrade request, is using the `GET` method, 
 
 ### `makeWebSocketFallbackTokenFetcher(acceptWebSocket[, timeout])`
 
+[`makeWebSocketFallbackTokenFetcher`]: #makewebsocketfallbacktokenfetcheracceptwebsocket-timeout
+
 - `acceptWebSocket` [`<Function>`] the function returned from [`makeAcceptWebSocket`]
 - `timeout` [`<number>`] the maximum time to wait (in milliseconds) for the token to be sent as a
   message
 - Returns: [`<Function>`]
 
-TODO
+Returns a function which can be used as the `fallbackTokenFetcher` parameter of
+[`requireBearerAuth`].
+
+Browsers do not allow setting custom headers (including [`Authorization`]) when opening WebSockets,
+so authentication must be sent by other means. This function allows a token to be sent by the client
+as the first message when opening the connection (the message should contain the token but not the
+`Bearer` prefix).
+
+Example usage:
+
+```js
+const acceptWebSocket = makeAcceptWebSocket(WebSocketServer);
+const auth = requireBearerAuth({
+  realm: 'wherever',
+  extractAndValidateToken: myTokenValidator,
+  fallbackTokenFetcher: makeWebSocketFallbackTokenFetcher(acceptWebSocket),
+});
+
+router.use(auth);
+router.ws('/', (req) => {
+  const ws = await acceptWebSocket(req);
+
+  // ...
+});
+```
 
 ### `nextWebSocketMessage(websocket[, options])`
 
@@ -1848,9 +1936,47 @@ If the header is not set, or the format is not recognised, this returns `undefin
 [`requireBearerAuth`]: #requirebearerauthoptions
 
 - `options` [`<Object>`]
+  - `realm` [`<string>`] | [`<Function>`] the name of the realm to send to the client in
+    [`WWW-Authenticate`] headers. If this is a function, it receives the current
+    [`<http.IncomingMessage>`] and must return the desired realm (may be asynchronous). **Required**
+  - `extractAndValidateToken` [`<Function>`] a (possibly asynchronous) function which takes a token
+    [`<string>`], realm [`<string>`], and request [`<http.IncomingMessage>`], and returns an
+    extracted token [`<any>`]. If this throws or returns a falsy value, [401 Unauthorized] is
+    returned to the client. **Required**
+  - `fallbackTokenFetcher` [`<Function>`] an alternative way to retrieve a token from the request,
+    if it does not have an [`Authorization`] header (see e.g.
+    [`makeWebSocketFallbackTokenFetcher`]).
+  - `closeOnExpiry` [`<boolean>`] if `true`, the connection will be closed once the token's expiry
+    time is reached. **Default:** `true`.
+  - `softCloseBufferTime` [`<number>`] a duration (in milliseconds) to subtract from the token's
+    expiry time for "soft-closing" the connection. This can be used to avoid abrupt disconnection
+    when the token expires. **Default:** `0`.
+  - `onSoftCloseError` [`<Function>`] an error handling function for errors thrown by the registered
+    soft close handler. If not specified, these will be sent to any registered `'error'` listeners
+    or `onError` callback.
 - Returns: [`<Handler>`]
 
-TODO
+Creates a request and upgrade [`<Handler>`] which checks the [`Authorization`] header for a `Bearer`
+token. If one is found, `extractAndValidateToken` is called with the token.
+
+If the value returned by `extractAndValidateToken` is an object with certain
+[JWT](https://datatracker.ietf.org/doc/html/rfc7519) properties, they are automatically interpreted:
+
+- `nbf` [`<number>`] ("Not Before") - the token will be deemed invalid until the designated time
+  (represented as seconds since the UNIX epoch: 1st January 1970 UTC).
+- `exp` [`<number>`] ("Expiration Time") - the token will be deemed invalid after the designated
+  time (represented as seconds since the UNIX epoch: 1st January 1970 UTC). If `closeOnExpiry` is
+  `true`, the connection will be soft-closed when the expiry time minus `softCloseBufferTime` is
+  reached, and hard-closed when the expiry time is reached.
+- `scopes` [`<Object>`] | [`<string[]>`][`<string>`] | [`<string>`] a collection of scopes the user
+  should be granted (checked by [`requireAuthScope`] and [`hasAuthScope`]). If this is a `string`,
+  the scopes are space-separated. If it is an `Object`, the scopes are all keys which have a truthy
+  value.
+
+The returned [`<Handler>`] also has an extra method: `getTokenData(req)`. This can be used from any
+authenticated handler to retrieve the raw value returned by `extractAndValidateToken`.
+
+Example usage: [Bearer authentication middleware](#bearer-authentication-middleware)
 
 ### `requireAuthScope(scope)`
 
@@ -1859,15 +1985,22 @@ TODO
 - `scope` [`<string>`]
 - Returns: [`<Handler>`]
 
-TODO
+Checks that the request has been authenticated (e.g. by [`requireBearerAuth`]) and has the specified
+scope (case sensitive). If this succeeds, it continues to the next handler. Otherwise, it returns
+[403 Forbidden] with a [`WWW-Authenticate`] header specifying the required scope.
+
+Example usage: [Bearer authentication middleware](#bearer-authentication-middleware)
 
 ### `hasAuthScope(req, scope)`
+
+[`hasAuthScope`]: #hasauthscopereq-scope
 
 - `req` [`<http.IncomingMessage>`]
 - `scope` [`<string>`]
 - Returns: [`<boolean>`]
 
-TODO
+Returns `true` if the request has been authenticated (e.g. by [`requireBearerAuth`]) and has the
+specified scope (case sensitive).
 
 ### `generateWeakETag(encoding, fileStats)`
 
@@ -1934,11 +2067,11 @@ router.use(jsonErrorHandler((error) => ({ error: error.body })));
   - `agent` a [`<http.Agent>`] or [`<https.Agent>`] to use instead of building one internally (if
     you need more control or want to share an agent across multiple handlers)
   - `blockRequestHeaders` [`<string[]>`][`<string>`] a list of headers to remove from proxied
-    requests (runs before `requestHeaders`). Note that headers listed in the `connection` header are
-    removed automatically. **Default:**
+    requests (runs before `requestHeaders`). Note that headers listed in the [`Connection`] header
+    are removed automatically. **Default:**
     `['connection', 'expect', 'host', 'keep-alive', 'proxy-authorization', 'transfer-encoding', 'upgrade', 'via']`.
   - `blockResponseHeaders` [`<string[]>`][`<string>`] a list of headers to remove from proxied
-    responses (runs before `responseHeaders`). Note that headers listed in the `connection` header
+    responses (runs before `responseHeaders`). Note that headers listed in the [`Connection`] header
     are removed automatically. **Default:** `['connection', 'keep-alive', 'transfer-encoding']`.
   - `requestHeaders` [`<Function[]>`][`<Function>`] mutators for the proxied request headers. e.g.
     [`replaceForwarded`]. **Default:** `[]`.
@@ -2070,6 +2203,8 @@ If `etags` includes weak ETags (`W/"..."`), this will also compare the result of
 
 ### `getBodyStream(req[, options])`
 
+[`getBodyStream`]: #getbodystreamreq-options
+
 - `req` [`<http.IncomingMessage>`]
 - `options` [`<Object>`]
   - `maxContentBytes` [`<number>`] the maximum size (in bytes) of the decompressed content. If the
@@ -2097,25 +2232,34 @@ Supported encodings:
 
 - `req` [`<http.IncomingMessage>`]
 - `options` [`<Object>`]
+  - `defaultCharset` [`<string>`] the character set to use if no `charset` parameter is present in
+    the request's [`Content-Type`] header. **Default:** `'utf-8'`.
+  - additional options are passed to [`getBodyStream`] and [`getTextDecoderStream`].
 - Returns: [`<ReadableStream<string>>`][`<ReadableStream>`]
 
-TODO
+Reads the request body as a string, applying all the pre-processing stages from [`getBodyStream`].
 
 ### `getBodyText(req[, options])`
 
 - `req` [`<http.IncomingMessage>`]
 - `options` [`<Object>`]
+  - `defaultCharset` [`<string>`] the character set to use if no `charset` parameter is present in
+    the request's [`Content-Type`] header. **Default:** `'utf-8'`.
+  - additional options are passed to [`getBodyStream`] and [`getTextDecoderStream`].
 - Returns: [`<Promise>`] Fulfills with [`<string>`].
 
-TODO
+Reads the request body as a string, applying all the pre-processing stages from [`getBodyStream`].
+Gathers the entire body in-memory then returns it as a single string.
 
 ### `getBodyJson(req[, options])`
 
 - `req` [`<http.IncomingMessage>`]
-- `options` [`<Object>`]
+- `options` [`<Object>`] options are passed to [`getBodyStream`] and [`getTextDecoderStream`].
 - Returns: [`<Promise>`] Fulfills with [`<any>`].
 
-TODO
+Reads the request body into memory and parses as JSON. The text encoding is automatically detected
+according to [RFC4627](https://www.ietf.org/rfc/rfc4627.txt)§3. Note that UTF-32 encodings are not
+supported by default, but can be enabled if needed by calling [`registerUTF32`].
 
 ### `acceptBody(req)`
 
@@ -2139,17 +2283,119 @@ listener was set on the [`<http.Server>`]).
 
 - `req` [`<http.IncomingMessage>`]
 - `options` [`<Object>`]
+  - `trimAllValues` [`<boolean>`] if `true`, all field values will have leading and trailing
+    whitespace trimmed automatically. **Default:** `false`.
+  - `preCheckFile` [`<Function>`]
+  - additional options are passed to [`getFormFields`].
 - Returns: [`<Promise>`] Fulfills with [`<FormData>`].
 
-TODO
+Read the entire request body as `application/x-www-url-encoded` or `multipart/form-data` and return
+it as a `FormData` object. Fields are stored entirely in-memory. Files are written to a temporary
+directory (via [`makeTempFileStorage`]) and included as filesystem-backed [`<Blob>`]s.
+
+The returned [`<FormData>`] instance includes a few extra helper methods:
+
+#### `formdata.getTempFilePath(blob)`
+
+Returns the full temporary path where the file has been saved. This can be useful if you wish to
+save the file to a permanent location, since you can simply move it from the temporary directory to
+its new location, rather than writing the file a second time.
+
+#### `formdata.getBoolean(name)`
+
+Shorthand for:
+
+```js
+const value = formdata.get(name);
+return value === null ? null : value === 'true' || value === 'on';
+```
+
+#### `formdata.getString(name)`
+
+Shorthand for:
+
+```js
+const value = formdata.get(name);
+return typeof value === 'string' ? value : null;
+```
+
+#### `formdata.getAllStrings(name)`
+
+Shorthand for:
+
+```js
+return formdata.getAll(name).filter((v) => typeof v === 'string');
+```
+
+#### `formdata.getFile(name)`
+
+Shorthand for:
+
+```js
+const value = formdata.get(name);
+return typeof value === 'string' ? null : value;
+```
+
+#### `formdata.getAllFiles(name)`
+
+Shorthand for:
+
+```js
+return formdata.getAll(name).filter((v) => typeof v !== 'string');
+```
 
 ### `getFormFields(req[, options])`
 
+[`getFormFields`]: #getformfieldsreq-options
+
 - `req` [`<http.IncomingMessage>`]
 - `options` [`<Object>`]
+  - `closeAfterErrorDelay` [`<number>`] delay (in milliseconds) after encountering an error before
+    forcibly closing the connection. This can help to avoid clients continuing to send large amounts
+    of data which will be ignored. **Default:** `500`.
+  - `blockMultipart` [`<boolean>`] only allow `application/x-www-form-urlencoded` content (file
+    uploads are implicitly blocked). **Default:** `false`.
+  - `limits` [`<Object>`]
+  - `preservePath` [`<boolean>`] **Default:** `false`.
+  - `highWaterMark` [`<number>`] **Default:** `65536`.
+  - `fileHwm` [`<number>`] **Default:** `65536`.
+  - `defParamCharset` [`<string>`] **Default:** `'utf-8'`.
+  - `defCharset` [`<string>`] **Default:** `'utf-8'`.
 - Returns: [`<AsyncIterable>`][`<AsyncIterator>`] of [`<Object>`]
 
-TODO
+This uses a bundled fork of [busboy](https://www.npmjs.com/package/busboy) (with slightly altered
+behaviour and improved performance) to process the request body.
+
+Fields are emitted to the returned async iterator as they are parsed. Each field has these
+properties:
+
+- `name` [`<string>`] the name of the field (note: multiple fields can share the same name, e.g.
+  when uploading multiple files)
+- `mimeType` [`<string>`] the `Content-Type` header for this part (always `text/plain` for non-file
+  data)
+- `encoding` [`<string>`] the `Encoding` header for this part (only relevant for `multipart` forms).
+  This is generally not used.
+- `type` [`<string>`] `'string'` or `'file'`
+- `value` [`<string>`] if the `type` is `'string'`; [`<stream.Readable>`] if `type` is `'file'`
+- `filename` [`<string>`] if the `type` is `'file'`
+
+See [`getFormData`] for a wrapper which provides a slightly easier (and standardised) API.
+
+Example usage:
+
+```js
+router.post('/', async (req, res) => {
+  for await (const field of getFormFields(req)) {
+    if (field.type === 'file') {
+      console.log('got a file:', field.name, field.filename);
+      field.value.resume(); // ignore the uplaoded file and continue
+    } else {
+      console.log('got a field:', field.name, field.value);
+    }
+  }
+  res.end();
+});
+```
 
 ### `getCharset(req)`
 
@@ -2191,7 +2437,7 @@ TODO
 - Returns: [`<number>`] | [`<undefined>`]
 
 Reads the string as an RFC822 date (e.g. `Wed, 02 Oct 2002 13:00:00 GMT`), returning it as the
-number of seconds since the UNIX epoch (1st January 1970) in UTC. Note that RFC822 does not support
+number of seconds since the UNIX epoch (1st January 1970 UTC). Note that RFC822 does not support
 sub-second precision.
 
 ### `readHTTPInteger(raw)`
@@ -2651,6 +2897,8 @@ TODO
 
 ### `makeTempFileStorage(req)`
 
+[`makeTempFileStorage`]: #maketempfilestoragereq
+
 - `req` [`<http.IncomingMessage>`]
 - Returns: [`<Promise>`] Fulfills with [`<Object>`].
 
@@ -2865,7 +3113,7 @@ const weblistener = new WebListener(router);
 const server = await weblistener.listen(8080, 'localhost');
 ```
 
-Reference: [`fileServer`], [`<Router>`], [`sendJSON`], [`<WebListener>`]
+Reference: [`fileServer`], [`<Router>`], [`sendJSON`], [`<WebListener>`], [`weblistener.listen`]
 
 ## HTTPS
 
@@ -2881,10 +3129,12 @@ weblistener.attach(server);
 server.listen(8080, 'localhost');
 ```
 
+Reference: [`weblistener.attach`]
+
 ## Error Handling
 
 ```js
-import { findCause, HTTPError } from 'web-listener';
+import { findCause, HTTPError, WebListener } from 'web-listener';
 
 const weblistener = new WebListener(/* ... */);
 
@@ -2897,7 +3147,7 @@ weblistener.addEventListener('error', (evt) => {
 });
 ```
 
-Reference: [`findCause`], [`<HTTPError>`]
+Reference: [`findCause`], [`<HTTPError>`], [`<WebListener>`], ['error' event](#event-error)
 
 ## Path parameters
 
@@ -2929,6 +3179,8 @@ Reference: [`getPathParameter`], [`getPathParameters`], [`<Router>`]
 In TypeScript, nested routers can be strictly typed:
 
 ```ts
+import { type WithPathParameters } from 'web-listener';
+
 const subRouter = new Router<WithPathParameters<{ id: string }>>();
 router.mount('/nested/:id', subRouter);
 subRouter.get('/item/:subid', (req, res) => {
@@ -2947,7 +3199,7 @@ const router = new Router();
 const auth = requireBearerAuth({
   realm: 'here',
   extractAndValidateToken: (token) => {
-    if (!tokenIsValid(token)) {
+    if (!myTokenValidityChecker(token)) {
       throw new Error('nope; rejected');
     }
     return { scopes: ['thing1', 'thing2'] };
@@ -3007,6 +3259,23 @@ router.get('/', (req, res) => {
 
 Reference: [`<Property>`], [`<Router>`]
 
+## Using templates
+
+```js
+import { Router } from 'web-listener';
+
+const router = new Router();
+
+router.get('/one', () => 'first');
+router.get('/two', () => 'second');
+
+router.onReturn((value, req, res) => {
+  res.end(`Boilerplate response with content: ${value}`);
+});
+```
+
+Reference: [`<Router>`], [`router.onReturn`]
+
 ## WebSocket requests
 
 `web-listener` supports Upgrade requests but does not include its own WebSocket handling. If you
@@ -3030,7 +3299,7 @@ router.ws('/things/:id', async (req) => {
   const { id } = getPathParameters(req);
   const ws = await acceptWebSocket(req);
 
-  ws.send(`WebSocket response for ${id}`);
+  ws.send(`WebSocket opened for ${id}. Say something...`);
 
   const message = await nextWebSocketMessage(ws);
   ws.send(`You said ${message.text}`);
@@ -3066,6 +3335,7 @@ Reference: [`getPathParameters`], [`makeAcceptWebSocket`], [`nextWebSocketMessag
   https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/AsyncIterator
 [`<URL>`]: https://developer.mozilla.org/en-US/docs/Web/API/URL
 [`<Map>`]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map
+[`<Blob>`]: https://developer.mozilla.org/en-US/docs/Web/API/Blob
 [`<Error>`]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error
 [`<SuppressedError>`]:
   https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/SuppressedError
@@ -3100,6 +3370,8 @@ Reference: [`getPathParameters`], [`makeAcceptWebSocket`], [`nextWebSocketMessag
 [304 Not Modified]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/304
 [404 Not Found]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/404
 [400 Bad Request]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/400
+[401 Unauthorized]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/401
+[403 Forbidden]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/403
 [413 Content Too Large]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/413
 [415 Unsupported Media Type]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/415
 [417 Expectation Failed]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/417
@@ -3111,6 +3383,8 @@ Reference: [`getPathParameters`], [`makeAcceptWebSocket`], [`nextWebSocketMessag
   https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Accept-Encoding
 [`Accept-Language`]:
   https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Accept-Language
+[`Authorization`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Authorization
+[`Connection`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Connection
 [`Content-Encoding`]:
   https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Encoding
 [`Content-Type`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Type
@@ -3120,3 +3394,5 @@ Reference: [`getPathParameters`], [`makeAcceptWebSocket`], [`nextWebSocketMessag
   https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/If-Modified-Since
 [`If-None-Match`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/If-None-Match
 [`If-Range`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/If-Range
+[`WWW-Authenticate`]:
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/WWW-Authenticate
