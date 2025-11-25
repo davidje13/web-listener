@@ -2,7 +2,7 @@ import zlib from 'node:zlib';
 import { promisify } from 'node:util';
 import { basename, dirname, extname, join } from 'node:path';
 import { readdir, readFile, stat, writeFile } from 'node:fs/promises';
-import { internalMutateName, type FileNegotiationOption } from '../request/negotiation.mts';
+import { internalMutateName, type FileNegotiationOption } from '../request/Negotiator.mts';
 import { getMime } from '../registries/mime.mts';
 
 export interface CompressionInfo {

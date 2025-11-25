@@ -151,15 +151,14 @@ export {
   type QualityValue,
 } from './extras/request/headers.mts';
 export {
-  makeNegotiator,
+  Negotiator,
   negotiateEncoding,
-  type Negotiator,
   type FileNegotiation,
   type FileNegotiationOption,
   type NegotiationInput,
   type NegotiationOutput,
   type NegotiationOutputInfo,
-} from './extras/request/negotiation.mts';
+} from './extras/request/Negotiator.mts';
 export { getRemainingPathComponents } from './extras/request/pathComponents.mts';
 
 export { sendCSVStream, type CSVOptions } from './extras/response/sendCSV.mts';

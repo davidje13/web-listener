@@ -1,11 +1,16 @@
-import type { ProxyOptions, FileServerOptions, CombinedServerOptions } from '../../index.mts';
+import type {
+  ProxyOptions,
+  FileServerOptions,
+  CombinedServerOptions,
+  FileNegotiation,
+} from '../../index.mts';
 import type { LogLevel } from '../log.mts';
 
 interface ConfigMountFiles {
   type: 'files';
   path: string;
   dir: string;
-  options: FileServerOptions;
+  options: Omit<FileServerOptions, 'negotiator'> & { negotiation?: FileNegotiation[] };
 }
 
 interface ConfigMountProxy {

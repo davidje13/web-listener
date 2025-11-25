@@ -1587,14 +1587,14 @@ for a given path, and includes various safety checks.
   - `implicitSuffixes` [`<string[]>`][`<string>`] list of implicit suffixes to add to requested
     filenames. For example, specifying `['.html']` will serve `foo.html` at `/foo`. **Default:**
     `[]`.
-  - `negotiation` [`<Array>`] Content negotiation rules to apply to files (see description below for
-    details). **Default:** `[]`.
+  - `negotiator` [`<Negotiator>`] | [`<undefined>`] Content negotiation rules to apply to files (see
+    description below for details).
 - Returns: [`<Promise>`] Fulfills with [`<FileFinder>`].
 
 Static method. Returns a `Promise` which resolves with a new `FileFinder` instance. This is the way
 to construct new instances.
 
-`negotiation` can be used to respond to the [`Accept`], [`Accept-Language`], and [`Accept-Encoding`]
+`negotiator` can be used to respond to the [`Accept`], [`Accept-Language`], and [`Accept-Encoding`]
 headers. For example: on a server with `foo.txt`, `foo.txt.gz`, and a negotiation rule mapping
 `gzip` &rarr; `{name}.gz`:
 
@@ -1613,8 +1613,6 @@ have `foo-en.txt.gz` for [`Accept-Language: en`][`Accept-Language`] and
 
 In the case of conflicting rules, earlier rules take priority (so `encoding` rules should typically
 be specified last)
-
-See the helper [`negotiateEncoding`] for a simple way to support pre-compressed files.
 
 #### `filefinder.toNormalisedPath(pathParts)`
 
@@ -1861,6 +1859,34 @@ Represents the server address a request was sent to.
 
 - Type: [`<string>`] | [`<undefined>`] the connection protocol used by the request (e.g. `http` or
   `https`).
+
+### `Negotiator`
+
+[`<Negotiator>`]: #negotiator
+
+#### `new Negotiator(rules[, options])`
+
+- `rules` [`<Array>`]
+- `options` [`<Object>`]
+  - `maxFailedAttempts` [`<number>`]
+
+TODO
+
+See the helper [`negotiateEncoding`] for a simple way to support pre-compressed files.
+
+#### `negotiator.vary`
+
+- Type: [`<string>`]
+
+The value for the [`Vary`] header which should be sent for the configured negotiations.
+
+#### `negotiator.options(base, negotiation)`
+
+- `base` [`<string>`]
+- `negotiation` [`<Object>`]
+- Returns: [`<Generator>`] of [`<Object>`]
+
+TODO
 
 ## Request Handling Functions
 
@@ -2461,14 +2487,6 @@ Reads a `;`-delimited string of `key=value`, with optionally quoted values.
 - Returns: [`<Object[]>`][`<Object>`]
 
 Reads a `,`-delimited string of `key=value; q=n` (i.e. the format of the `Accept-*` headers).
-
-### `makeNegotiator(rules[, maxFailedAttempts])`
-
-- `rules` [`<Array>`]
-- `maxFailedAttempts` [`<number>`]
-- Returns: TODO
-
-TODO
 
 ### `negotiateEncoding(options)`
 
@@ -3394,5 +3412,6 @@ Reference: [`getPathParameters`], [`makeAcceptWebSocket`], [`nextWebSocketMessag
   https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/If-Modified-Since
 [`If-None-Match`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/If-None-Match
 [`If-Range`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/If-Range
+[`Vary`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Vary
 [`WWW-Authenticate`]:
   https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/WWW-Authenticate

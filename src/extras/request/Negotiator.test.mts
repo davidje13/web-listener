@@ -1,10 +1,10 @@
 import { readHTTPQualityValues } from './headers.mts';
-import { makeNegotiator, type FileNegotiation } from './negotiation.mts';
+import { Negotiator, type FileNegotiation } from './Negotiator.mts';
 import 'lean-test';
 
-describe('makeNegotiator', () => {
+describe('Negotiator', () => {
   it('has a vary property which can be used in the Vary header', () => {
-    const mime = makeNegotiator([
+    const mime = new Negotiator([
       {
         type: 'mime',
         options: [
@@ -15,7 +15,7 @@ describe('makeNegotiator', () => {
     ]);
     expect(mime.vary).equals('accept');
 
-    const enc = makeNegotiator([
+    const enc = new Negotiator([
       {
         type: 'encoding',
         options: [{ match: 'gzip', file: '{file}.gz' }],
@@ -23,7 +23,7 @@ describe('makeNegotiator', () => {
     ]);
     expect(enc.vary).equals('accept-encoding');
 
-    const lang = makeNegotiator([
+    const lang = new Negotiator([
       {
         type: 'language',
         options: [{ match: 'en-GB', file: '{base}-en{ext}' }],
@@ -31,7 +31,7 @@ describe('makeNegotiator', () => {
     ]);
     expect(lang.vary).equals('accept-language');
 
-    const multi = makeNegotiator([
+    const multi = new Negotiator([
       {
         type: 'mime',
         options: [{ match: 'foo/bar', file: '{file}.foobar' }],
@@ -43,16 +43,16 @@ describe('makeNegotiator', () => {
     ]);
     expect(multi.vary).equals('accept accept-language');
 
-    const none = makeNegotiator([]);
+    const none = new Negotiator([]);
     expect(none.vary).equals('');
 
-    const empty = makeNegotiator([{ type: 'mime', options: [] }]);
+    const empty = new Negotiator([{ type: 'mime', options: [] }]);
     expect(empty.vary).equals('');
   });
 
   describe('.options', () => {
     it('returns a generator of all matching options, in descending priority order', () => {
-      const multi = makeNegotiator(COMPLEX_RULES, 20);
+      const multi = new Negotiator(COMPLEX_RULES, { maxFailedAttempts: 20 });
 
       const optionGenerator = multi.options('my-file.txt', {
         language: readHTTPQualityValues('pl;q=0.5, de-DE;q=0.7, en-GB;q=1, en;q=0.8'),
@@ -76,7 +76,7 @@ describe('makeNegotiator', () => {
     });
 
     it('breaks ties using the configured ordering', () => {
-      const multi = makeNegotiator(COMPLEX_RULES, 20);
+      const multi = new Negotiator(COMPLEX_RULES, { maxFailedAttempts: 20 });
 
       const optionGenerator = multi.options('my-file.txt', {
         language: readHTTPQualityValues('pl;q=0.9, en;q=0.9'),
@@ -89,7 +89,7 @@ describe('makeNegotiator', () => {
     });
 
     it('excludes options the client did not request', () => {
-      const multi = makeNegotiator(COMPLEX_RULES, 20);
+      const multi = new Negotiator(COMPLEX_RULES, { maxFailedAttempts: 20 });
 
       const optionGenerator = multi.options('my-file.txt', {
         language: readHTTPQualityValues('de-DE;q=0.7, en;q=0.8'),
@@ -104,7 +104,7 @@ describe('makeNegotiator', () => {
     });
 
     it('includes information about each match', () => {
-      const multi = makeNegotiator(COMPLEX_RULES, 20);
+      const multi = new Negotiator(COMPLEX_RULES, { maxFailedAttempts: 20 });
 
       const optionGenerator = multi.options('my-file.txt', {
         language: readHTTPQualityValues('pl;q=0.5, de-DE;q=0.7, en-GB;q=1, en;q=0.8'),
@@ -132,7 +132,7 @@ describe('makeNegotiator', () => {
     });
 
     it('stops after a configured number of attempts', () => {
-      const multi = makeNegotiator(COMPLEX_RULES, 3);
+      const multi = new Negotiator(COMPLEX_RULES, { maxFailedAttempts: 3 });
 
       const optionGenerator = multi.options('my-file.txt', {
         language: readHTTPQualityValues('pl;q=0.5, de-DE;q=0.7, en-GB;q=1, en;q=0.8'),
@@ -148,8 +148,8 @@ describe('makeNegotiator', () => {
   });
 
   it('rejects unknown types', () => {
-    expect(() =>
-      makeNegotiator([{ type: 'unknown' as any, options: [{ match: 'a/b', file: 'x' }] }]),
+    expect(
+      () => new Negotiator([{ type: 'unknown' as any, options: [{ match: 'a/b', file: 'x' }] }]),
     ).throws('unknown rule type: unknown');
   });
 });

@@ -6,6 +6,7 @@ import {
   getPathParameter,
   getQuery,
   getSearch,
+  Negotiator,
   proxy,
   requestHandler,
   Router,
@@ -40,7 +41,11 @@ export async function buildRouter(mount: ConfigMount[], log: (info: LogInfo) => 
     switch (item.type) {
       case 'files':
         if (item.dir !== '/dev/null') {
-          router.mount(item.path, await fileServer(item.dir, item.options));
+          const negotiator =
+            item.options.negotiation && item.options.negotiation.length > 0
+              ? new Negotiator(item.options.negotiation)
+              : undefined;
+          router.mount(item.path, await fileServer(item.dir, { ...item.options, negotiator }));
         }
         break;
       case 'proxy':

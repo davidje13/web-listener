@@ -7,6 +7,7 @@ import {
 import { readHTTPQualityValues } from '../request/headers.mts';
 import { FileFinder, type FileFinderCore, type FileFinderOptions } from './FileFinder.mts';
 import type { TypedParameters } from 'lean-test';
+import { Negotiator } from '../request/Negotiator.mts';
 
 function fileFinderTestSuite(isPrecomputed: boolean) {
   it('resolves files within a directory', async (props) => {
@@ -281,7 +282,11 @@ function fileFinderTestSuite(isPrecomputed: boolean) {
         'one.txt.gz': 'Compressed Content',
         'two.txt': 'Content',
       },
-      { negotiation: [{ type: 'encoding', options: [{ match: 'gzip', file: '{file}.gz' }] }] },
+      {
+        negotiator: new Negotiator([
+          { type: 'encoding', options: [{ match: 'gzip', file: '{file}.gz' }] },
+        ]),
+      },
     );
 
     const withGzip = await fileFinder.find(['one.txt'], {

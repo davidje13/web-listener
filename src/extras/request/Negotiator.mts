@@ -99,14 +99,6 @@ export interface NegotiationOutput {
 
 export type NegotiationInput = Partial<Record<NegotiationType, QualityValue[] | undefined>>;
 
-export interface Negotiator {
-  options(
-    base: string,
-    negotiation: NegotiationInput,
-  ): Generator<NegotiationOutput, undefined, undefined>;
-  vary: string;
-}
-
 interface InternalRule {
   _type: NegotiationType;
   _options: InternalOption[];
@@ -118,71 +110,100 @@ interface InternalOption {
   _file: string;
 }
 
-export function makeNegotiator(rules: FileNegotiation[], maxFailedAttempts = 10): Negotiator {
-  const normalisedRules = rules
-    .map((rule): InternalRule => {
-      if (!Object.prototype.hasOwnProperty.call(HEADERS, rule.type)) {
-        throw new RangeError(`unknown rule type: ${rule.type}`);
-      }
-      return {
-        _type: rule.type,
-        _options: rule.options.map((option) => ({
-          _file: option.file,
-          _match:
-            typeof option.match === 'string'
-              ? option.match.toLowerCase()
-              : internalOverrideFlags(option.match, true),
-          _as: option.as ?? (typeof option.match === 'string' ? option.match : undefined),
-        })),
-      };
-    })
-    .filter((rule) => rule._options.length > 0);
+export class Negotiator {
+  /** @internal */ private readonly _normalisedRules: InternalRule[];
+  /** @internal */ private readonly _maxFailedAttempts: number;
+  public readonly vary: string;
 
-  return {
-    options(base, negotiation) {
-      let attempts = maxFailedAttempts;
-      const info: NegotiationOutputInfo = {};
-      function* next(name: string, pos: number): Generator<NegotiationOutput> {
-        const rule = normalisedRules[pos];
-        if (!rule) {
-          --attempts;
-          yield { filename: name, info };
+  /**
+   * Content negotiation rules.
+   *
+   * This can be used to respond to the `Accept`, `Accept-Language`, and `Accept-Encoding` headers.
+   *
+   * For example: on a server with `foo.txt`, `foo.txt.gz`, and a negotiation rule mapping
+   * `gzip` => `{name}.gz`:
+   * - users requesting `foo.txt` may get `foo.txt.gz` with `Content-Encoding: gzip` if their
+   *   client supports gzip encoding
+   * - users requesting `foo.txt` may get `foo.txt` with no `Content-Encoding` if their client
+   *   does not support gzip encoding
+   *
+   * Multiple rules can match simultaneously, if a specific enough file exists (for example you might
+   * have `foo-en.txt.gz` for `Accept-Language: en` and `Accept-Encoding: gzip`).
+   *
+   * In the case of conflicting rules, earlier rules take priority (so `encoding` rules should
+   * typically be specified last)
+   *
+   * See the helper `negotiateEncoding` for a simple way to support pre-compressed files.
+   */
+  constructor(rules: FileNegotiation[], { maxFailedAttempts = 10 } = {}) {
+    this._normalisedRules = rules
+      .map((rule): InternalRule => {
+        if (!Object.prototype.hasOwnProperty.call(HEADERS, rule.type)) {
+          throw new RangeError(`unknown rule type: ${rule.type}`);
+        }
+        return {
+          _type: rule.type,
+          _options: rule.options.map((option) => ({
+            _file: option.file,
+            _match:
+              typeof option.match === 'string'
+                ? option.match.toLowerCase()
+                : internalOverrideFlags(option.match, true),
+            _as: option.as ?? (typeof option.match === 'string' ? option.match : undefined),
+          })),
+        };
+      })
+      .filter((rule) => rule._options.length > 0);
+    this._maxFailedAttempts = maxFailedAttempts;
+    this.vary = [...new Set(this._normalisedRules.map((rule) => HEADERS[rule._type]))].join(' ');
+  }
+
+  options(
+    base: string,
+    negotiation: NegotiationInput,
+  ): Generator<NegotiationOutput, undefined, undefined> {
+    let attempts = this._maxFailedAttempts;
+    const rules = this._normalisedRules;
+    const info: NegotiationOutputInfo = {};
+    function* next(name: string, pos: number): Generator<NegotiationOutput> {
+      const rule = rules[pos];
+      if (!rule) {
+        --attempts;
+        yield { filename: name, info };
+        return;
+      }
+      const seen = new Set<string>();
+      const values = internalSortQuality(negotiation[rule._type]);
+      const matchedOptions: (QualityValue & { _option: InternalOption })[] = [];
+      for (const option of rule._options) {
+        const firstMatch = values.find((v) =>
+          typeof option._match === 'string'
+            ? v.name.toLowerCase() === option._match
+            : option._match.test(v.name),
+        );
+        if (firstMatch) {
+          matchedOptions.push({ ...firstMatch, _option: option });
+        }
+      }
+      for (const match of matchedOptions.sort(byQuality)) {
+        const sub = internalMutateName(name, match._option._file);
+        if (seen.has(sub)) {
+          continue;
+        }
+        seen.add(sub);
+        info[rule._type] = match._option._as;
+        yield* next(sub, pos + 1);
+        if (attempts <= 0) {
           return;
         }
-        const seen = new Set<string>();
-        const values = internalSortQuality(negotiation[rule._type]);
-        const matchedOptions: (QualityValue & { _option: InternalOption })[] = [];
-        for (const option of rule._options) {
-          const firstMatch = values.find((v) =>
-            typeof option._match === 'string'
-              ? v.name.toLowerCase() === option._match
-              : option._match.test(v.name),
-          );
-          if (firstMatch) {
-            matchedOptions.push({ ...firstMatch, _option: option });
-          }
-        }
-        for (const match of matchedOptions.sort(byQuality)) {
-          const sub = internalMutateName(name, match._option._file);
-          if (seen.has(sub)) {
-            continue;
-          }
-          seen.add(sub);
-          info[rule._type] = match._option._as;
-          yield* next(sub, pos + 1);
-          if (attempts <= 0) {
-            return;
-          }
-        }
-        info[rule._type] = undefined;
-        if (!seen.has(name) && attempts > 0) {
-          yield* next(name, pos + 1);
-        }
       }
-      return next(base, 0);
-    },
-    vary: [...new Set(normalisedRules.map((rule) => HEADERS[rule._type]))].join(' '),
-  };
+      info[rule._type] = undefined;
+      if (!seen.has(name) && attempts > 0) {
+        yield* next(name, pos + 1);
+      }
+    }
+    return next(base, 0);
+  }
 }
 
 function internalSortQuality(list: QualityValue[] | undefined): QualityValue[] {

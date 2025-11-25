@@ -4,12 +4,10 @@ import { constants, type Stats } from 'node:fs';
 import { internalOverrideFlags } from '../../util/regexpFlags.mts';
 import { Queue } from '../../util/Queue.mts';
 import {
-  makeNegotiator,
-  type FileNegotiation,
+  Negotiator,
   type NegotiationInput,
   type NegotiationOutputInfo,
-  type Negotiator,
-} from '../request/negotiation.mts';
+} from '../request/Negotiator.mts';
 
 export interface FileFinderOptions {
   /**
@@ -110,32 +108,17 @@ export interface FileFinderOptions {
   implicitSuffixes?: string[] | undefined;
 
   /**
-   * Content negotiation rules to apply to files.
+   * Content negotiation to apply to files.
    *
    * This can be used to respond to the `Accept`, `Accept-Language`, and `Accept-Encoding` headers.
-   *
-   * For example: on a server with `foo.txt`, `foo.txt.gz`, and a negotiation rule mapping
-   * `gzip` => `{name}.gz`:
-   * - users requesting `foo.txt` may get `foo.txt.gz` with `Content-Encoding: gzip` if their
-   *   client supports gzip encoding
-   * - users requesting `foo.txt` may get `foo.txt` with no `Content-Encoding` if their client
-   *   does not support gzip encoding
    *
    * Note that file access is checked *before* content negotiation, so you must still provide a
    * base "un-negotiated" file for each file you wish to serve (which will also be used in cases
    * where users do not send any `Accept-*` headers, and where no match is found)
    *
-   * Multiple rules can match simultaneously, if a specific enough file exists (for example you might
-   * have `foo-en.txt.gz` for `Accept-Language: en` and `Accept-Encoding: gzip`).
-   *
-   * In the case of conflicting rules, earlier rules take priority (so `encoding` rules should
-   * typically be specified last)
-   *
-   * See the helper `negotiateEncoding` for a simple way to support pre-compressed files.
-   *
-   * @default []
+   * @default undefined
    */
-  negotiation?: FileNegotiation[] | undefined;
+  negotiator?: Negotiator | undefined;
 }
 
 export interface FileFinderCore {
@@ -180,7 +163,7 @@ export class FileFinder implements FileFinderCore {
       hide = [],
       indexFiles = ['index.htm', 'index.html'],
       implicitSuffixes = [],
-      negotiation,
+      negotiator,
     }: FileFinderOptions,
   ) {
     this._baseDir = baseDir;
@@ -204,12 +187,8 @@ export class FileFinder implements FileFinderCore {
     }
     this._indexFilesSet = new Set(indexFiles.map((f) => this._normalise(f)));
 
-    if (negotiation?.length) {
-      this._negotiator = makeNegotiator(negotiation);
-      this.vary = this._negotiator.vary;
-    } else {
-      this.vary = '';
-    }
+    this._negotiator = negotiator;
+    this.vary = negotiator?.vary ?? '';
   }
 
   static async build(absBaseDir: string, options: FileFinderOptions = {}) {

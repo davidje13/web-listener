@@ -5,7 +5,7 @@ import type { RequestHandler } from '../../core/handler.mts';
 import { HTTPError } from '../../core/HTTPError.mts';
 import type { MaybePromise } from '../../util/MaybePromise.mts';
 import { readHTTPQualityValues } from '../request/headers.mts';
-import type { NegotiationInput } from '../request/negotiation.mts';
+import type { NegotiationInput } from '../request/Negotiator.mts';
 import { getRemainingPathComponents } from '../request/pathComponents.mts';
 import { sendFile } from '../response/sendFile.mts';
 import { generateWeakETag } from '../cache/etag.mts';

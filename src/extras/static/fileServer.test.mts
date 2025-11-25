@@ -3,7 +3,7 @@ import { withServer } from '../../test-helpers/withServer.mts';
 import { rawRequest } from '../../test-helpers/rawRequest.mts';
 import { requestHandler } from '../../core/handler.mts';
 import { Router } from '../../core/Router.mts';
-import { negotiateEncoding } from '../request/negotiation.mts';
+import { negotiateEncoding, Negotiator } from '../request/Negotiator.mts';
 import { fileServer } from './fileServer.mts';
 import 'lean-test';
 
@@ -67,7 +67,7 @@ describe('fileServer', () => {
 
   it('supports content negotiation', { timeout: 3000 }, async ({ getTyped }) => {
     const handler = await fileServer(getTyped(TEST_DIR), {
-      negotiation: [negotiateEncoding(['gzip'])],
+      negotiator: new Negotiator([negotiateEncoding(['gzip'])]),
     });
 
     return withServer(handler, async (url) => {
@@ -121,7 +121,7 @@ describe('fileServer', () => {
     router.use(
       await fileServer(getTyped(TEST_DIR), {
         fallback: { filePath: 'file.txt', statusCode: 255 },
-        negotiation: [negotiateEncoding(['gzip'])],
+        negotiator: new Negotiator([negotiateEncoding(['gzip'])]),
       }),
     );
     router.use(requestHandler((_, res) => res.end('nope')));
