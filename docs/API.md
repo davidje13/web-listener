@@ -163,7 +163,7 @@ chain, or [`emitError`] is called from any handler. It is also called if a teard
 an error.
 
 Call `event.preventDefault()` if you do not want to use the default logging behaviour (which calls
-`console.error` for all errors except `HTTPError`s with `statusCode` < `500`.
+`console.error` for all errors except [`<HTTPError>`]s with `statusCode` < `500`.
 
 Example usage: [Error handling](#error-handling)
 
@@ -435,7 +435,7 @@ This can be used for features like templating or ensuring connections are always
 handler returns.
 
 Return handlers are called in the order they were registered, and from the innermost router to the
-outermost rooter. Return handlers are not called for upgrade requests.
+outermost router. Return handlers are not called for upgrade requests.
 
 Return handlers are not ordered with the other handlers, so they can be registered upfront if
 desired. If a return handler throws, the error will be passed to the next error handler after the
@@ -530,8 +530,8 @@ have an [`Upgrade`] header, or if no matching [`handler.shouldUpgrade`] handler 
 the request (Node.js 24.9+).
 
 Can return or throw a [`<RoutingInstruction>`] to continue running additional handlers in the chain.
-Any other returned value (including `undefined`) will be sent to all registered [`router.onReturn`]
-functions.
+Any other returned value (including [`<undefined>`]) will be sent to all registered
+[`router.onReturn`] functions.
 
 #### `handler.handleUpgrade(req, socket, head)`
 
@@ -742,35 +742,37 @@ Create a new `HTTPError` object and set various properties on it.
 
 By default, `HTTPError`s with `statusCode` < `500` are not logged.
 
-#### `httpError.message`
+#### `httperror.message`
 
 - Type: [`<string>`]
 
-The non-client-facing message for this error. Defaults to [`httpError.body`] if not set.
+The non-client-facing message for this error. Defaults to [`httperror.body`] if not set.
 
-#### `httpError.statusCode`
+#### `httperror.statusCode`
 
-[`httpError.statusCode`]: #httperrorstatuscode
+[`httperror.statusCode`]: #httperrorstatuscode
 
 - Type: [`<number>`]
 
 The [HTTP status code] which should be sent to the client for this error.
 
-#### `httpError.statusMessage`
+#### `httperror.statusMessage`
+
+[`httperror.statusMessage`]: #httperrorstatusmessage
 
 - Type: [`<string>`]
 
 The [HTTP status message][HTTP status code] which should be sent to the client for this error.
 
-#### `httpError.headers`
+#### `httperror.headers`
 
 - Type: [`<Headers>`]
 
 Additional headers which should be sent to the client for this error.
 
-#### `httpError.body`
+#### `httperror.body`
 
-[`httpError.body`]: #httperrorbody
+[`httperror.body`]: #httperrorbody
 
 - Type: [`<string>`]
 
@@ -792,7 +794,7 @@ middleware (e.g. [`jsonErrorHandler`] can be used to wrap the message in a JSON 
   - `onError` [`<Function>`] function to call if a handler throws an error which is not handled by
     the end of the chain. The function is called with the error [`<any>`], a context [`<string>`],
     and the request [`<http.IncomingMessage>`]. **Default:** a function which logs the error unless
-    it is a `HTTPError` with `statusCode` < `500`.
+    it is a [`<HTTPError>`] with `statusCode` < `500`.
   - `socketCloseTimeout` [`<number>`] a delay (in milliseconds) to wait before forcibly closing
     sockets after beginning the close handshake. This avoids lingering half-closed sockets consuming
     resources. **Default:** `500`.
@@ -1046,10 +1048,10 @@ router.onError(
 
 [`conditionalErrorHandler`]: #conditionalerrorhandlercondition-fn
 
-- `condition` [`<Function>`] a _synchronous_ function which takes an error and returns `true` if it
-  should be handled
+- `condition` [`<Function>`] a _synchronous_ function which takes an error [`<any>`] and returns
+  `true` if it should be handled
 - `fn` [`<Function>`] a (possibly asynchronous) error handler function. Receives:
-  - `error` the error to handle (will be an instance of `type` or a sub-class)
+  - `error` [`<any>`] the error to handle
   - `req` [`<http.IncomingMessage>`]
   - `response` [`<http.ServerResponse>`]
 - Returns: [`<Handler>`]
@@ -1093,7 +1095,7 @@ router.onError(
 - Returns: [`<Handler>`]
 
 Note that `shouldUpgrade` defaults to `false` when using this helper, unlike [`upgradeHandler`].
-This is primarily aimed at creating access control middleware and similar, where the existance of
+This is primarily aimed at creating access control middleware and similar, where the existence of
 the middleware does not imply ability to handle a particular upgrade request.
 
 Wraps the given request or upgrade handling function in a `Handler`. Equivalent to:
@@ -1386,26 +1388,26 @@ Data class returned by [`<WebSocketMessages>`] representing a single WebSocket m
 Create a new `WebSocketMessage` wrapper. This is not typically needed in application code, but may
 be used in tests.
 
-#### `webSocketMessage.data`
+#### `websocketmessage.data`
 
 - Type: [`<Buffer>`]
 
 The raw data from the websocket. If the message is text, this contains the utf-8 encoded text.
 
-#### `webSocketMessage.isBinary`
+#### `websocketmessage.isBinary`
 
 - Type: [`<boolean>`]
 
 `true` if the message is binary, `false` if it is text.
 
-#### `webSocketMessage.text`
+#### `websocketmessage.text`
 
 - Type: [`<string>`]
 
 Returns the message as a string, or throws [`<WebSocketError>`] [1003][close code] if the message is
 binary.
 
-#### `webSocketMessage.binary`
+#### `websocketmessage.binary`
 
 - Type: [`<Buffer>`]
 
@@ -1434,23 +1436,23 @@ messages.
 
 Create a new `WebSocketError` object and set various properties on it.
 
-`HTTPError`s are also interpreted as `WebSocketError`s automatically, with a `closeCode` of `1011`
-for `5xx` errors, or `4xxx` for `2xx`, `3xx`, or `4xx` errors (e.g. `404` maps to `4404`). The
-`closeReason` is set to the `statusMessage` of the `HTTPError`.
+[`<HTTPError>`]s are also interpreted as `WebSocketError`s automatically, with a `closeCode` of
+`1011` for `5xx` errors, or `4xxx` for `2xx`, `3xx`, or `4xx` errors (e.g. `404` maps to `4404`).
+The `closeReason` is set to the [`httperror.statusMessage`].
 
-#### `webSocketError.message`
+#### `websocketerror.message`
 
 - Type: [`<string>`]
 
 The non-client-facing message for this error.
 
-#### `webSocketError.closeCode`
+#### `websocketerror.closeCode`
 
 - Type: [`<number>`]
 
 The [close code] which should be sent to the client for this error.
 
-#### `webSocketError.closeReason`
+#### `websocketerror.closeReason`
 
 - Type: [`<string>`]
 
@@ -1462,8 +1464,9 @@ The [close reason] which should be sent to the client for this error.
 
 [`makeAcceptWebSocket`]: #makeacceptwebsocketserverclass-options
 
-- `ServerClass` [`<Function>`] a server class to use, such as `WebSocketServer` from
-  [ws](https://www.npmjs.com/package/ws). Instances must, at a minimum, implement
+- `ServerClass` [`<Function>`] a server class to use, such as
+  [`WebSocketServer`](https://github.com/websockets/ws/blob/HEAD/doc/ws.md#class-websocketserver)
+  from [ws](https://www.npmjs.com/package/ws). Instances must, at a minimum, implement
   [`handleUpgrade`](https://github.com/websockets/ws/blob/HEAD/doc/ws.md#serverhandleupgraderequest-socket-head-callback).
 - `options` [`<Object>`]
   - `softCloseStatusCode` [`<number>`]. **Default:** `1001`.
@@ -1487,9 +1490,9 @@ Example usage: [WebSocket requests](#websocket-requests).
 - `req` [`<http.IncomingMessage>`]
 - Returns: [`<string>`] | [`<undefined>`]
 
-Returns the value of the `Origin` header, or the `Sec-WebSocket-Origin` header if `Origin` is not
-set. This provides compatibility with old versions of the WebSocket standard (`Sec-WebSocket-Origin`
-is no longer used by newer versions).
+Returns the value of the [`Origin`] header, or the [`Sec-WebSocket-Origin`] header if [`Origin`] is
+not set. This provides compatibility with old versions of the WebSocket standard
+([`Sec-WebSocket-Origin`] is no longer used by newer versions).
 
 ### `isWebSocketRequest(req)`
 
@@ -1497,7 +1500,7 @@ is no longer used by newer versions).
 - Returns: [`<boolean>`]
 
 Returns `true` if the request is an upgrade request, is using the `GET` method, and lists
-`websocket` as an upgrade option.
+`websocket` in the [`Upgrade`] header.
 
 ### `makeWebSocketFallbackTokenFetcher(acceptWebSocket[, timeout])`
 
@@ -1736,8 +1739,9 @@ soft close handling.
 Calling this constructor sends the following headers:
 
 - [`Content-Type: text/event-stream`][`Content-Type`]
-- `X-Accel-Buffering: no` (to disable buffering in proxies)
-- `Cache-Control: no-store`
+- [`X-Accel-Buffering: no`](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_buffering)
+  (to disable buffering in NGINX)
+- [`Cache-Control: no-store`][`Cache-Control`]
 
 #### `serversentevents.signal`
 
@@ -2208,7 +2212,7 @@ create your own agent to share between them.
 A function which can be passed as a `requestHeaders` mutator function to [`proxy`]. Removes all
 common forwarding headers:
 
-- `Forwarded`
+- [`Forwarded`]
 - `X-Forwarded-For`
 - `X-Forwarded-Host`
 - `X-Forwarded-Proto`
@@ -2224,8 +2228,9 @@ common forwarding headers:
 - Returns: [`<Object>`]
 
 A function which can be passed as a `requestHeaders` mutator function to [`proxy`]. Removes all
-common forwarding headers (see [`removeForwarded`]) and adds a new `Forwarded` header which contains
-information about the immediate client (ignoring any information from existing forwarding headers).
+common forwarding headers (see [`removeForwarded`]) and adds a new [`Forwarded`] header which
+contains information about the immediate client (ignoring any information from existing forwarding
+headers).
 
 ### `sanitiseAndAppendForwarded(getClient[, options])`
 
@@ -2240,7 +2245,7 @@ information about the immediate client (ignoring any information from existing f
 - Returns: [`<Function>`]
 
 Returns a function which can be passed as a `requestHeaders` mutator function to [`proxy`].
-Sanitises any existing forwarding headers into a consistent `Forwarded` header, and combines
+Sanitises any existing forwarding headers into a consistent [`Forwarded`] header, and combines
 information about the current proxy. Removes all other forwarding headers (see [`removeForwarded`]).
 
 Example usage:
@@ -2265,8 +2270,8 @@ router.use(
 - Returns: [`<Object>`]
 
 A function which can be passed as a `requestHeaders` mutator function to [`proxy`]. Removes all
-common forwarding headers (see [`removeForwarded`]) except `Forwarded`, which has information about
-the current proxy appended via simple string concatenation.
+common forwarding headers (see [`removeForwarded`]) except [`Forwarded`], which has information
+about the current proxy appended via simple string concatenation.
 
 It is usually better to use [`sanitiseAndAppendForwarded`].
 
@@ -2396,8 +2401,8 @@ listener was set on the [`<http.Server>`]).
 - Returns: [`<Promise>`] Fulfills with [`<FormData>`].
 
 Read the entire request body as `application/x-www-url-encoded` or `multipart/form-data` and return
-it as a `FormData` object. Fields are stored entirely in-memory. Files are written to a temporary
-directory (via [`makeTempFileStorage`]) and included as filesystem-backed [`<Blob>`]s.
+it as a [`<FormData>`] object. Fields are stored entirely in-memory. Files are written to a
+temporary directory (via [`makeTempFileStorage`]) and included as filesystem-backed [`<Blob>`]s.
 
 The returned [`<FormData>`] instance includes a few extra helper methods:
 
@@ -2477,10 +2482,11 @@ properties:
 
 - `name` [`<string>`] the name of the field (note: multiple fields can share the same name, e.g.
   when uploading multiple files)
-- `mimeType` [`<string>`] the `Content-Type` header for this part (always `text/plain` for non-file
-  data)
-- `encoding` [`<string>`] the `Encoding` header for this part (only relevant for `multipart` forms).
-  This is generally not used.
+- `mimeType` [`<string>`] the [`Content-Type`] header for this part (always `text/plain` for
+  non-file data)
+- `encoding` [`<string>`] the
+  [`Content-Transfer-Encoding`](https://datatracker.ietf.org/doc/html/rfc7578#section-4.7) header
+  for this part (only relevant for `multipart` forms). This is generally not used.
 - `type` [`<string>`] `'string'` or `'file'`
 - `value` [`<string>`] if the `type` is `'string'`; [`<stream.Readable>`] if `type` is `'file'`
 - `filename` [`<string>`] if the `type` is `'file'`
@@ -2646,7 +2652,7 @@ will validate the path by default and reject "unsafe" paths. Unsafe paths are th
 Sends the `source` to the client, accounting for various cache control options:
 
 - [`If-Modified-Since`] and [`If-None-Match`] are checked if the request is a `GET` or `HEAD`;
-- `Content-Range` is checked if the request is a `GET` or `HEAD`;
+- [`Content-Range`] is checked if the request is a `GET` or `HEAD`;
 - only headers are sent if the request is a `HEAD`.
 
 Note that if the `source` is a [`<fs.FileHandle>`] or a stream, it will _not_ be closed
@@ -2833,8 +2839,8 @@ for a proxy to be trusted.
 set / replace. If you list a header which is _not_ set by your proxy, a malicious client will be
 able to spoof the data. The supported headers are:
 
-- `Forwarded`: Populates `client`, `server`, `host`, and `proto` (but note that these fields are all
-  optional in the header, so may not be set for all entries).
+- [`Forwarded`]: Populates `client`, `server`, `host`, and `proto` (but note that these fields are
+  all optional in the header, so may not be set for all entries).
 - `X-Forwarded-For`: Populates `client`.
 - `X-Forwarded-Host`: Populates `server`. Only used if `X-Forwarded-For` is set.
 - `X-Forwarded-Proto`: Populates `proto`. Only used if `X-Forwarded-For` is set.
@@ -2953,7 +2959,7 @@ Extracts one item at a time from the queue. Never completes.
 
 - `address` [`<string>`] | [`<undefined>`]
 
-Reads an IPv4, IPv6, or alias address with an optional port (as used in [`Via`], `Forwarded`, and
+Reads an IPv4, IPv6, or alias address with an optional port (as used in [`Via`], [`Forwarded`], and
 `X-Forwarded-For` headers).
 
 Returns an object with `type` (`'IPv4'`, `'IPv6'`, or `'alias'`), `ip` [`<string>`], and `port`
@@ -3010,9 +3016,9 @@ const error = new Error('outer', { cause: new HTTPError(503) });
 
 // ...
 
-const httpError = findCause(error, HTTPError);
-if (httpError) {
-  console.log(httpError.statusCode); // prints 503
+const httperror = findCause(error, HTTPError);
+if (httperror) {
+  console.log(httperror.statusCode); // prints 503
 }
 ```
 
@@ -3562,19 +3568,25 @@ Reference: [`getPathParameters`], [`makeAcceptWebSocket`], [`nextWebSocketMessag
 [`Accept-Language`]:
   https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Accept-Language
 [`Authorization`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Authorization
+[`Cache-Control`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Cache-Control
 [`Connection`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Connection
 [`Content-Encoding`]:
   https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Encoding
 [`Content-Language`]:
   https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Language
+[`Content-Range`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Range
 [`Content-Type`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Type
 [`ETag`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/ETag
 [`Expect`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Expect
+[`Forwarded`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Forwarded
 [`If-Modified-Since`]:
   https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/If-Modified-Since
 [`If-None-Match`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/If-None-Match
 [`If-Range`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/If-Range
+[`Origin`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Origin
 [`Range`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Range
+[`Sec-WebSocket-Origin`]:
+  https://www.ietf.org/archive/id/draft-ietf-hybi-thewebsocketprotocol-06.html#rfc.section.10.7
 [`Upgrade`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Upgrade
 [`Vary`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Vary
 [`Via`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Via
