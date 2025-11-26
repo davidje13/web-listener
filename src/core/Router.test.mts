@@ -381,9 +381,7 @@ describe('router', () => {
 
   it('registers sub-routers with .within', { timeout: 3000 }, () => {
     const router = new Router();
-    router.within('/foo', (subRouter) => {
-      subRouter.get('/bar', writeAndReturn('sub'));
-    });
+    router.within('/foo').get('/bar', writeAndReturn('sub'));
 
     return withServer(router, async (url, { expectError }) => {
       await expect(fetch(url + '/foo/bar'), responds({ body: 'sub' }));

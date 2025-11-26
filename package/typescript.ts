@@ -174,13 +174,11 @@ r.use(
 r.use(0);
 
 const subRouter = new Router<WithPathParameters<{ foo: string }>>();
-subRouter.within('/:a', (sub) =>
-  sub.get('/*b', (req, res) => {
-    assertType(getPathParameters(req))<Readonly<{ foo: string; a: string; b: string[] }>>();
-    res.write('response');
-    res.end();
-  }),
-);
+subRouter.within('/:a').get('/*b', (req, res) => {
+  assertType(getPathParameters(req))<Readonly<{ foo: string; a: string; b: string[] }>>();
+  res.write('response');
+  res.end();
+});
 r.mount('/:foo', subRouter);
 r.mount('/:foo/:extra', subRouter);
 

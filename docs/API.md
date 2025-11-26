@@ -454,19 +454,20 @@ The [`<http.IncomingMessage>`] (request) passed to the handlers will have a `url
 the remaining path not already matched by the prefix. You can retrieve or restore the full absolute
 path if needed with [`getAbsolutePath`] and [`restoreAbsolutePath`].
 
-#### `router.within(path, init)`
+#### `router.within(path)`
 
 - `path` [`<string>`] a path prefix to filter on. See [Paths] for information about path patterns.
-- `init` [`<Function>`] a (synchronous) function which takes a `Router` and initialises it.
-- Returns: [`<Router>`] the router object (for chaining).
+- Returns: [`<Router>`] a router mounted at the path.
 
 Convenience function, shorthand for:
 
 ```js
 const subRouter = new Router();
-init(subRouter);
 router.mount(path, subRouter);
+return subRouter;
 ```
+
+When using TypeScript, the returned router will automatically have the correct path parameters.
 
 #### `router.at(path, ...handlers)`
 

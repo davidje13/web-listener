@@ -132,15 +132,14 @@ export class Router<Req = {}> implements Handler<Req> {
   }
 
   /**
-   * Create a new router mounted at the path, and call the given function to configure it.
+   * Create a new router mounted at the path.
    */
   within<Path extends string>(
     path: Path,
-    init: (subRouter: Router<Req & WithPathParameters<ParametersFromPath<Path>>>) => void,
-  ): this {
+  ): Router<Req & WithPathParameters<ParametersFromPath<Path>>> {
     const subRouter = new Router<Req & WithPathParameters<ParametersFromPath<Path>>>();
-    init(subRouter);
-    return this.mount(path, subRouter);
+    this.mount(path, subRouter);
+    return subRouter;
   }
 
   /**
