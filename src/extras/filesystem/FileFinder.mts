@@ -1,13 +1,10 @@
+import type { IncomingHttpHeaders } from 'node:http';
 import { open, readdir, realpath, stat, type FileHandle } from 'node:fs/promises';
 import { basename, dirname, join, resolve, sep } from 'node:path';
 import { constants, type Stats } from 'node:fs';
 import { internalOverrideFlags } from '../../util/regexpFlags.mts';
 import { Queue } from '../../util/Queue.mts';
-import {
-  Negotiator,
-  type NegotiationInput,
-  type NegotiationOutputInfo,
-} from '../request/Negotiator.mts';
+import { Negotiator, type NegotiationOutputInfo } from '../request/Negotiator.mts';
 
 export interface FileFinderOptions {
   /**
@@ -124,7 +121,7 @@ export interface FileFinderOptions {
 export interface FileFinderCore {
   find(
     pathParts: string[],
-    negotiation?: NegotiationInput,
+    reqHeaders?: IncomingHttpHeaders,
     warnings?: string[] | undefined,
   ): Promise<ResolvedFileInfo | null>;
   debugAllPaths(): Promise<Set<string>>;
@@ -236,7 +233,7 @@ export class FileFinder implements FileFinderCore {
    */
   async find(
     pathParts: string[],
-    negotiation: NegotiationInput = {},
+    reqHeaders: IncomingHttpHeaders = {},
     warnings?: string[] | undefined,
   ): Promise<ResolvedFileInfo | null> {
     let subPath = pathParts.join(sep);
@@ -324,7 +321,7 @@ export class FileFinder implements FileFinderCore {
     if (this._negotiator) {
       const base = basename(canonicalPath);
       const dir = dirname(canonicalPath);
-      for (const option of this._negotiator.options(base, negotiation)) {
+      for (const option of this._negotiator.options(base, reqHeaders)) {
         if (!option.filename || option.filename.includes(sep)) {
           continue;
         }
@@ -397,14 +394,14 @@ export class FileFinder implements FileFinderCore {
     }
 
     return {
-      find: async (path, negotiation = {}, warnings) => {
+      find: async (path, reqHeaders = {}, warnings) => {
         const entity = lookup.get(this._normalise(path.join('/')));
         if (!entity?.file) {
           warnings?.push(`${JSON.stringify(path.join('/'))} not found in static file paths`);
           return null;
         }
         if (this._negotiator) {
-          for (const option of this._negotiator.options(entity.basename, negotiation)) {
+          for (const option of this._negotiator.options(entity.basename, reqHeaders)) {
             if (!entity.siblings.has(this._normalise(option.filename))) {
               continue;
             }

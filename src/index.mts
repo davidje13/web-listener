@@ -156,7 +156,6 @@ export {
   negotiateEncoding,
   type FileNegotiation,
   type FileNegotiationOption,
-  type NegotiationInput,
   type NegotiationOutput,
   type NegotiationOutputInfo,
 } from './extras/request/Negotiator.mts';

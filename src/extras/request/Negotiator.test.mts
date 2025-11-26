@@ -1,4 +1,3 @@
-import { readHTTPQualityValues } from './headers.mts';
 import { Negotiator, type FileNegotiation } from './Negotiator.mts';
 import 'lean-test';
 
@@ -55,9 +54,9 @@ describe('Negotiator', () => {
       const multi = new Negotiator(COMPLEX_RULES, { maxFailedAttempts: 20 });
 
       const optionGenerator = multi.options('my-file.txt', {
-        language: readHTTPQualityValues('pl;q=0.5, de-DE;q=0.7, en-GB;q=1, en;q=0.8'),
-        mime: readHTTPQualityValues('text/plain;q=0.9, foo/bar;q=0.3, text/fun;q=1'),
-        encoding: readHTTPQualityValues('gzip;q=0.5'),
+        'accept-language': 'pl;q=0.5, de-DE;q=0.7, en-GB;q=1, en;q=0.8',
+        accept: 'text/plain;q=0.9, foo/bar;q=0.3, text/fun;q=1',
+        'accept-encoding': 'gzip;q=0.5',
       });
 
       expect(optionGenerator.next().value?.filename).equals('my-file-en.fun.gz');
@@ -79,7 +78,7 @@ describe('Negotiator', () => {
       const multi = new Negotiator(COMPLEX_RULES, { maxFailedAttempts: 20 });
 
       const optionGenerator = multi.options('my-file.txt', {
-        language: readHTTPQualityValues('pl;q=0.9, en;q=0.9'),
+        'accept-language': 'pl;q=0.9, en;q=0.9',
       });
 
       expect(optionGenerator.next().value?.filename).equals('my-file-en.txt');
@@ -92,8 +91,8 @@ describe('Negotiator', () => {
       const multi = new Negotiator(COMPLEX_RULES, { maxFailedAttempts: 20 });
 
       const optionGenerator = multi.options('my-file.txt', {
-        language: readHTTPQualityValues('de-DE;q=0.7, en;q=0.8'),
-        mime: readHTTPQualityValues('text/plain;q=0.9, foo/bar;q=0.3, text/fun;q=1'),
+        'accept-language': 'de-DE;q=0.7, en;q=0.8',
+        accept: 'text/plain;q=0.9, foo/bar;q=0.3, text/fun;q=1',
       });
 
       expect(optionGenerator.next().value?.filename).equals('my-file-en.fun');
@@ -107,9 +106,9 @@ describe('Negotiator', () => {
       const multi = new Negotiator(COMPLEX_RULES, { maxFailedAttempts: 20 });
 
       const optionGenerator = multi.options('my-file.txt', {
-        language: readHTTPQualityValues('pl;q=0.5, de-DE;q=0.7, en-GB;q=1, en;q=0.8'),
-        mime: readHTTPQualityValues('text/plain;q=0.9, foo/bar;q=0.3, text/fun;q=1'),
-        encoding: readHTTPQualityValues('gzip;q=0.5'),
+        'accept-language': 'pl;q=0.5, de-DE;q=0.7, en-GB;q=1, en;q=0.8',
+        accept: 'text/plain;q=0.9, foo/bar;q=0.3, text/fun;q=1',
+        'accept-encoding': 'gzip;q=0.5',
       });
 
       expect(optionGenerator.next().value?.info).equals({
@@ -135,9 +134,9 @@ describe('Negotiator', () => {
       const multi = new Negotiator(COMPLEX_RULES, { maxFailedAttempts: 3 });
 
       const optionGenerator = multi.options('my-file.txt', {
-        language: readHTTPQualityValues('pl;q=0.5, de-DE;q=0.7, en-GB;q=1, en;q=0.8'),
-        mime: readHTTPQualityValues('text/plain;q=0.9, foo/bar;q=0.3, text/fun;q=1'),
-        encoding: readHTTPQualityValues('gzip;q=0.5'),
+        'accept-language': 'pl;q=0.5, de-DE;q=0.7, en-GB;q=1, en;q=0.8',
+        accept: 'text/plain;q=0.9, foo/bar;q=0.3, text/fun;q=1',
+        'accept-encoding': 'gzip;q=0.5',
       });
 
       expect(optionGenerator.next().value?.filename).equals('my-file-en.fun.gz');

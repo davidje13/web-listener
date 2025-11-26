@@ -1,6 +1,7 @@
+import type { IncomingHttpHeaders } from 'node:http';
 import { extname } from 'node:path';
 import { internalOverrideFlags } from '../../util/regexpFlags.mts';
-import type { QualityValue } from './headers.mts';
+import { readHTTPQualityValues, type QualityValue } from './headers.mts';
 
 const HEADERS = {
   mime: 'accept',
@@ -97,8 +98,6 @@ export interface NegotiationOutput {
   info: NegotiationOutputInfo;
 }
 
-export type NegotiationInput = Partial<Record<NegotiationType, QualityValue[] | undefined>>;
-
 interface InternalRule {
   _type: NegotiationType;
   _options: InternalOption[];
@@ -160,8 +159,13 @@ export class Negotiator {
 
   options(
     base: string,
-    negotiation: NegotiationInput,
+    reqHeaders: IncomingHttpHeaders,
   ): Generator<NegotiationOutput, undefined, undefined> {
+    const negotiation = {
+      mime: readHTTPQualityValues(reqHeaders['accept']),
+      language: readHTTPQualityValues(reqHeaders['accept-language']),
+      encoding: readHTTPQualityValues(reqHeaders['accept-encoding']),
+    };
     let attempts = this._maxFailedAttempts;
     const rules = this._normalisedRules;
     const info: NegotiationOutputInfo = {};

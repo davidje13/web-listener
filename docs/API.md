@@ -1623,14 +1623,14 @@ Returns a 'normalised' path array. This is used internally for fallback file pat
 an index file, the returned value will be the _directory_ it is an index for. This ensures index
 files can be served as fallback files even if the index file itself is hidden by other rules.
 
-#### `filefinder.find(pathParts[, negotiation[, warnings]])`
+#### `filefinder.find(pathParts[, reqHeaders[, warnings]])`
 
-[`filefinder.find`]: #filefinderfindpathparts-negotiation-warnings
+[`filefinder.find`]: #filefinderfindpathparts-reqheaders-warnings
 
 - `pathParts` [`<string[]>`][`<string>`] the desired path, split into individual components
-- `negotiation` [`<Object>`] an object containing `mime`, `language`, and/or `encoding` quality
-  values from the request, which will be used with the configured `negotiation` to identify the best
-  file variant to serve.
+- `reqHeaders` [`<Object>`]
+  [headers from the request](https://nodejs.org/api/http.html#messageheaders) (used for content
+  negotiation; specifically [`Accept`], [`Accept-Language`], and [`Accept-Encoding`] are checked)
 - `warnings` [`<string[]>`][`<string>`] if provided, any warnings that occur will be appended to
   this list (as descriptive strings). This can be used for debugging.
 - Returns: [`<Promise>`] Fulfills with [`<ResolvedFileInfo>`], or [`<null>`] if no file matches.
@@ -1866,11 +1866,9 @@ Represents the server address a request was sent to.
 
 #### `new Negotiator(rules[, options])`
 
-- `rules` [`<Array>`]
+- `rules` [`<FileNegotiation[]>`][`<FileNegotiation>`] a list of negotiation stages to apply
 - `options` [`<Object>`]
   - `maxFailedAttempts` [`<number>`] **Default:** `10`.
-
-TODO
 
 See the helper [`negotiateEncoding`] for a simple way to support pre-compressed files.
 
@@ -1880,13 +1878,95 @@ See the helper [`negotiateEncoding`] for a simple way to support pre-compressed 
 
 The value for the [`Vary`] header which should be sent for the configured negotiations.
 
-#### `negotiator.options(base, negotiation)`
+#### `negotiator.options(base, reqHeaders)`
 
-- `base` [`<string>`]
-- `negotiation` [`<Object>`]
+- `base` [`<string>`] the basename of the file to negotiate (e.g. `foo.txt`)
+- `reqHeaders` [`<Object>`]
+  [headers from the request](https://nodejs.org/api/http.html#messageheaders)
 - Returns: [`<Generator>`] of [`<Object>`]
 
-TODO
+Returns possible file names to serve, in descending preference order. Returns at most
+`maxFailedAttempts` filenames, then ends the [`<Generator>`].
+
+Each returned [`<Object>`] contains:
+
+- `filename` [`<string>`] the filename to serve (e.g. `foo.txt.gz`)
+- `info` [`<Object>`] information about the match. May contain `mime`, `language`, and/or `encoding`
+  keys. The values can be sent to the corresponding response headers.
+
+### `FileNegotiation`
+
+[`<FileNegotiation>`]: #filenegotiation
+
+Configuration interface used by [`<Negotiator>`].
+
+#### `filenegotiation.type`
+
+[`filenegotiation.type`]: #filenegotiationtype
+
+- Type: [`<string>`] `'mime'`, `'language'`, or `'encoding'`.
+
+Configures which headers this negotiation stage uses.
+
+| `type`       | Request header      | Response header      |
+| ------------ | ------------------- | -------------------- |
+| `'mime'`     | [`Accept`]          | [`Content-Type`]     |
+| `'language'` | [`Accept-Language`] | [`Content-Language`] |
+| `'encoding'` | [`Accept-Encoding`] | [`Content-Encoding`] |
+
+#### `filenegotiation.options`
+
+[`filenegotiation.options`]: #filenegotiationoptions
+
+- Type: [`<FileNegotiationOption[]>`][`<FileNegotiationOption>`].
+
+A list of options which should be recognised for this negotiation stage.
+
+The order of these options is used as a fallback priority order if the client does not express a
+preference.
+
+### `FileNegotiationOption`
+
+[`<FileNegotiationOption>`]: #filenegotiationoption
+
+Configuration interface used by [`filenegotiation.options`] and [`compressFileOffline`].
+
+#### `filenegotiationoption.match`
+
+[`filenegotiationoption.match`]: #filenegotiationoptionmatch
+
+- Type: [`<string>`] | [`<RegExp>`].
+
+Value to match in the corresponding request header for the [`filenegotiation.type`].
+
+#### `filenegotiationoption.as`
+
+- Type: [`<string>`] | [`<undefined>`].
+
+Value to return in the corresponding response header for the [`filenegotiation.type`].
+
+If [`filenegotiationoption.match`] is a [`<string>`], this is automatically set to the same value.
+
+#### `filenegotiationoption.file`
+
+[`filenegotiationoption.file`]: #filenegotiationoptionfile
+
+- Type: [`<string>`].
+
+Filename modifier to apply. Several tokens are available:
+
+- `{file}` - the original filename (does not include the path)
+- `{base}` - the part of the original filename before the last `.` (or the entire filename if there
+  is no dot)
+- `{ext}` - the original file extension, including the `.` (or blank of there is no dot)
+
+The resulting filename must not contain any path components (i.e. `/` and `\` are not allowed)
+
+Examples:
+
+- `'{file}.gz'`
+- `'{base}-en{ext}'`
+- `'negotiated-{file}'`
 
 ## Request Handling Functions
 
@@ -2497,6 +2577,8 @@ Reads a `;`-delimited string of `key=value`, with optionally quoted values.
 
 ### `readHTTPQualityValues(raw)`
 
+[`readHTTPQualityValues`]: #readhttpqualityvaluesraw
+
 - `raw` [`<string>`] | [`<undefined>`] the raw value of the header
 - Returns: [`<Object[]>`][`<Object>`]
 
@@ -2506,10 +2588,25 @@ Reads a `,`-delimited string of `key=value; q=n` (i.e. the format of the `Accept
 
 [`negotiateEncoding`]: #negotiateencodingoptions
 
-- `options` [`<string[]>`][`<string>`]
-- Returns: TODO
+- `options` [`<string[]>`][`<string>`] see below for accepted values
+- Returns: [`<FileNegotiation>`]
 
-TODO
+Convenience function for generating [`Accept-Encoding`] negotiators with common filename patterns.
+Pass the result to the [`<Negotiator>`] constructor.
+
+| `options` value | [`filenegotiationoption.file`] |
+| --------------- | ------------------------------ |
+| `identity`      | `{file}`                       |
+| `deflate`       | `{file}.deflate`               |
+| `gzip`          | `{file}.gz`                    |
+| `br`            | `{file}.br`                    |
+| `zstd`          | `{file}.zst`                   |
+
+Example usage:
+
+```js
+const negotiator = new Negotiator([negotiateEncoding(['gzip', 'zstd'])]);
+```
 
 ### `getRemainingPathComponents(req[, options])`
 
@@ -2924,8 +3021,8 @@ if (httpError) {
 [`compressFileOffline`]: #compressfileofflinefile-encodings-options
 
 - `file` [`<string>`] path to the file to compress.
-- `encodings` [`<Array>`] a list of [`Content-Encoding`] negotiation options (e.g. as returned by
-  [`negotiateEncoding`]).
+- `encodings` [`<FileNegotiationOption[]>`][`<FileNegotiationOption>`] a list of
+  [`Content-Encoding`] negotiation options (e.g. as returned by [`negotiateEncoding`]`.options`).
 - `options` [`<Object>`]
   - `minCompression` [`<number>`] minimum compression (in bytes) which must be achieved for the
     compression to be worthwhile. Anything which does not reach this threshold is discarded without
@@ -2947,8 +3044,8 @@ _not_ be compressed, as they are assumed to already be compressed as part of the
 ### `compressFilesInDir(dir, encodings[, options])`
 
 - `dir` [`<string>`] path to the root directory
-- `encodings` [`<Array>`] a list of [`Content-Encoding`] negotiation options (e.g. as returned by
-  [`negotiateEncoding`]).
+- `encodings` [`<FileNegotiationOption[]>`][`<FileNegotiationOption>`] a list of
+  [`Content-Encoding`] negotiation options (e.g. as returned by [`negotiateEncoding`]`.options`).
 - `options` [`<Object>`]
   - `minCompression` [`<number>`] minimum compression (in bytes) which must be achieved for the
     compression to be worthwhile. Anything which does not reach this threshold is discarded without
@@ -3411,6 +3508,8 @@ Reference: [`getPathParameters`], [`makeAcceptWebSocket`], [`nextWebSocketMessag
   https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/AsyncIterator
 [`<Generator>`]:
   https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Generator
+[`<RegExp>`]:
+  https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/RegExp
 [`<URL>`]: https://developer.mozilla.org/en-US/docs/Web/API/URL
 [`<Map>`]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map
 [`<Blob>`]: https://developer.mozilla.org/en-US/docs/Web/API/Blob
@@ -3466,6 +3565,8 @@ Reference: [`getPathParameters`], [`makeAcceptWebSocket`], [`nextWebSocketMessag
 [`Connection`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Connection
 [`Content-Encoding`]:
   https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Encoding
+[`Content-Language`]:
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Language
 [`Content-Type`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Type
 [`ETag`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/ETag
 [`Expect`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Expect

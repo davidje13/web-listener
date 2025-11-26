@@ -4,10 +4,9 @@ import {
   makeTestTempDir,
   type FilesDefinition,
 } from '../../test-helpers/makeFileStructure.mts';
-import { readHTTPQualityValues } from '../request/headers.mts';
+import { Negotiator } from '../request/Negotiator.mts';
 import { FileFinder, type FileFinderCore, type FileFinderOptions } from './FileFinder.mts';
 import type { TypedParameters } from 'lean-test';
-import { Negotiator } from '../request/Negotiator.mts';
 
 function fileFinderTestSuite(isPrecomputed: boolean) {
   it('resolves files within a directory', async (props) => {
@@ -289,9 +288,7 @@ function fileFinderTestSuite(isPrecomputed: boolean) {
       },
     );
 
-    const withGzip = await fileFinder.find(['one.txt'], {
-      encoding: readHTTPQualityValues('gzip;q=0.5'),
-    });
+    const withGzip = await fileFinder.find(['one.txt'], { 'accept-encoding': 'gzip;q=0.5' });
     expect(withGzip).isTruthy();
     try {
       expect(withGzip!.mime).isUndefined();
@@ -317,9 +314,7 @@ function fileFinderTestSuite(isPrecomputed: boolean) {
       withoutGzip?.handle.close();
     }
 
-    const noGzip = await fileFinder.find(['two.txt'], {
-      encoding: readHTTPQualityValues('gzip;q=0.5'),
-    });
+    const noGzip = await fileFinder.find(['two.txt'], { 'accept-encoding': 'gzip;q=0.5' });
     expect(noGzip).isTruthy();
     try {
       expect(noGzip!.mime).isUndefined();

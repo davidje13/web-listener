@@ -4,8 +4,6 @@ import { CONTINUE } from '../../core/RoutingInstruction.mts';
 import type { RequestHandler } from '../../core/handler.mts';
 import { HTTPError } from '../../core/HTTPError.mts';
 import type { MaybePromise } from '../../util/MaybePromise.mts';
-import { readHTTPQualityValues } from '../request/headers.mts';
-import type { NegotiationInput } from '../request/Negotiator.mts';
 import { getRemainingPathComponents } from '../request/pathComponents.mts';
 import { sendFile } from '../response/sendFile.mts';
 import { generateWeakETag } from '../cache/etag.mts';
@@ -137,13 +135,8 @@ export const fileServer = async (
       }
       let isFallback = false;
       const path = getRemainingPathComponents(req, pathOptions);
-      const negotiation: NegotiationInput = {
-        mime: readHTTPQualityValues(req.headers['accept']),
-        language: readHTTPQualityValues(req.headers['accept-language']),
-        encoding: readHTTPQualityValues(req.headers['accept-encoding']),
-      };
       const warnings: string[] = [];
-      let file = await fileLookup.find(path, negotiation, verbose ? warnings : undefined);
+      let file = await fileLookup.find(path, req.headers, verbose ? warnings : undefined);
       if (!file) {
         if (!fallbackPath) {
           if (verbose) {
@@ -152,7 +145,7 @@ export const fileServer = async (
           return CONTINUE;
         }
         isFallback = true;
-        file = await fileLookup.find(fallbackPath, negotiation, warnings);
+        file = await fileLookup.find(fallbackPath, req.headers, warnings);
         if (!file) {
           throw new HTTPError(500, {
             message: `failed to find fallback file: ${warnings.join(', ')}`,
