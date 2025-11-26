@@ -59,6 +59,136 @@ This library is pre-bundled and minified, and compatible with application-level 
 shaking (dead code removal), and minification. You can also use property name mangling, provided
 names beginning with standard ASCII letters (`a-zA-Z`) are _not_ mangled.
 
+## TypeScript
+
+This library includes TypeScript declarations which ensure all features are strongly typed. Most of
+the time this is achieved by automatic inference and is invisible in the code, but in some cases you
+may need to specify types explicitly. The most common case is when using sub-routers which take path
+parameters from a parent, which can be typed with `Router<WithPathParameters<{ name: string }>>`
+(see [`<Router>`] for details).
+
+## Index by Feature
+
+- Request handling
+  - [`<WebListener>`]
+  - [`<Router>`]
+  - [`requestHandler`]
+  - [`<Handler>`]
+  - [`<RoutingInstruction>`]
+  - [`<Property>`]
+  - Paths
+    - [Path syntax](#paths)
+    - [`getPathParameter`]
+    - [`getPathParameters`]
+    - [`getRemainingPathComponents`]
+    - [`getAbsolutePath`]
+    - [`restoreAbsolutePath`]
+    - [`getSearch`]
+    - [`getSearchParams`]
+    - [`getQuery`]
+- Error handling
+  - [`errorHandler`]
+  - [`typedErrorHandler`]
+  - [`conditionalErrorHandler`]
+  - [`<HTTPError>`]
+  - [`jsonErrorHandler`]
+  - [`emitError`]
+  - [`findCause`]
+- Upgrade request handling
+  - [`upgradeHandler`]
+  - [`anyHandler`]
+  - [`acceptUpgrade`]
+  - [`delegateUpgrade`]
+  - WebSocket handling (bring-your-own-library)
+    - [`makeAcceptWebSocket`]
+    - [`<WebSocketMessages>`]
+    - [`nextWebSocketMessage`]
+    - [`<WebSocketError>`]
+    - [`getWebSocketOrigin`]
+    - [`isWebSocketRequest`]
+- Body parsing
+  - [`getBodyStream`]
+  - [`getBodyTextStream`]
+  - [`getBodyText`]
+  - [`getBodyJson`]
+  - [`getFormData`]
+  - [`getFormFields`]
+  - [`acceptBody`]
+- Dynamic content
+  - [`sendCSVStream`]
+  - [`sendJSON`]
+  - [`sendJSONStream`]
+  - [`<ServerSentEvents>`]
+  - [`router.onReturn`] (templating)
+- Static files
+  - [`fileServer`]
+  - [`sendFile`]
+  - [`<Negotiator>`]
+  - [`negotiateEncoding`]
+  - Cache
+    - [`setDefaultCacheHeaders`]
+    - [`generateWeakETag`]
+    - [`generateStrongETag`]
+    - [`checkIfModified`]
+    - [`checkIfRange`]
+    - [`compareETag`]
+- Proxying
+  - [`proxy`]
+  - [`removeForwarded`]
+  - [`replaceForwarded`]
+  - [`sanitiseAndAppendForwarded`]
+  - [`simpleAppendForwarded`]
+- Authentication
+  - [`requireBearerAuth`]
+  - [`requireAuthScope`]
+  - [`hasAuthScope`]
+  - [`makeWebSocketFallbackTokenFetcher`]
+- Graceful shutdown
+  - [`setSoftCloseHandler`]
+  - [`isSoftClosed`]
+- Registries:
+  - Charset
+    - [`registerCharset`]
+    - [`registerUTF32`]
+    - [`getTextDecoder`]
+    - [`getTextDecoderStream`]
+  - Mime
+    - [`registerMime`]
+    - [`readMimeTypes`]
+    - [`decompressMime`]
+    - [`getMime`]
+    - [`resetMime`]
+- Header parsing
+  - [`makeGetClient`]
+  - [`getCharset`]
+  - [`getIfRange`]
+  - [`getAuthorization`]
+  - [`getRange`]
+  - [`readHTTPUnquotedCommaSeparated`]
+  - [`readHTTPDateSeconds`]
+  - [`readHTTPInteger`]
+  - [`readHTTPKeyValues`]
+  - [`readHTTPQualityValues`]
+- Lower-level access
+  - [`toListeners`]
+  - [`<NativeListeners>`]
+  - [`<FileFinder>`]
+  - [`sendRanges`]
+- Utilities
+  - [`defer`]
+  - [`addTeardown`]
+  - [`makeMemo`]
+  - [`getAbortSignal`]
+  - [`makeTempFileStorage`]
+  - [`getAddressURL`]
+  - [`parseAddress`]
+  - [`makeAddressTester`]
+  - [`compressFileOffline`]
+  - [`compressFilesInDir`]
+  - [`simplifyRange`]
+  - [`<BlockingQueue>`]
+  - [`<Queue>`]
+
 ## Core Classes
 
 ### `WebListener`
@@ -327,7 +457,7 @@ path if needed with [`getAbsolutePath`] and [`restoreAbsolutePath`].
 #### `router.within(path, init)`
 
 - `path` [`<string>`] a path prefix to filter on. See [Paths] for information about path patterns.
-- `init` [`<Function>`] a function which takes a `Router` and initialises it.
+- `init` [`<Function>`] a (synchronous) function which takes a `Router` and initialises it.
 - Returns: [`<Router>`] the router object (for chaining).
 
 Convenience function, shorthand for:
@@ -425,7 +555,9 @@ wrapped by [`errorHandler`]).
 
 [`router.onReturn`]: #routeronreturnfns
 
-- `fns` [`<Function[]>`][`<Function>`] any number of return handling functions.
+- `fns` [`<Function[]>`][`<Function>`] any number of (possibly asynchronous) return handling
+  functions. Called with: returned value [`<any>`], request [`<http.IncomingMessage>`], response
+  [`<http.ServerResponse>`]
 - Returns: [`<Router>`] the router object (for chaining).
 
 Register `fns` to be called when any request handler or error handler in this `Router` returns a
@@ -665,6 +797,9 @@ If a function is given for the default value, it will be invoked when the proper
 requested, if it has not already been set for the request. This can also be used for memoising a
 calculation (but see [`makeMemo`] for a simpler memoisation API).
 
+The `defaultValue` function _can_ be asynchronous, but note you must `await` all calls to
+[`property.get`] in this case.
+
 Example usage: [Using properties](#using-properties).
 
 #### `property.set(req, value)`
@@ -825,8 +960,8 @@ error handler middleware.
 [`acceptUpgrade`]: #acceptupgradereq-upgrade
 
 - `req` [`<http.IncomingMessage>`]
-- `upgrade` [`<Function>`] function which performs the necessary handshake to upgrade the request.
-  Receives:
+- `upgrade` [`<Function>`] an asynchronous function which performs the necessary handshake to
+  upgrade the request. Receives:
   - `req` [`<http.IncomingMessage>`]
   - `socket` [`<stream.Duplex>`]
   - `head` [`<Buffer>`]
@@ -834,8 +969,8 @@ error handler middleware.
     - `return` [`<any>`] the value to return from `acceptUpgrade`
     - `onError` [`<Function>`] | [`<undefined>`] a function to call if an error is thrown which is
       not handled by any error handler.
-    - `softCloseHandler` [`<Function>`] | [`<undefined>`] a function to call if the request is
-      soft-closed.
+    - `softCloseHandler` [`<Function>`] | [`<undefined>`] a (possibly asynchronous) function to call
+      if the request is soft-closed.
 - Returns: [`<Promise>`] Fulfills with [`<any>`] (the value of `return`) once the `upgrade` function
   completes.
 
@@ -894,6 +1029,8 @@ completely.
 
 ### `isSoftClosed(req)`
 
+[`isSoftClosed`]: #issoftclosedreq
+
 - `req` [`<http.IncomingMessage>`]
 - Returns: [`<boolean>`]
 
@@ -901,9 +1038,11 @@ Returns `true` if the request has already received a soft-close event.
 
 ### `setSoftCloseHandler(req, fn)`
 
+[`setSoftCloseHandler`]: #setsoftclosehandlerreq-fn
+
 - `req` [`<http.IncomingMessage>`]
-- `fn` [`<Function>`] a function to call when the request is soft-closed. Receives a reason
-  [`<string>`]
+- `fn` [`<Function>`] a (possibly asynchronous) function to call when the request is soft-closed.
+  Receives a reason [`<string>`]
 
 Sets the function to call for this request if it is soft-closed (by calling [`softClose`], or
 indirectly by calling [`augmentedserver.closeWithTimeout`]).
@@ -916,6 +1055,8 @@ message to the client and stopping processing of new incoming data. Simple handl
 but it is useful for handlers of long-lived connections, such as WebSockets or Server-Sent Events.
 
 ### `defer(req, fn)`
+
+[`defer`]: #deferreq-fn
 
 - `req` [`<http.IncomingMessage>`]
 - `fn` [`<Function>`] a (possibly asynchronous) deferred function.
@@ -943,6 +1084,8 @@ This is useful for cleaning up temporary state.
 Teardown functions are executed in the reverse order of registration.
 
 ### `getAbortSignal(req)`
+
+[`getAbortSignal`]: #getabortsignalreq
 
 - `req` [`<http.IncomingMessage>`]
 - Returns: [`<AbortSignal>`]
@@ -1282,6 +1425,8 @@ Various mime types which are common in websites are registered by default.
 
 ### `readMimeTypes(types)`
 
+[`readMimeTypes`]: #readmimetypestypes
+
 - `types` [`<string>`]
 - Returns: [`<Map>`]
 
@@ -1290,6 +1435,8 @@ Read an
 file. Can be combined with [`registerMime`] to register the result.
 
 ### `decompressMime(definitions)`
+
+[`decompressMime`]: #decompressmimedefinitions
 
 - `definitions` [`<string>`]
 - Returns: [`<Map>`]
@@ -1321,6 +1468,8 @@ Map(
 
 ### `getMime(ext[, charset])`
 
+[`getMime`]: #getmimeext-charset
+
 - `ext` [`<string>`] a file extension to look up (with or without a leading `.`)
 - `charset` [`<string>`]. **Default:** `'utf-8'`.
 - Returns: [`<string>`]
@@ -1332,6 +1481,8 @@ If the mime type matches `text/*`, it will have `; charset={charset}` appended t
 the registered mime type already includes an explicit `charset`).
 
 ### `resetMime()`
+
+[`resetMime`]: #resetmime
 
 Resets all registered mime types to the default supported set. This is not typically useful, but is
 used by the [CLI tool](./CLI.md) to reset mime types when the configuration changes, to avoid state
@@ -1487,6 +1638,8 @@ Example usage: [WebSocket requests](#websocket-requests).
 
 ### `getWebSocketOrigin(req)`
 
+[`getWebSocketOrigin`]: #getwebsocketoriginreq
+
 - `req` [`<http.IncomingMessage>`]
 - Returns: [`<string>`] | [`<undefined>`]
 
@@ -1495,6 +1648,8 @@ not set. This provides compatibility with old versions of the WebSocket standard
 ([`Sec-WebSocket-Origin`] is no longer used by newer versions).
 
 ### `isWebSocketRequest(req)`
+
+[`isWebSocketRequest`]: #iswebsocketrequestreq
 
 - `req` [`<http.IncomingMessage>`]
 - Returns: [`<boolean>`]
@@ -2003,6 +2158,8 @@ this function first to restore it. If you just need to access the full path your
 
 ### `getSearch(req)`
 
+[`getSearch`]: #getsearchparamsreq
+
 - `req` [`<http.IncomingMessage>`]
 - Returns: [`<string>`] the `search` part of the request URL.
 
@@ -2031,6 +2188,8 @@ to use [`getQuery`] for each one, as it avoids the need to make this copy.
 Returns a specific entry from [`getSearchParams`].
 
 ### `getAuthorization(req)`
+
+[`getAuthorization`]: #getauthorizationreq
 
 - `req` [`<http.IncomingMessage>`]
 - Returns: [`<string[]>`][`<string>`] | [`<undefined>`]
@@ -2128,6 +2287,8 @@ be relied on.
 
 ### `generateStrongETag(file)`
 
+[`generateStrongETag`]: #generatestrongetagfile
+
 - `file` [`<string>`] | [`<fs.FileHandle>`]
 - Returns: [`<string>`]
 
@@ -2145,8 +2306,8 @@ generate your own [`ETag`] value in a much simpler way (such as a version number
 
 [`jsonErrorHandler`]: #jsonerrorhandlerconversion-options
 
-- `conversion` [`<Function>`] a function which takes a [`<HTTPError>`] representing the error
-  encountered, and returns an object which will be sent to the client as a JSON document.
+- `conversion` [`<Function>`] a _synchronous_ function which takes a [`<HTTPError>`] representing
+  the error encountered, and returns an object which will be sent to the client as a JSON document.
 - `options` [`<Object>`]
   - `onlyIfRequested` [`<boolean>`] if `true`, the handler will only apply if the client sent
     `Accept: application/json` (or similar). If `false`, the handler will ignore the client's
@@ -2265,6 +2426,8 @@ router.use(
 
 ### `simpleAppendForwarded(req, headers)`
 
+[`simpleAppendForwarded`]: #simpleappendforwardedreq-headers
+
 - `req` [`<http.IncomingMessage>`]
 - `headers` [`<Object>`]
 - Returns: [`<Object>`]
@@ -2276,6 +2439,8 @@ about the current proxy appended via simple string concatenation.
 It is usually better to use [`sanitiseAndAppendForwarded`].
 
 ### `checkIfModified(req, res, fileStats)`
+
+[`checkIfModified`]: #checkifmodifiedreq-res-filestats
 
 - `req` [`<http.IncomingMessage>`]
 - `res` [`<http.ServerResponse>`]
@@ -2291,6 +2456,8 @@ response, and against the result of [`generateWeakETag`] for the `fileStats`.
 
 ### `checkIfRange(req, res, fileStats)`
 
+[`checkIfRange`]: #checkifrangereq-res-filestats
+
 - `req` [`<http.IncomingMessage>`]
 - `res` [`<http.ServerResponse>`]
 - `fileStats` [`<fs.Stats>`]
@@ -2300,6 +2467,8 @@ Checks [`If-Range`] for the request. Returns `true` if the conditions are met an
 should be allowed, or `false` if any conditions are not met and the file should be served in full.
 
 ### `compareETag(res, fileStats, etags)`
+
+[`compareETag`]: #compareetagres-filestats-etags
 
 - `res` [`<http.ServerResponse>`]
 - `fileStats` [`<fs.Stats>`]
@@ -2341,6 +2510,8 @@ Supported encodings:
 
 ### `getBodyTextStream(req[, options])`
 
+[`getBodyTextStream`]: #getbodytextstreamreq-options
+
 - `req` [`<http.IncomingMessage>`]
 - `options` [`<Object>`]
   - `defaultCharset` [`<string>`] the character set to use if no `charset` parameter is present in
@@ -2351,6 +2522,8 @@ Supported encodings:
 Reads the request body as a string, applying all the pre-processing stages from [`getBodyStream`].
 
 ### `getBodyText(req[, options])`
+
+[`getBodyText`]: #getbodytextreq-options
 
 - `req` [`<http.IncomingMessage>`]
 - `options` [`<Object>`]
@@ -2363,6 +2536,8 @@ Reads the request body as a string, applying all the pre-processing stages from 
 Gathers the entire body in-memory then returns it as a single string.
 
 ### `getBodyJson(req[, options])`
+
+[`getBodyJson`]: #getbodyjsonreq-options
 
 - `req` [`<http.IncomingMessage>`]
 - `options` [`<Object>`] options are passed to [`getBodyStream`] and [`getTextDecoderStream`].
@@ -2396,13 +2571,26 @@ listener was set on the [`<http.Server>`]).
 - `options` [`<Object>`]
   - `trimAllValues` [`<boolean>`] if `true`, all field values will have leading and trailing
     whitespace trimmed automatically. **Default:** `false`.
-  - `preCheckFile` [`<Function>`]
+  - `preCheckFile` [`<Function>`] a (possibly asynchronous) function which is called before
+    accepting a file for upload. Receives an [`<Object>`] with:
+    - `fieldName` [`<string>`] name of the field containing this file
+    - `filename` [`<string>`] client-sent filename for this file
+    - `encoding` [`<string>`] the [`Content-Transfer-Encoding`] header for this file (deprecated by
+      the spec)
+    - `mimeType` [`<string>`] client-sent mime type for this file
+    - `maxBytes` [`<number>`] | [`<undefined>`] upper limit on the file size, based on the `limits`
+      configured
+    - Returns: [`<Function>`] | [`<undefined>`] if a function is returned, it will be called after
+      the file has finished being uploaded with the final file size (in bytes).
   - additional options are passed to [`getFormFields`].
 - Returns: [`<Promise>`] Fulfills with [`<FormData>`].
 
 Read the entire request body as `application/x-www-url-encoded` or `multipart/form-data` and return
 it as a [`<FormData>`] object. Fields are stored entirely in-memory. Files are written to a
 temporary directory (via [`makeTempFileStorage`]) and included as filesystem-backed [`<Blob>`]s.
+
+The `preCheckFile` hook can be used to quickly reject invalid mime types, manage storage quotas,
+etc. If it throws, the body parsing will be abandoned immediately.
 
 The returned [`<FormData>`] instance includes a few extra helper methods:
 
@@ -2484,9 +2672,8 @@ properties:
   when uploading multiple files)
 - `mimeType` [`<string>`] the [`Content-Type`] header for this part (always `text/plain` for
   non-file data)
-- `encoding` [`<string>`] the
-  [`Content-Transfer-Encoding`](https://datatracker.ietf.org/doc/html/rfc7578#section-4.7) header
-  for this part (only relevant for `multipart` forms). This is generally not used.
+- `encoding` [`<string>`] the [`Content-Transfer-Encoding`] header for this part (only relevant for
+  `multipart` forms, deprecated by the spec). This is generally not used.
 - `type` [`<string>`] `'string'` or `'file'`
 - `value` [`<string>`] if the `type` is `'string'`; [`<stream.Readable>`] if `type` is `'file'`
 - `filename` [`<string>`] if the `type` is `'file'`
@@ -2511,6 +2698,8 @@ router.post('/', async (req, res) => {
 
 ### `getCharset(req)`
 
+[`getCharset`]: #getcharsetreq
+
 - `req` [`<http.IncomingMessage>`]
 - Returns: [`<string>`] | [`<undefined>`]
 
@@ -2518,6 +2707,8 @@ Returns the `charset` parameter from the [`Content-Type`] header of the request 
 `undefined` if no charset is set.
 
 ### `getIfRange(req)`
+
+[`getIfRange`]: #getifrangereq
 
 - `req` [`<http.IncomingMessage>`]
 - Returns: [`<Object>`] containing _either_:
@@ -2549,6 +2740,8 @@ In practice, multiple ranges are rarely used, so `maxRanges` can often be safely
 
 ### `readHTTPUnquotedCommaSeparated(raw)`
 
+[`readHTTPUnquotedCommaSeparated`]: #readhttpunquotedcommaseparatedraw
+
 - `raw` [`<string>`] | [`<string[]>`][`<string>`] | [`<number>`] | [`<undefined>`] the raw value of
   the header
 - Returns: [`<string[]>`][`<string>`]
@@ -2557,6 +2750,8 @@ Reads a header as a simple comma-separated list with no support for quoted value
 [`Connection`], [`Content-Encoding`], [`Expect`], [`If-None-Match`], [`Upgrade`], [`Via`], etc.
 
 ### `readHTTPDateSeconds(raw)`
+
+[`readHTTPDateSeconds`]: #readhttpdatesecondsraw
 
 - `raw` [`<string>`] | [`<string[]>`][`<string>`] | [`<number>`] | [`<undefined>`] the raw value of
   the header
@@ -2568,6 +2763,8 @@ January 1970 UTC). Note that RFC822 does not support sub-second precision.
 
 ### `readHTTPInteger(raw)`
 
+[`readHTTPInteger`]: #readhttpintegerraw
+
 - `raw` [`<string>`] | [`<undefined>`] the raw value of the header
 - Returns: [`<number>`] | [`<undefined>`]
 
@@ -2575,6 +2772,8 @@ Reads the input as a signed integer, returning `undefined` if it is not valid (e
 contains a decimal part).
 
 ### `readHTTPKeyValues(raw)`
+
+[`readHTTPKeyValues`]: #readhttpkeyvaluesraw
 
 - `raw` [`<string>`] | [`<undefined>`] the raw value of the header
 - Returns: [`<Map>`]
@@ -2615,6 +2814,8 @@ const negotiator = new Negotiator([negotiateEncoding(['gzip', 'zstd'])]);
 ```
 
 ### `getRemainingPathComponents(req[, options])`
+
+[`getRemainingPathComponents`]: #getremainingpathcomponentsreq-options
 
 - `req` [`<http.IncomingMessage>`]
 - `options` [`<Object>`]
@@ -2687,6 +2888,8 @@ automatically by this method. It is the caller's responsibility to close it.
 
 ### `sendCSVStream(res, table[, options])`
 
+[`sendCSVStream`]: #sendcsvstreamres-table-options
+
 - `res` [`<http.ServerResponse>`]
 - `table` [`<Array>`] | [`<AsyncIterable>`][`<AsyncIterator>`] of [`<Array>`] |
   [`<AsyncIterable>`][`<AsyncIterator>`] of [`<string>`] | [`<null>`] | [`<undefined>`]
@@ -2732,6 +2935,8 @@ Sends the `entity` as JSON. If headers have not already been sent, and [`Content
 set, this automatically sets [`Content-Type: application/json`][`Content-Type`].
 
 ### `sendJSONStream(res, entity[, options])`
+
+[`sendJSONStream`]: #sendjsonstreamres-entity-options
 
 - `res` [`<http.ServerResponse>`]
 - `entity` [`<any>`] the value to encode and send
@@ -2865,6 +3070,8 @@ These internal helper classes are exported in case they are useful.
 
 ### `BlockingQueue`
 
+[`<BlockingQueue>`]: #blockingqueue
+
 A first-in-first-out blocking queue for arbitrary items.
 
 #### `new BlockingQueue()`
@@ -2917,6 +3124,8 @@ Extracts one item at a time from the queue until [`blockingqueue.close`] or [`bl
 is called.
 
 ### `Queue`
+
+[`<Queue>`]: #queue
 
 Internal helper class exported for convenience. This implements a first-in-first-out non-blocking
 queue (as a linked-list) for arbitrary items.
@@ -2981,6 +3190,8 @@ The CIDR ranges can be a mix of IPv4 ranges (e.g. `10.0.0.0/8`), IPv6 ranges (e.
 explicit aliases (e.g. `_my_proxy`).
 
 ### `getAddressURL(addressInfo[, protocol])`
+
+[`getAddressURL`]: #getaddressurladdressinfo-protocol
 
 - `addressInfo` [`<string>`] | [`<Object>`] | [`<null>`] | [`<undefined>`] an address, as returned
   by [server.address] or [`parseAddress`]
@@ -3048,6 +3259,8 @@ Note that files with a known mime type starting with `image/`, `video/`, `audio/
 _not_ be compressed, as they are assumed to already be compressed as part of their file format.
 
 ### `compressFilesInDir(dir, encodings[, options])`
+
+[`compressFilesInDir`]: #compressfilesindirdir-encodings-options
 
 - `dir` [`<string>`] path to the root directory
 - `encodings` [`<FileNegotiationOption[]>`][`<FileNegotiationOption>`] a list of
@@ -3575,6 +3788,7 @@ Reference: [`getPathParameters`], [`makeAcceptWebSocket`], [`nextWebSocketMessag
 [`Content-Language`]:
   https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Language
 [`Content-Range`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Range
+[`Content-Transfer-Encoding`]: https://datatracker.ietf.org/doc/html/rfc7578#section-4.7
 [`Content-Type`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Type
 [`ETag`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/ETag
 [`Expect`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Expect
