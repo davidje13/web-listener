@@ -8,7 +8,7 @@ import { pipeline } from 'node:stream/promises';
 import type { ReadableStream } from 'node:stream/web';
 import { addTeardown, getAbortSignal } from '../../core/close.mts';
 import { STOP } from '../../core/RoutingInstruction.mts';
-import { makeMemo } from '../properties.mts';
+import { makeMemo } from '../Property.mts';
 
 interface SavedFile {
   path: string;

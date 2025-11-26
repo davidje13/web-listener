@@ -6,7 +6,7 @@ import { anyHandler, type RequestHandler, type UpgradeHandler } from '../../core
 import { HTTPError } from '../../core/HTTPError.mts';
 import type { ServerErrorCallback } from '../../core/messages.mts';
 import { getAuthorization } from '../request/headers.mts';
-import { Property, internalAsFactory } from '../properties.mts';
+import { Property, internalAsFactory } from '../Property.mts';
 
 interface BearerAuthOptions<Req, Token> {
   realm: string | ((req: IncomingMessage & Req) => MaybePromise<string>);

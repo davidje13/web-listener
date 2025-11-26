@@ -1290,29 +1290,6 @@ router.get('/:id/*sub', (req, res) => {
 });
 ```
 
-### `setProperty(req, property, value)`
-
-- `req` [`<http.IncomingMessage>`]
-- `property` [`<Property>`]
-- `value` [`<any>`]
-
-Equivalent to [`property.set(req, value)`][`property.set`]
-
-### `getProperty(req, property)`
-
-- `req` [`<http.IncomingMessage>`]
-- `property` [`<Property>`]
-- Returns: [`<any>`]
-
-Equivalent to [`property.get(req)`][`property.get`]
-
-### `clearProperty(req, property)`
-
-- `req` [`<http.IncomingMessage>`]
-- `property` [`<Property>`]
-
-Equivalent to [`property.clear(req)`][`property.clear`]
-
 ### `makeMemo(fn, ...args)`
 
 [`makeMemo`]: #makememofn-args

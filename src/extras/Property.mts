@@ -9,31 +9,33 @@ export const internalAsFactory = <Args extends any[], T>(
   typeof value === 'function' ? (value as (...args: Args) => T) : () => value;
 
 interface PropertiesMessageProps {
-  _customProperties: Map<Property<unknown>, unknown>;
+  _customProperties: Map<unknown, unknown>;
 }
 
 export class Property<T> {
-  /** @internal */ declare readonly _factory: (req: IncomingMessage) => T;
+  /** @internal */ declare private readonly _factory: (req: IncomingMessage) => T;
 
   constructor(defaultValue: T | ((req: IncomingMessage) => T) = throwNotSet) {
     this._factory = internalAsFactory(defaultValue);
   }
 
   set(req: IncomingMessage, value: T) {
-    setProperty(req, this, value);
+    const props = internalMustGetProps<PropertiesMessageProps>(req);
+    getCustomProperties(props).set(this, value);
   }
 
   get(req: IncomingMessage) {
-    return getProperty(req, this);
+    return getProperty(req, this, this._factory);
   }
 
   clear(req: IncomingMessage) {
-    clearProperty(req, this);
+    const props = internalGetProps<PropertiesMessageProps>(req);
+    props?._customProperties?.delete(this);
   }
 
   withValue(value: T) {
     return anyHandler((req: IncomingMessage) => {
-      setProperty(req, this, value);
+      this.set(req, value);
       return CONTINUE;
     });
   }
@@ -43,8 +45,8 @@ export const makeMemo = <T, Args extends any[] = []>(
   fn: (req: IncomingMessage, ...args: Args) => T,
   ...args: Args
 ): ((req: IncomingMessage) => T) => {
-  const prop = { _factory: (req) => fn(req, ...args) } as Property<T>;
-  return (req) => getProperty(req, prop);
+  const factory = (req: IncomingMessage) => fn(req, ...args);
+  return (req) => getProperty(req, factory, factory);
 };
 
 function getCustomProperties(props: Partial<PropertiesMessageProps>) {
@@ -54,31 +56,25 @@ function getCustomProperties(props: Partial<PropertiesMessageProps>) {
   return props._customProperties;
 }
 
-export function setProperty<T>(req: IncomingMessage, property: Property<T>, value: T) {
-  const props = internalMustGetProps<PropertiesMessageProps>(req);
-  getCustomProperties(props).set(property, value);
-}
-
-export function getProperty<T>(req: IncomingMessage, property: Property<T>): T {
+function getProperty<T>(
+  req: IncomingMessage,
+  property: unknown,
+  factory: (req: IncomingMessage) => T,
+): T {
   const props = internalGetProps<PropertiesMessageProps>(req);
   if (!props) {
-    return property._factory(req);
+    return factory(req);
   }
   const properties = getCustomProperties(props);
   if (properties.has(property)) {
     return properties.get(property) as T;
   }
-  const v = property._factory(req);
+  const v = factory(req);
   // note: if v is a Promise, we store it the same as any other value
   // this means that all future requests will return the promise, which may
   // already be resolved (so the value will be available in the next tick)
   properties.set(property, v);
   return v;
-}
-
-export function clearProperty<T>(req: IncomingMessage, property: Property<T>): void {
-  const props = internalGetProps<PropertiesMessageProps>(req);
-  props?._customProperties?.delete(property);
 }
 
 const throwNotSet = () => {

@@ -186,13 +186,7 @@ export {
   WebSocketMessage,
 } from './extras/websocket/WebSocketMessages.mts';
 
-export {
-  Property,
-  setProperty,
-  getProperty,
-  clearProperty,
-  makeMemo,
-} from './extras/properties.mts';
+export { Property, makeMemo } from './extras/Property.mts';
 export {
   simplifyRange,
   type SimplifyRangeOptions,

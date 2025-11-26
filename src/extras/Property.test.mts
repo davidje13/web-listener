@@ -3,7 +3,7 @@ import { responds } from '../test-helpers/responds.mts';
 import { Router } from '../core/Router.mts';
 import { requestHandler } from '../core/handler.mts';
 import { CONTINUE } from '../core/RoutingInstruction.mts';
-import { makeMemo, Property } from './properties.mts';
+import { makeMemo, Property } from './Property.mts';
 import 'lean-test';
 
 describe('Property', () => {

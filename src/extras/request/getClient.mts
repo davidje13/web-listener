@@ -1,7 +1,7 @@
 import type { IncomingMessage } from 'node:http';
 import { makeAddressTester, parseAddress, type Address } from '../../util/address.mts';
 import { readHTTPUnquotedCommaSeparated, readHTTPKeyValues } from './headers.mts';
-import { makeMemo } from '../properties.mts';
+import { makeMemo } from '../Property.mts';
 
 type ProxyHeader =
   | 'forwarded'
