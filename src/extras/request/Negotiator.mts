@@ -110,9 +110,9 @@ interface InternalOption {
 }
 
 export class Negotiator {
-  /** @internal */ private readonly _normalisedRules: InternalRule[];
-  /** @internal */ private readonly _maxFailedAttempts: number;
-  public readonly vary: string;
+  /** @internal */ declare private readonly _normalisedRules: InternalRule[];
+  /** @internal */ declare private readonly _maxFailedAttempts: number;
+  declare public readonly vary: string;
 
   /**
    * Content negotiation rules.
