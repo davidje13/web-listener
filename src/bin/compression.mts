@@ -2,7 +2,7 @@ import { compressFilesInDir, type CompressionInfo } from '../index.mts';
 import type { ConfigServer } from './config/types.mts';
 import type { Logger } from './log.mts';
 
-export async function runCompression(servers: ConfigServer[], minCompress: number, log: Logger) {
+export async function runCompression(servers: ConfigServer[], minCompression: number, log: Logger) {
   let created = 0;
 
   for (const server of servers) {
@@ -14,7 +14,7 @@ export async function runCompression(servers: ConfigServer[], minCompress: numbe
           continue;
         }
         log(2, `compressing files in ${mount.dir} using ${options.map((o) => o.match).join(', ')}`);
-        const processed = await compressFilesInDir(mount.dir, options, minCompress);
+        const processed = await compressFilesInDir(mount.dir, options, { minCompression });
         const textTotals = sumTotals(processed.filter(({ mime }) => mime.startsWith('text/')));
         const miscTotals = sumTotals(processed.filter(({ mime }) => !mime.startsWith('text/')));
         log(2, `text:  ${bytes(textTotals.rawSize)} / ${bytes(textTotals.bestSize)} compressed`);

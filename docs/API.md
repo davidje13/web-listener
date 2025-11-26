@@ -393,7 +393,7 @@ and [`restoreAbsolutePath`].
 
 - `method` [`<string>`] | [`<string[]>`][`<string>`] | [`<null>`] the [HTTP verb]\(s) to filter on
   (e.g. `GET`, `POST`, etc.)
-- `protocol` [`<string>`] a protocol which must be listed in the request's `upgrade` header.
+- `protocol` [`<string>`] a protocol which must be listed in the request's [`Upgrade`] header.
 - `path` [`<string>`] an exact path to filter on. See [Paths] for information about path patterns.
 - `handlers` [`<Handler[]>`][`<Handler>`] any number of upgrade or error handlers.
 - Returns: [`<Router>`] the router object (for chaining).
@@ -526,7 +526,7 @@ The `Handler` interface is used in several places, notably as input to [`<Router
 - Returns: [`<any>`] | [`<Promise>`] | [`<RoutingInstruction>`]
 
 Optional, potentially asynchronous function for handling requests. Called for requests which do not
-have an `upgrade` header, or if no matching [`handler.shouldUpgrade`] handler returned `true` for
+have an [`Upgrade`] header, or if no matching [`handler.shouldUpgrade`] handler returned `true` for
 the request (Node.js 24.9+).
 
 Can return or throw a [`<RoutingInstruction>`] to continue running additional handlers in the chain.
@@ -837,7 +837,7 @@ error handler middleware.
 - Returns: [`<Promise>`] Fulfills with [`<any>`] (the value of `return`) once the `upgrade` function
   completes.
 
-This can be called from an upgrade [`<Handler>`]. It allows delegation of Upgrade requests to other
+This can be called from an upgrade [`<Handler>`]. It allows delegation of upgrade requests to other
 libraries, while still hooking in to the error and soft close handling provide by `web-listener`.
 
 If this is called multiple times for the same request, the `upgrade` function is not re-invoked, but
@@ -980,7 +980,7 @@ Wraps the given request handling function in a `Handler`. Equivalent to:
   - `head` [`<Buffer>`]
 - `shouldUpgrade` [`<Function>`] a _synchronous_ function which should return `true` if the request
   should be handled as an upgrade, and `false` to handle it as a regular request. This is only
-  checked for requests which include an `upgrade` header, and is only suppported on Node.js 24.9+.
+  checked for requests which include an [`Upgrade`] header, and is only suppported on Node.js 24.9+.
   **Default:** `() => true`.
 - Returns: [`<Handler>`]
 
@@ -1868,7 +1868,7 @@ Represents the server address a request was sent to.
 
 - `rules` [`<Array>`]
 - `options` [`<Object>`]
-  - `maxFailedAttempts` [`<number>`]
+  - `maxFailedAttempts` [`<number>`] **Default:** `10`.
 
 TODO
 
@@ -2111,7 +2111,7 @@ Creates a simple proxy handler which forwards requests to a configured host. Thi
 example, for serving both an API and frontend content from the same server, especially during
 development (when the frontend content may be served by a dynamic server).
 
-Note that this proxy does _not_ support proxying Upgrade or `CONNECT` requests.
+Note that this proxy does _not_ support proxying [`Upgrade`] or `CONNECT` requests.
 
 Internally, a [`<http.Agent>`] or [`<https.Agent>`] pool is used to reduce communication overhead.
 This pool is never `destroy`ed, so if you are creating lots of short-lived `proxy`s, you should
@@ -2428,25 +2428,38 @@ router.post('/', async (req, res) => {
 - `req` [`<http.IncomingMessage>`]
 - Returns: [`<string>`] | [`<undefined>`]
 
-TODO
+Returns the `charset` parameter from the [`Content-Type`] header of the request (lowercased), or
+`undefined` if no charset is set.
 
 ### `getIfRange(req)`
 
 - `req` [`<http.IncomingMessage>`]
-- Returns: [`<Object>`]
+- Returns: [`<Object>`] containing _either_:
+  - `etag` [`<string[]>`][`<string>`] a list of [`ETag`]s to match
+  - `modifiedSeconds` [`<number>`] a modification time to check for (exact match). This is in
+    seconds seconds since the UNIX epoch (1st January 1970 UTC).
 
-TODO
+Parses the [`If-Range`] header from the request.
 
 ### `getRange(req, totalSize[, options])`
 
 [`getRange`]: #getrangereq-totalsize-options
 
 - `req` [`<http.IncomingMessage>`]
-- `totalSize` [`<number>`]
+- `totalSize` [`<number>`] the total size (in bytes) of the resource the ranges apply to (required
+  to support negative indices, which are relative to the end of the file)
 - `options` [`<Object>`]
+  - `maxRanges` [`<number>`] the maximum number of ranges to parse. **Default:** `10`.
+  - `maxNonSequential` [`<number>`] the maximum number of ranges to parse if any are non-sequential.
+    **Default:** `2`.
+  - `maxWithOverlap` [`<number>`] the maximum number of ranges to parse if any overlap. **Default:**
+    `2`.
 - Returns: [`<HTTPRange>`] | [`<undefined>`]
 
-TODO
+Parses the [`Range`] header from the request, or throws [`<HTTPError>`] [416 Range Not Satisfiable]
+if the header is invalid or a configured limit is exceeded.
+
+In practice, multiple ranges are rarely used, so `maxRanges` can often be safely set to `1`.
 
 ### `readHTTPUnquotedCommaSeparated(raw)`
 
@@ -2454,7 +2467,8 @@ TODO
   the header
 - Returns: [`<string[]>`][`<string>`]
 
-TODO
+Reads a header as a simple comma-separated list with no support for quoted values. Relevant to
+[`Connection`], [`Content-Encoding`], [`Expect`], [`If-None-Match`], [`Upgrade`], [`Via`], etc.
 
 ### `readHTTPDateSeconds(raw)`
 
@@ -2462,9 +2476,9 @@ TODO
   the header
 - Returns: [`<number>`] | [`<undefined>`]
 
-Reads the string as an RFC822 date (e.g. `Wed, 02 Oct 2002 13:00:00 GMT`), returning it as the
-number of seconds since the UNIX epoch (1st January 1970 UTC). Note that RFC822 does not support
-sub-second precision.
+Reads the string as an [RFC822 date](https://www.w3.org/Protocols/rfc822/#z28) (e.g.
+`Wed, 02 Oct 2002 13:00:00 GMT`), returning it as the number of seconds since the UNIX epoch (1st
+January 1970 UTC). Note that RFC822 does not support sub-second precision.
 
 ### `readHTTPInteger(raw)`
 
@@ -2729,7 +2743,7 @@ able to spoof the data. The supported headers are:
 - `X-Forwarded-Proto`: Populates `proto`. Only used if `X-Forwarded-For` is set.
 - `X-Forwarded-Protocol`: Populates `proto`. Only used if `X-Forwarded-For` is set.
 - `X-Url-Scheme`: Populates `proto`. Only used if `X-Forwarded-For` is set.
-- `Via`: Populates `server`
+- [`Via`]: Populates `server`
 
 The returned function accepts a request [`<http.IncomingMessage>`] and returns an object with:
 
@@ -2842,8 +2856,8 @@ Extracts one item at a time from the queue. Never completes.
 
 - `address` [`<string>`] | [`<undefined>`]
 
-Reads an IPv4, IPv6, or alias address with an optional port (as used in `via`, `forwarded`, and
-`x-forwarded-for` headers).
+Reads an IPv4, IPv6, or alias address with an optional port (as used in [`Via`], `Forwarded`, and
+`X-Forwarded-For` headers).
 
 Returns an object with `type` (`'IPv4'`, `'IPv6'`, or `'alias'`), `ip` [`<string>`], and `port`
 [`<number>`] | [`<undefined>`]. This structure is a superset of the address info structure returned
@@ -2905,13 +2919,57 @@ if (httpError) {
 }
 ```
 
-### `compressFileOffline(file, options, minCompression)`
+### `compressFileOffline(file, encodings[, options])`
 
-TODO
+[`compressFileOffline`]: #compressfileofflinefile-encodings-options
 
-### `compressFilesInDir(dir, options, minCompression)`
+- `file` [`<string>`] path to the file to compress.
+- `encodings` [`<Array>`] a list of [`Content-Encoding`] negotiation options (e.g. as returned by
+  [`negotiateEncoding`]).
+- `options` [`<Object>`]
+  - `minCompression` [`<number>`] minimum compression (in bytes) which must be achieved for the
+    compression to be worthwhile. Anything which does not reach this threshold is discarded without
+    saving. **Default:** `0`.
+  - `deleteObsolete` [`<boolean>`] if `true`, existing compressed files which are no-longer relevant
+    will be deleted. **Default:** `false`.
+- Returns: [`<Promise>`] Fulfills with [`<Object>`] containing information about the compression
+  once the file has been processed.
 
-TODO
+Attempts to compress the given file according to each of the `encodings`. For any which achieve at
+least `minCompression` bytes of reduction, the file is saved according to the `encodings` file
+pattern (e.g. by default, `gzip`-compressed files will be saved as `name.ext.gz`).
+
+This can be useful for processing uploaded files for faster serving.
+
+Note that files with a known mime type starting with `image/`, `video/`, `audio/`, and `font/` will
+_not_ be compressed, as they are assumed to already be compressed as part of their file format.
+
+### `compressFilesInDir(dir, encodings[, options])`
+
+- `dir` [`<string>`] path to the root directory
+- `encodings` [`<Array>`] a list of [`Content-Encoding`] negotiation options (e.g. as returned by
+  [`negotiateEncoding`]).
+- `options` [`<Object>`]
+  - `minCompression` [`<number>`] minimum compression (in bytes) which must be achieved for the
+    compression to be worthwhile. Anything which does not reach this threshold is discarded without
+    saving. **Default:** `0`.
+  - `deleteObsolete` [`<boolean>`] if `true`, existing compressed files which are no-longer relevant
+    will be deleted. **Default:** `false`.
+- Returns: [`<Promise>`] Fulfills with [`<Object[]>`][`<Object>`] containing information about the
+  compression once all files have been processed.
+
+Runs [`compressFileOffline`] for all files in `dir` and all sub-directories (recursive).
+
+Does _not_ attempt to compress files which are already compressed versions of another file. If you
+want to be able to _recompress_ files in a directory which have already been compressed, specify
+`deleteObsolete: true` to ensure old files are cleaned up if the new content does not compress
+sufficiently.
+
+This can be useful as a build step, to produce compressed versions of static content for faster
+serving.
+
+This feature is also exposed by the CLI as
+[`--write-compressed`](./CLI.md#content-encoding-and-pre-compressed-files).
 
 ### `makeTempFileStorage(req)`
 
@@ -3351,6 +3409,8 @@ Reference: [`getPathParameters`], [`makeAcceptWebSocket`], [`nextWebSocketMessag
   https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise
 [`<AsyncIterator>`]:
   https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/AsyncIterator
+[`<Generator>`]:
+  https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Generator
 [`<URL>`]: https://developer.mozilla.org/en-US/docs/Web/API/URL
 [`<Map>`]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map
 [`<Blob>`]: https://developer.mozilla.org/en-US/docs/Web/API/Blob
@@ -3392,6 +3452,7 @@ Reference: [`getPathParameters`], [`makeAcceptWebSocket`], [`nextWebSocketMessag
 [403 Forbidden]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/403
 [413 Content Too Large]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/413
 [415 Unsupported Media Type]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/415
+[416 Range Not Satisfiable]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/416
 [417 Expectation Failed]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/417
 [503 Service Unavailable]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/503
 [close code]: https://developer.mozilla.org/en-US/docs/Web/API/CloseEvent/code
@@ -3412,6 +3473,9 @@ Reference: [`getPathParameters`], [`makeAcceptWebSocket`], [`nextWebSocketMessag
   https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/If-Modified-Since
 [`If-None-Match`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/If-None-Match
 [`If-Range`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/If-Range
+[`Range`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Range
+[`Upgrade`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Upgrade
 [`Vary`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Vary
+[`Via`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Via
 [`WWW-Authenticate`]:
   https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/WWW-Authenticate

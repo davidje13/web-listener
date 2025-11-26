@@ -1,7 +1,7 @@
 import zlib from 'node:zlib';
 import { promisify } from 'node:util';
 import { basename, dirname, extname, join } from 'node:path';
-import { readdir, readFile, stat, writeFile } from 'node:fs/promises';
+import { readdir, readFile, stat, writeFile, rm } from 'node:fs/promises';
 import { internalMutateName, type FileNegotiationOption } from '../request/Negotiator.mts';
 import { getMime } from '../registries/mime.mts';
 
@@ -22,10 +22,24 @@ export interface CompressionInfo {
   created: number;
 }
 
+export interface CompressionOptions {
+  /**
+   * the minimum compression (in bytes) which must be achieved to save the file
+   * @default 0
+   */
+  minCompression?: number;
+
+  /**
+   * if `true`, existing compressed files which are no-longer relevant will be removed
+   * @default false
+   */
+  deleteObsolete?: boolean;
+}
+
 export async function compressFileOffline(
   file: string,
-  options: FileNegotiationOption[],
-  minCompression: number,
+  encodings: FileNegotiationOption[],
+  { minCompression = 0, deleteObsolete = false }: CompressionOptions = {},
 ): Promise<CompressionInfo> {
   const raw = await readFile(file);
   const info = {
@@ -36,26 +50,25 @@ export async function compressFileOffline(
     created: 0,
   };
 
-  if (info.rawSize <= minCompression) {
-    return info;
-  }
-
   if (['image', 'video', 'audio', 'font'].includes(info.mime.split('/')[0]!)) {
     // ignore formats which usually apply their own compression
     return info;
   }
 
-  for (const opt of options) {
+  const threshold = info.rawSize - minCompression;
+  for (const opt of encodings) {
     const compress = ENCODERS.get(opt.match as string);
     const mutated = join(dirname(file), internalMutateName(basename(file), opt.file));
     if (!compress || mutated === opt.file) {
       continue;
     }
-    const compressed = await compress(raw);
-    if (compressed.byteLength <= info.rawSize - minCompression) {
+    const compressed = threshold > 0 ? await compress(raw) : undefined;
+    if (compressed && compressed.byteLength <= threshold) {
       await writeFile(mutated, compressed);
       info.bestSize = Math.min(info.bestSize, compressed.byteLength);
       ++info.created;
+    } else if (deleteObsolete) {
+      await rm(mutated).catch(() => {});
     }
   }
 
@@ -64,22 +77,22 @@ export async function compressFileOffline(
 
 export async function compressFilesInDir(
   dir: string,
-  options: FileNegotiationOption[],
-  minCompression: number,
+  encodings: FileNegotiationOption[],
+  options: CompressionOptions = {},
 ): Promise<CompressionInfo[]> {
   const allFiles: string[] = [];
   await findFilesR(dir, allFiles);
   const files = new Set(allFiles);
   // remove existing compressed files from the set
   for (const file of files) {
-    for (const opt of options) {
+    for (const opt of encodings) {
       const mutated = join(dirname(file), internalMutateName(basename(file), opt.file));
       if (mutated !== file) {
         files.delete(mutated);
       }
     }
   }
-  return Promise.all([...files].map((file) => compressFileOffline(file, options, minCompression)));
+  return Promise.all([...files].map((file) => compressFileOffline(file, encodings, options)));
 }
 
 async function findFilesR(dir: string, output: string[]) {

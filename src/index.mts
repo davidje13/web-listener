@@ -69,6 +69,7 @@ export { generateWeakETag, generateStrongETag } from './extras/cache/etag.mts';
 export {
   compressFileOffline,
   compressFilesInDir,
+  type CompressionOptions,
   type CompressionInfo,
 } from './extras/compress/offline.mts';
 

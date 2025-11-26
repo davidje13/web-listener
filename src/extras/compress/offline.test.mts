@@ -9,18 +9,16 @@ describe('compressFileOffline', () => {
     'compressible.txt': '.'.repeat(1000),
   });
 
+  const encodings = [
+    { match: 'gzip', file: '{file}.gz' },
+    { match: 'br', file: '{file}.br' },
+    { match: 'deflate', file: 'custom-{file}.deflate' },
+  ];
+
   it('applies multiple possible compressions to a file', async ({ getTyped }) => {
     const dir = getTyped(TEST_DIR);
     const file = join(dir, 'compressible.txt');
-    const stats = await compressFileOffline(
-      file,
-      [
-        { match: 'gzip', file: '{file}.gz' },
-        { match: 'br', file: '{file}.br' },
-        { match: 'deflate', file: 'custom-{file}.deflate' },
-      ],
-      300,
-    );
+    const stats = await compressFileOffline(file, encodings, { minCompression: 300 });
 
     expect(stats.file).equals(file);
     expect(stats.mime).equals('text/plain; charset=utf-8');
@@ -35,6 +33,54 @@ describe('compressFileOffline', () => {
       'compressible.txt.gz',
       'custom-compressible.txt.deflate',
     ]);
+  });
+
+  it('does not remove obsolete compressed files if deleteObsolete is false', async ({
+    getTyped,
+  }) => {
+    const dir = getTyped(TEST_DIR);
+    const file = join(dir, 'compressible.txt');
+
+    // compress
+    await compressFileOffline(file, encodings, { minCompression: 0 });
+
+    // recompress with stricter requirements
+    await compressFileOffline(file, encodings, { minCompression: 999 });
+
+    expect((await readdir(dir)).sort()).equals([
+      'compressible.txt',
+      'compressible.txt.br',
+      'compressible.txt.gz',
+      'custom-compressible.txt.deflate',
+    ]);
+  });
+
+  it('removes obsolete compressed files if deleteObsolete is true', async ({ getTyped }) => {
+    const dir = getTyped(TEST_DIR);
+    const file = join(dir, 'compressible.txt');
+
+    // compress
+    await compressFileOffline(file, encodings, { minCompression: 0 });
+
+    // recompress with stricter requirements
+    await compressFileOffline(file, encodings, { minCompression: 999, deleteObsolete: true });
+
+    expect((await readdir(dir)).sort()).equals(['compressible.txt']);
+  });
+
+  it('removes all compressed files if deleteObsolete is true and the file is too small for any compression', async ({
+    getTyped,
+  }) => {
+    const dir = getTyped(TEST_DIR);
+    const file = join(dir, 'compressible.txt');
+
+    // compress
+    await compressFileOffline(file, encodings, { minCompression: 0 });
+
+    // recompress with stricter requirements
+    await compressFileOffline(file, encodings, { minCompression: 10000, deleteObsolete: true });
+
+    expect((await readdir(dir)).sort()).equals(['compressible.txt']);
   });
 });
 
@@ -53,7 +99,9 @@ describe('compressFilesInDir', () => {
 
   it('compresses files which can be reduced', async ({ getTyped }) => {
     const dir = getTyped(TEST_DIR);
-    const stats = await compressFilesInDir(dir, [{ match: 'gzip', file: '{file}.gz' }], 300);
+    const stats = await compressFilesInDir(dir, [{ match: 'gzip', file: '{file}.gz' }], {
+      minCompression: 300,
+    });
     expect(stats).hasLength(6);
 
     const findStat = (file: string) => stats.find((s) => s.file.endsWith(file));
