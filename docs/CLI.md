@@ -64,6 +64,9 @@ Example `config.json` (equivalent to `web-listener . --spa index.html --port 808
 
 Paths in config files are relative to the file, not the current working directory.
 
+When using an external configuration file, you can reload the config without restarting the process
+by sending SIGHUP, or providing a newline to stdin (i.e. pressing return in the terminal).
+
 A [JSON schema](https://json-schema.org/) is available which can be used for validation of JSON
 configuration, and to provide editor assistance in compatible IDEs:
 
