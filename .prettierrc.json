@@ -3,8 +3,5 @@
   "singleQuote": true,
   "trailingComma": "all",
   "proseWrap": "always",
-  "overrides": [
-    { "files": ["LICENSE"], "options": { "printWidth": 78 } },
-    { "files": ["*.md"], "options": { "trailingComma": "none" } }
-  ]
+  "overrides": [{ "files": ["LICENSE"], "options": { "printWidth": 78 } }]
 }

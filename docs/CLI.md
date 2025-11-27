@@ -70,12 +70,10 @@ by sending SIGHUP, or providing a newline to stdin (i.e. pressing return in the 
 A [JSON schema](https://json-schema.org/) is available which can be used for validation of JSON
 configuration, and to provide editor assistance in compatible IDEs:
 
-```jsonc
+```json
 {
   "$schema": "./node_modules/web-listener/schema.json",
-  "servers": [
-    /*...*/
-  ]
+  "servers": [{ "port": 8080, "mount": [] }]
 }
 ```
 
@@ -267,22 +265,18 @@ npx web-listener . --mime 'foo=application/foo'
 
 #### Equivalent JSON Configuration
 
-```jsonc
+```json
 {
-  "servers": [
-    /* ... */
-  ],
+  "servers": [{ "port": 8080, "mount": [{ "type": "files" }] }],
   "mime": ["foo=application/foo"]
 }
 ```
 
 Or:
 
-```jsonc
+```json
 {
-  "servers": [
-    /* ... */
-  ],
+  "servers": [{ "port": 8080, "mount": [{ "type": "files" }] }],
   "mime": { "foo": "application/foo" }
 }
 ```
@@ -300,11 +294,9 @@ npx web-listener . --mime-types ./mime.types
 
 #### Equivalent JSON Configuration
 
-```jsonc
+```json
 {
-  "servers": [
-    /* ... */
-  ],
+  "servers": [{ "port": 8080, "mount": [{ "type": "files" }] }],
   "mime": ["file://mime.types"]
 }
 ```
@@ -337,8 +329,6 @@ npx web-listener . --brotli --gzip
       "mount": [
         {
           "type": "files",
-          "path": "/",
-          "dir": ".",
           "options": {
             "negotiation": [
               { "type": "encoding", "options": [{ "match": "br", "file": "{file}.br" }] },
