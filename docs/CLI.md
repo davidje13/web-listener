@@ -70,7 +70,7 @@ by sending SIGHUP, or providing a newline to stdin (i.e. pressing return in the 
 A [JSON schema](https://json-schema.org/) is available which can be used for validation of JSON
 configuration, and to provide editor assistance in compatible IDEs:
 
-```json
+```jsonc
 {
   "$schema": "./node_modules/web-listener/schema.json",
   "servers": [
@@ -267,7 +267,7 @@ npx web-listener . --mime 'foo=application/foo'
 
 #### Equivalent JSON Configuration
 
-```json
+```jsonc
 {
   "servers": [
     /* ... */
@@ -278,7 +278,7 @@ npx web-listener . --mime 'foo=application/foo'
 
 Or:
 
-```json
+```jsonc
 {
   "servers": [
     /* ... */
@@ -300,7 +300,7 @@ npx web-listener . --mime-types ./mime.types
 
 #### Equivalent JSON Configuration
 
-```json
+```jsonc
 {
   "servers": [
     /* ... */
