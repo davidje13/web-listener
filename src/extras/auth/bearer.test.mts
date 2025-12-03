@@ -1,4 +1,5 @@
 import { Router } from '../../core/Router.mts';
+import { setSoftCloseHandler } from '../../core/close.mts';
 import { withServer } from '../../test-helpers/withServer.mts';
 import { hasAuthScope, requireAuthScope, requireBearerAuth } from './bearer.mts';
 import 'lean-test';
@@ -86,6 +87,65 @@ describe('requireBearerAuth', () => {
       expect(res.status).equals(503);
     });
   });
+
+  it('soft closes connections if softCloseBufferTime is set', { timeout: 3000 }, () => {
+    const router = new Router();
+    router.get(
+      '/',
+      requireBearerAuth({
+        realm: 'some-realm',
+        extractAndValidateToken: testTokenValidator,
+        closeOnExpiry: true,
+        softCloseBufferTime: 1000,
+      }),
+      (req, res) => {
+        setSoftCloseHandler(req, () => {
+          res.end('soft closed');
+        });
+      },
+    );
+
+    return withServer(router, async (url) => {
+      // token only allows 1-second resolution, so this test might be slow
+      const nearFuture = Math.floor(Date.now() / 1000 + 2.5);
+      const res = await fetch(url, {
+        headers: { authorization: `Bearer valid-{"exp": ${nearFuture}}` },
+      });
+      expect(res.status).equals(200);
+      expect(await res.text()).equals('soft closed');
+    });
+  });
+
+  it(
+    'considers the token expired if the soft close buffer time has already been reached',
+    { timeout: 3000 },
+    () => {
+      const router = new Router();
+      router.get(
+        '/',
+        requireBearerAuth({
+          realm: 'some-realm',
+          extractAndValidateToken: testTokenValidator,
+          closeOnExpiry: true,
+          softCloseBufferTime: 10000,
+        }),
+        (req, res) => {
+          setSoftCloseHandler(req, () => {
+            res.end('soft closed');
+          });
+        },
+      );
+
+      return withServer(router, async (url, { expectError }) => {
+        const nearFuture = Math.floor(Date.now() / 1000 + 5);
+        const res = await fetch(url, {
+          headers: { authorization: `Bearer valid-{"exp": ${nearFuture}}` },
+        });
+        expect(res.status).equals(401);
+        expectError('handling request /: HTTPError(401 Unauthorized): token expired');
+      });
+    },
+  );
 
   it('uses custom token fetching if no bearer token is sent', { timeout: 3000 }, () => {
     const router = new Router();
