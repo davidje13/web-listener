@@ -10,6 +10,8 @@ import { disableProtoDelete, disableProtoThrow } from '../../test-helpers/proto.
 import { getAddressURL } from '../../util/getAddressURL.mts';
 import { requestHandler } from '../../core/handler.mts';
 import { getAbortSignal } from '../../core/close.mts';
+import { CONTINUE } from '../../core/RoutingInstruction.mts';
+import { Router } from '../../core/Router.mts';
 import { proxy } from './proxy.mts';
 import 'lean-test';
 
@@ -318,5 +320,27 @@ describe('proxy', () => {
         await expect.poll(() => upstreamSignal?.aborted, isTrue(), { timeout: 300 });
       }),
     );
+  });
+
+  it('ignores requests which close quickly', { timeout: 3000 }, () => {
+    let upstreamCount = 0;
+    const upstream = requestHandler((_, res) => {
+      ++upstreamCount;
+      res.end();
+    });
+
+    return withServer(upstream, (upstreamUrl) => {
+      const router = new Router();
+      router.use(
+        () => new Promise((resolve) => setTimeout(() => resolve(CONTINUE), 100)),
+        proxy(upstreamUrl),
+      );
+      return withServer(router, async (url) => {
+        const socket = await rawRequestStream(url);
+        socket.destroy();
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        expect(upstreamCount).equals(0);
+      });
+    });
   });
 });

@@ -2,6 +2,7 @@ import { open, stat } from 'node:fs/promises';
 import { ReadableStream } from 'node:stream/web';
 import { Readable } from 'node:stream';
 import { makeTestTempFile } from '../../test-helpers/makeFileStructure.mts';
+import { rawRequestStream } from '../../test-helpers/rawRequest.mts';
 import { withServer } from '../../test-helpers/withServer.mts';
 import { requestHandler } from '../../core/handler.mts';
 import { generateWeakETag } from '../cache/etag.mts';
@@ -224,6 +225,20 @@ describe('sendFile', () => {
       expect(resPost.status).equals(200);
       expect(resPost.headers.has('accept-ranges')).isFalse();
       expect(await resPost.text()).equals('This is my file content.');
+    });
+  });
+
+  it('ignores requests which close quickly', { timeout: 3000 }, ({ getTyped }) => {
+    const filePath = getTyped(TEST_FILE);
+    const handler = requestHandler(async (req, res) => {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      await sendFile(req, res, filePath);
+    });
+
+    return withServer(handler, async (url) => {
+      const socket = await rawRequestStream(url);
+      socket.destroy();
+      await new Promise((resolve) => setTimeout(resolve, 200));
     });
   });
 

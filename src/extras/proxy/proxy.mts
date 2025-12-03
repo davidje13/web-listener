@@ -73,6 +73,10 @@ export function proxy(
   return requestHandler(
     (req, res) =>
       new Promise((resolve, reject) => {
+        if (res.closed || !res.writable) {
+          return reject(STOP); // client closed connection; don't bother forwarding
+        }
+
         const signal = getAbortSignal(req);
         const send502 = (error: unknown) =>
           reject(signal.aborted ? STOP : new HTTPError(502, { cause: error }));
@@ -97,6 +101,10 @@ export function proxy(
         });
         proxyReq.once('error', send502);
         proxyReq.once('response', (proxyRes) => {
+          if (res.closed || !res.writable) {
+            return reject(STOP); // client closed connection; don't bother streaming response
+          }
+
           if (!res.headersSent) {
             let headers: OutgoingHttpHeaders = { ...proxyRes.headers };
             blockHeaders(headers, blockResponseHeaders);

@@ -17,11 +17,18 @@ export async function sendFile(
   fileStats: Pick<Stats, 'mtimeMs' | 'size'> | null = null,
   options?: GetRangeOptions & SimplifyRangeOptions,
 ) {
+  if (res.closed || !res.writable) {
+    return; // client closed connection; don't bother loading file
+  }
+
   if (!fileStats) {
     if (typeof source === 'string') {
       fileStats = await stat(source);
     } else if (internalIsFileHandle(source)) {
       fileStats = await source.stat();
+    }
+    if (res.closed || !res.writable) {
+      return; // client closed connection while we were loading file stats
     }
   }
 

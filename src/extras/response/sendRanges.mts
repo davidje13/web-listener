@@ -18,6 +18,10 @@ export async function sendRanges(
   source: string | FileHandle | Readable | ReadableStream<Uint8Array>,
   httpRange: HTTPRange,
 ) {
+  if (res.closed || !res.writable) {
+    return; // client closed connection; don't bother loading file
+  }
+
   if (typeof source !== 'string' && !internalIsFileHandle(source)) {
     httpRange = simplifyRange(httpRange, { mergeOverlapDistance: 0, forceSequential: true });
   }
@@ -34,9 +38,15 @@ export async function sendRanges(
       return;
     }
     const slicer = await getSlicer(source);
-    await pipeline(slicer._get(range.start, range.end), res);
-    if (slicer._end) {
-      await slicer._end();
+    try {
+      if (res.closed || !res.writable) {
+        return; // client closed connection; stop sending data
+      }
+      await pipeline(slicer._get(range.start, range.end), res);
+    } finally {
+      if (slicer._end) {
+        await slicer._end();
+      }
     }
     return;
   }
@@ -70,6 +80,9 @@ export async function sendRanges(
   const slicer = await getSlicer(source);
   try {
     for (const { _head, _range } of sections) {
+      if (res.closed || !res.writable) {
+        return; // client closed connection; stop sending data
+      }
       res.write(trailing + _head, 'ascii');
       await pipeline(slicer._get(_range.start, _range.end), res, { end: false });
       trailing = '\r\n';

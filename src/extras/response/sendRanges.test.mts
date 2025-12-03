@@ -2,6 +2,7 @@ import { open } from 'node:fs/promises';
 import { Readable } from 'node:stream';
 import { ReadableStream } from 'node:stream/web';
 import { makeTestTempFile } from '../../test-helpers/makeFileStructure.mts';
+import { rawRequestStream } from '../../test-helpers/rawRequest.mts';
 import { withServer } from '../../test-helpers/withServer.mts';
 import { requestHandler } from '../../core/handler.mts';
 import { sendRanges } from './sendRanges.mts';
@@ -112,6 +113,23 @@ describe('sendRanges', () => {
         expect(res.headers.get('content-range')).equals('bytes 1-3/5');
         expect(res.headers.get('content-length')).equals('3');
         expect(await res.text()).equals('ell');
+      });
+    });
+
+    it('ignores requests which close quickly', { timeout: 3000 }, ({ getTyped }) => {
+      const filePath = getTyped(TEST_FILE);
+      const handler = requestHandler(async (req, res) => {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        await sendRanges(req, res, filePath, {
+          ranges: [{ start: 10, end: 19 }],
+          totalSize: 24,
+        });
+      });
+
+      return withServer(handler, async (url) => {
+        const socket = await rawRequestStream(url);
+        socket.destroy();
+        await new Promise((resolve) => setTimeout(resolve, 200));
       });
     });
   });
@@ -260,6 +278,26 @@ describe('sendRanges', () => {
         const body = await res.text();
         expect(body).contains('content-range: bytes 0-1/5\r\n\r\nhe\r\n--');
         expect(body).contains('content-range: bytes 3-4/5\r\n\r\nlo\r\n--');
+      });
+    });
+
+    it('ignores requests which close quickly', { timeout: 3000 }, ({ getTyped }) => {
+      const filePath = getTyped(TEST_FILE);
+      const handler = requestHandler(async (req, res) => {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        await sendRanges(req, res, filePath, {
+          ranges: [
+            { start: 0, end: 4 },
+            { start: 10, end: 14 },
+          ],
+          totalSize: 24,
+        });
+      });
+
+      return withServer(handler, async (url) => {
+        const socket = await rawRequestStream(url);
+        socket.destroy();
+        await new Promise((resolve) => setTimeout(resolve, 200));
       });
     });
   });
