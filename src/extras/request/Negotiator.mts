@@ -1,6 +1,6 @@
 import type { IncomingHttpHeaders } from 'node:http';
 import { extname } from 'node:path';
-import { internalOverrideFlags } from '../../util/regexpFlags.mts';
+import { stringPredicate } from '../../util/regexpFlags.mts';
 import { readHTTPQualityValues, type QualityValue } from './headers.mts';
 
 const FEATURES = {
@@ -155,10 +155,10 @@ export class Negotiator {
         }
         return {
           _feature: rule.feature,
-          _match: makeCheck(rule.match),
+          _match: stringPredicate(rule.match, true),
           _options: rule.options.map((option) => ({
             _file: option.file,
-            _match: makeCheck(option.match),
+            _match: stringPredicate(option.match, true),
             _as: option.as ?? (typeof option.match === 'string' ? option.match : ''),
           })),
         };
@@ -239,18 +239,6 @@ export class Negotiator {
     }
   }
 }
-
-const makeCheck = (condition: string | RegExp | undefined): ((value: string) => boolean) => {
-  if (condition === undefined) {
-    return () => true;
-  }
-  if (typeof condition === 'string') {
-    const lower = condition.toLowerCase();
-    return (value) => value.toLowerCase() === lower;
-  }
-  const pattern = internalOverrideFlags(condition, true);
-  return (value) => pattern.test(value);
-};
 
 const byQuality = <T extends QualityValue>(a: T, b: T) =>
   b.q - a.q || b.specificity - a.specificity;

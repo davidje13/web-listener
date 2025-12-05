@@ -5,6 +5,7 @@ export { BlockingQueue } from './util/BlockingQueue.mts';
 export { findCause } from './util/findCause.mts';
 export { getAddressURL } from './util/getAddressURL.mts';
 export { Queue } from './util/Queue.mts';
+export { stringPredicate } from './util/regexpFlags.mts';
 
 export {
   acceptUpgrade,

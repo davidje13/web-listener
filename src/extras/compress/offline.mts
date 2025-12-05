@@ -34,12 +34,24 @@ export interface CompressionOptions {
    * @default false
    */
   deleteObsolete?: boolean;
+
+  /**
+   * Filter to apply to files (does not attempt to compress files if the function returns `false`)
+   * @param path the full path to the file
+   * @param mime the mime type of the file (if known, else 'application/binary')
+   * @returns `true` if the file should be compressed
+   * @default (_, mime) => !['image', 'video', 'audio', 'font'].includes(mime.split('/')[0])
+   */
+  filter?: (path: string, mime: string) => boolean;
 }
+
+const DEFAULT_FILTER = (_: string, mime: string) =>
+  !['image', 'video', 'audio', 'font'].includes(mime.split('/')[0]!);
 
 export async function compressFileOffline(
   file: string,
   encodings: FileNegotiationOption[],
-  { minCompression = 0, deleteObsolete = false }: CompressionOptions = {},
+  { minCompression = 0, deleteObsolete = false, filter = DEFAULT_FILTER }: CompressionOptions = {},
 ): Promise<CompressionInfo> {
   const raw = await readFile(file);
   const info = {
@@ -50,7 +62,7 @@ export async function compressFileOffline(
     created: 0,
   };
 
-  if (['image', 'video', 'audio', 'font'].includes(info.mime.split('/')[0]!)) {
+  if (!filter(file, info.mime)) {
     // ignore formats which usually apply their own compression
     return info;
   }

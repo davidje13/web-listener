@@ -1,4 +1,5 @@
-import { compressFilesInDir, type CompressionInfo } from '../index.mts';
+import { basename } from 'node:path';
+import { compressFilesInDir, stringPredicate, type CompressionInfo } from '../index.mts';
 import type { ConfigServer } from './config/types.mts';
 import type { Logger } from './log.mts';
 
@@ -13,11 +14,21 @@ export async function runCompression(servers: ConfigServer[], minCompression: nu
           log(2, `skipping ${mount.dir} because no compression is configured`);
           continue;
         }
+        const match = config.match ? ` matching ${config.match}` : '';
         log(
           2,
-          `compressing files in ${mount.dir} using ${config.options.map((o) => o.match).join(', ')}`,
+          `compressing files in ${mount.dir}${match} using ${config.options.map((o) => o.match).join(', ')}`,
         );
-        const processed = await compressFilesInDir(mount.dir, config.options, { minCompression });
+        const filenameFilter = stringPredicate(config.match, true);
+        const processed = await compressFilesInDir(mount.dir, config.options, {
+          minCompression,
+          filter: (file, mime) => {
+            if (['image', 'video', 'audio', 'font'].includes(mime.split('/')[0]!)) {
+              return false;
+            }
+            return filenameFilter(basename(file));
+          },
+        });
         const textTotals = sumTotals(processed.filter(({ mime }) => mime.startsWith('text/')));
         const miscTotals = sumTotals(processed.filter(({ mime }) => !mime.startsWith('text/')));
         log(2, `text:  ${bytes(textTotals.rawSize)} / ${bytes(textTotals.bestSize)} compressed`);

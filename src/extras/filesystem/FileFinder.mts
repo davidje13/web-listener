@@ -2,7 +2,7 @@ import type { IncomingHttpHeaders } from 'node:http';
 import { open, readdir, realpath, stat, type FileHandle } from 'node:fs/promises';
 import { basename, dirname, join, resolve, sep } from 'node:path';
 import { constants, type Stats } from 'node:fs';
-import { internalOverrideFlags } from '../../util/regexpFlags.mts';
+import { stringPredicate } from '../../util/regexpFlags.mts';
 import { Queue } from '../../util/Queue.mts';
 import { Negotiator, type NegotiationOutputHeaders } from '../request/Negotiator.mts';
 
@@ -138,8 +138,7 @@ export class FileFinder implements FileFinderCore {
   /** @internal */ declare private readonly _allowAllTildefiles: boolean;
   /** @internal */ declare private readonly _allowDirectIndexAccess: boolean;
   /** @internal */ declare private readonly _allow: Set<string>;
-  /** @internal */ declare private readonly _hide: Set<string>;
-  /** @internal */ declare private readonly _hidePattern: RegExp[];
+  /** @internal */ declare private readonly _hide: (v: string) => boolean;
   /** @internal */ declare private readonly _indexFiles: string[];
   /** @internal */ declare private readonly _indexFilesSet: Set<string>;
   /** @internal */ declare private readonly _implicitSuffixes: string[];
@@ -171,15 +170,7 @@ export class FileFinder implements FileFinderCore {
     this._implicitSuffixes = ['', ...implicitSuffixes];
 
     this._allow = new Set(allow.map((v) => this._normalise(v)));
-    this._hide = new Set();
-    this._hidePattern = [];
-    for (const item of hide) {
-      if (typeof item === 'string') {
-        this._hide.add(this._normalise(item));
-      } else {
-        this._hidePattern.push(internalOverrideFlags(item, !caseSensitive));
-      }
-    }
+    this._hide = stringPredicate(hide, !caseSensitive);
     this._indexFilesSet = new Set(indexFiles.map((f) => this._normalise(f)));
 
     this._negotiator = negotiator;
@@ -204,7 +195,7 @@ export class FileFinder implements FileFinderCore {
       return false;
     } else if (trimmed[0] === '.' && !this._allowAllDotfiles) {
       return false;
-    } else if (this._hide.has(trimmed) || this._hidePattern.some((p) => p.test(trimmed))) {
+    } else if (this._hide(trimmed)) {
       return false;
     } else {
       return true;

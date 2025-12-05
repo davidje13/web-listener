@@ -186,6 +186,7 @@ parameters from a parent, which can be typed with `Router<WithPathParameters<{ n
   - [`compressFileOffline`]
   - [`compressFilesInDir`]
   - [`simplifyRange`]
+  - [`stringPredicate`]
   - [`<BlockingQueue>`]
   - [`<Queue>`]
 
@@ -3236,6 +3237,9 @@ if (httperror) {
     saving. **Default:** `0`.
   - `deleteObsolete` [`<boolean>`] if `true`, existing compressed files which are no-longer relevant
     will be deleted. **Default:** `false`.
+  - `filter` [`<Function>`] a function which decides which files to attempt to compress. Called with
+    the full file path [`<string>`] and mime type [`<string>`], returns [`<boolean>`]. **Default:**
+    a function which rejects known image, video, audio, and font mime types.
 - Returns: [`<Promise>`] Fulfills with [`<Object>`] containing information about the compression
   once the file has been processed.
 
@@ -3261,6 +3265,9 @@ _not_ be compressed, as they are assumed to already be compressed as part of the
     saving. **Default:** `0`.
   - `deleteObsolete` [`<boolean>`] if `true`, existing compressed files which are no-longer relevant
     will be deleted. **Default:** `false`.
+  - `filter` [`<Function>`] a function which decides which files to attempt to compress. Called with
+    the full file path [`<string>`] and mime type [`<string>`], returns [`<boolean>`]. **Default:**
+    a function which rejects known image, video, audio, and font mime types.
 - Returns: [`<Promise>`] Fulfills with [`<Object[]>`][`<Object>`] containing information about the
   compression once all files have been processed.
 
@@ -3319,6 +3326,20 @@ them entirely in RAM.
 
 Simplifies a parsed HTTP range request by combining overlapping ranges and optionally sorting the
 resulting ranges.
+
+### `stringPredicate(conditions, caseInsensitive)`
+
+[`stringPredicate`]: #stringpredicateconditions-caseinsensitive
+
+- `conditions` [`<string[]>`][`<string>`] | [`<RegExp[]>`][`<RegExp>`] | [`<string>`] | [`<RegExp>`]
+  | [`<undefined>`] a collection of conditions. Strings are checked for an exact match.
+- `caseInsensitive` [`<boolean>`]
+- Returns: [`<Function>`] a function which accepts a string and returns `true` if it matches any
+  conditions.
+
+Creates a predicate which can be used to test if a string matches any of the `conditions`. This is
+used internally by various features, such as [`<FileFinder>`]'s `hide` option,
+[`filenegotiation.match`], and [`filenegotiationoption.match`].
 
 # Paths
 
