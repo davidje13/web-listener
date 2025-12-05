@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises';
-import type { FileNegotiationOption } from '../../index.mts';
+import type { FileNegotiation, FileNegotiationOption } from '../../index.mts';
 import type { Mapper } from './schema.mts';
 import type { Config } from './types.mts';
 
@@ -184,17 +184,14 @@ export async function loadConfig(
       server.host = host;
     }
   }
-  const addNegotiation = (
-    type: 'mime' | 'language' | 'encoding',
-    encoding: FileNegotiationOption,
-  ) => {
+  const addNegotiation = (feature: FileNegotiation['feature'], encoding: FileNegotiationOption) => {
     for (const server of config.servers) {
       for (const mount of server.mount) {
         if (mount.type === 'files') {
           mount.options.negotiation ??= [];
-          let enc = mount.options.negotiation.find((n) => n.type === type);
+          let enc = mount.options.negotiation.find((n) => n.feature === feature);
           if (!enc) {
-            enc = { type, options: [] };
+            enc = { feature, options: [] };
             mount.options.negotiation = [...mount.options.negotiation, enc];
           }
           if (!enc.options.find((o) => o.match === encoding.match)) {

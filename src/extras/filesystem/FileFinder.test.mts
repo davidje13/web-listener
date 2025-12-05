@@ -19,9 +19,10 @@ function fileFinderTestSuite(isPrecomputed: boolean) {
     const one = await fileFinder.find(['one.txt']);
     expect(one).isTruthy();
     try {
-      expect(one!.mime).isUndefined();
-      expect(one!.language).isUndefined();
-      expect(one!.encoding).isUndefined();
+      expect(one!.headers['content-type']).isUndefined();
+      expect(one!.headers['content-language']).isUndefined();
+      expect(one!.headers['content-language']).isUndefined();
+      expect(one!.headers['vary']).isUndefined();
       expect(one!.canonicalPath).endsWith(sep + 'one.txt');
       expect(one!.negotiatedPath).endsWith(sep + 'one.txt');
       expect(one!.stats.size).equals(7);
@@ -283,7 +284,7 @@ function fileFinderTestSuite(isPrecomputed: boolean) {
       },
       {
         negotiator: new Negotiator([
-          { type: 'encoding', options: [{ match: 'gzip', file: '{file}.gz' }] },
+          { feature: 'encoding', options: [{ match: 'gzip', file: '{file}.gz' }] },
         ]),
       },
     );
@@ -291,9 +292,10 @@ function fileFinderTestSuite(isPrecomputed: boolean) {
     const withGzip = await fileFinder.find(['one.txt'], { 'accept-encoding': 'gzip;q=0.5' });
     expect(withGzip).isTruthy();
     try {
-      expect(withGzip!.mime).isUndefined();
-      expect(withGzip!.language).isUndefined();
-      expect(withGzip!.encoding).equals('gzip');
+      expect(withGzip!.headers['content-type']).isUndefined();
+      expect(withGzip!.headers['content-language']).isUndefined();
+      expect(withGzip!.headers['content-encoding']).equals('gzip');
+      expect(withGzip!.headers['vary']).equals('accept-encoding');
       expect(withGzip!.canonicalPath).endsWith(sep + 'one.txt');
       expect(withGzip!.negotiatedPath).endsWith(sep + 'one.txt.gz');
       expect(withGzip!.stats.size).equals(18);
@@ -304,9 +306,10 @@ function fileFinderTestSuite(isPrecomputed: boolean) {
     const withoutGzip = await fileFinder.find(['one.txt'], {});
     expect(withoutGzip).isTruthy();
     try {
-      expect(withoutGzip!.mime).isUndefined();
-      expect(withoutGzip!.language).isUndefined();
-      expect(withoutGzip!.encoding).isUndefined();
+      expect(withoutGzip!.headers['content-type']).isUndefined();
+      expect(withoutGzip!.headers['content-language']).isUndefined();
+      expect(withoutGzip!.headers['content-encoding']).isUndefined();
+      expect(withoutGzip!.headers['vary']).equals('accept-encoding');
       expect(withoutGzip!.canonicalPath).endsWith(sep + 'one.txt');
       expect(withoutGzip!.negotiatedPath).endsWith(sep + 'one.txt');
       expect(withoutGzip!.stats.size).equals(7);
@@ -317,9 +320,10 @@ function fileFinderTestSuite(isPrecomputed: boolean) {
     const noGzip = await fileFinder.find(['two.txt'], { 'accept-encoding': 'gzip;q=0.5' });
     expect(noGzip).isTruthy();
     try {
-      expect(noGzip!.mime).isUndefined();
-      expect(noGzip!.language).isUndefined();
-      expect(noGzip!.encoding).isUndefined();
+      expect(noGzip!.headers['content-type']).isUndefined();
+      expect(noGzip!.headers['content-language']).isUndefined();
+      expect(noGzip!.headers['content-encoding']).isUndefined();
+      expect(noGzip!.headers['vary']).equals('accept-encoding');
       expect(noGzip!.canonicalPath).endsWith(sep + 'two.txt');
       expect(noGzip!.negotiatedPath).endsWith(sep + 'two.txt');
       expect(noGzip!.stats.size).equals(7);

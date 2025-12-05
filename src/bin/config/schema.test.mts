@@ -26,7 +26,12 @@ describe('schema', () => {
               body: '{"env":"local"}',
             },
             { type: 'proxy', path: '/api', target: 'http://localhost:8090' },
-            { type: 'files', path: '/', dir: 'web' },
+            {
+              type: 'files',
+              path: '/',
+              dir: 'web',
+              options: { hide: ['foo', { pattern: '\\.gz$' }] },
+            },
           ],
         },
       ],
@@ -67,6 +72,7 @@ describe('makeSchemaParser', () => {
     required: ['servers'],
     properties: {
       servers: { type: 'array', items: { $ref: '#/$defs/server' } },
+      testPattern: { $ref: '#/$defs/stringOrRegex' },
       mime: {
         anyOf: [{ type: 'array', items: { $ref: '#/$defs/mime' } }, { $ref: '#/$defs/mime' }],
         default: [],
@@ -98,6 +104,18 @@ describe('makeSchemaParser', () => {
           { type: 'string', pattern: '^file://', format: 'uri-reference' },
           { type: 'string', pattern: '^([^=]+=[^/]+/[^;]+(;|$))+$' },
           { type: 'object', additionalProperties: { type: 'string', pattern: '/' } },
+        ],
+      },
+      stringOrRegex: {
+        anyOf: [
+          { type: 'string' },
+          {
+            type: 'object',
+            additionalProperties: false,
+            required: ['pattern'],
+            properties: { pattern: { type: 'string', format: 'regex' } },
+            $comment: 'flatten:pattern',
+          },
         ],
       },
     },
@@ -171,6 +189,23 @@ describe('makeSchemaParser', () => {
     );
     expect(parsed.servers[0].dir).equals('./web');
     expect(parsed.mime).equals(['ext=this/that', 'file://./mime.types', 'file:///absolute.types']);
+  });
+
+  it('reads regular expressions', () => {
+    const parser = makeSchemaParser(TEST_SCHEMA);
+    const root = { file: '.', path: '' };
+
+    expect(parser({ servers: [], testPattern: 'foo' }, root)).equals({
+      servers: [],
+      testPattern: 'foo',
+      mime: [],
+    });
+
+    expect(parser({ servers: [], testPattern: { pattern: 'foo' } }, root)).equals({
+      servers: [],
+      testPattern: new RegExp('foo'),
+      mime: [],
+    });
   });
 });
 

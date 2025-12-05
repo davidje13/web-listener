@@ -4,7 +4,7 @@ import { basename, dirname, join, resolve, sep } from 'node:path';
 import { constants, type Stats } from 'node:fs';
 import { internalOverrideFlags } from '../../util/regexpFlags.mts';
 import { Queue } from '../../util/Queue.mts';
-import { Negotiator, type NegotiationOutputInfo } from '../request/Negotiator.mts';
+import { Negotiator, type NegotiationOutputHeaders } from '../request/Negotiator.mts';
 
 export interface FileFinderOptions {
   /**
@@ -125,7 +125,6 @@ export interface FileFinderCore {
     warnings?: string[] | undefined,
   ): Promise<ResolvedFileInfo | null>;
   debugAllPaths(): Promise<Set<string>>;
-  readonly vary: string;
 }
 
 export class FileFinder implements FileFinderCore {
@@ -145,7 +144,6 @@ export class FileFinder implements FileFinderCore {
   /** @internal */ declare private readonly _indexFilesSet: Set<string>;
   /** @internal */ declare private readonly _implicitSuffixes: string[];
   /** @internal */ declare private readonly _negotiator: Negotiator | undefined;
-  declare public readonly vary: string;
 
   /** @internal */
   private constructor(
@@ -185,7 +183,6 @@ export class FileFinder implements FileFinderCore {
     this._indexFilesSet = new Set(indexFiles.map((f) => this._normalise(f)));
 
     this._negotiator = negotiator;
-    this.vary = negotiator?.vary ?? '';
   }
 
   static async build(absBaseDir: string, options: FileFinderOptions = {}) {
@@ -318,23 +315,29 @@ export class FileFinder implements FileFinderCore {
       warnings?.push(`${JSON.stringify(realPath)} exists but is not a file`);
       return null; // requested path exists but is not a regular file: fail
     }
-    if (this._negotiator) {
-      const base = basename(canonicalPath);
-      const dir = dirname(canonicalPath);
-      for (const option of this._negotiator.options(base, reqHeaders)) {
-        if (!option.filename || option.filename.includes(sep)) {
-          continue;
-        }
-        const result = await internalTryReturn(
-          { canonicalPath, negotiatedPath: join(dir, option.filename), ...option.info },
-          warnings,
-        );
-        if (result) {
-          return result;
-        }
+
+    if (!this._negotiator) {
+      return internalTryReturn(
+        { canonicalPath, negotiatedPath: canonicalPath, headers: {} },
+        warnings,
+      );
+    }
+
+    const base = basename(canonicalPath);
+    const dir = dirname(canonicalPath);
+    for (const option of this._negotiator.options(base, reqHeaders)) {
+      if (!option.filename || option.filename.includes(sep)) {
+        continue;
+      }
+      const result = await internalTryReturn(
+        { canonicalPath, negotiatedPath: join(dir, option.filename), headers: option.headers },
+        warnings,
+      );
+      if (result) {
+        return result;
       }
     }
-    return internalTryReturn({ canonicalPath, negotiatedPath: canonicalPath }, warnings);
+    return null;
   }
 
   async debugAllPaths() {
@@ -400,37 +403,37 @@ export class FileFinder implements FileFinderCore {
           warnings?.push(`${JSON.stringify(path.join('/'))} not found in static file paths`);
           return null;
         }
-        if (this._negotiator) {
-          for (const option of this._negotiator.options(entity.basename, reqHeaders)) {
-            if (!entity.siblings.has(this._normalise(option.filename))) {
-              continue;
-            }
-            const result = await internalTryReturn(
-              {
-                canonicalPath: entity.file,
-                negotiatedPath: join(entity.dir, option.filename),
-                ...option.info,
-              },
-              warnings,
-            );
-            if (result) {
-              return result;
-            }
+        if (!this._negotiator) {
+          return internalTryReturn(
+            { canonicalPath: entity.file, negotiatedPath: entity.file, headers: {} },
+            warnings,
+          );
+        }
+        for (const option of this._negotiator.options(entity.basename, reqHeaders)) {
+          if (!entity.siblings.has(this._normalise(option.filename))) {
+            continue;
+          }
+          const result = await internalTryReturn(
+            {
+              canonicalPath: entity.file,
+              negotiatedPath: join(entity.dir, option.filename),
+              headers: option.headers,
+            },
+            warnings,
+          );
+          if (result) {
+            return result;
           }
         }
-        return internalTryReturn(
-          { canonicalPath: entity.file, negotiatedPath: entity.file },
-          warnings,
-        );
+        return null;
       },
       debugAllPaths: () =>
         Promise.resolve(new Set([...lookup].filter(([_, v]) => v.file).map(([k]) => k))),
-      vary: this.vary,
     };
   }
 }
 
-export interface ResolvedFileInfo extends NegotiationOutputInfo {
+export interface ResolvedFileInfo {
   /** An active filehandle for the resolved file. Note that this MUST be closed by the caller. */
   handle: FileHandle;
   /** The full path of the requested file (after adding implicit extensions and index files) */
@@ -439,6 +442,8 @@ export interface ResolvedFileInfo extends NegotiationOutputInfo {
   negotiatedPath: string;
   /** Filesystem stats about the resolved file */
   stats: Stats;
+  /** Response headers relevant to the negotiation of this file */
+  headers: NegotiationOutputHeaders;
 }
 
 interface StaticFileInfo {

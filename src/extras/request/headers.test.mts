@@ -314,6 +314,15 @@ describe('readHTTPQualityValues', () => {
       ]),
     );
   });
+
+  it('accepts values pre-split into an array', () => {
+    const values = readHTTPQualityValues(['foo;q=0.5', 'bar;q=0.1']);
+    expect(values).hasLength(2);
+    expect(values![0]!.name).equals('foo');
+    expect(values![0]!.q).equals(0.5);
+    expect(values![1]!.name).equals('bar');
+    expect(values![1]!.q).equals(0.1);
+  });
 });
 
 describe('readHTTPKeyValues', () => {

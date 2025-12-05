@@ -55,14 +55,22 @@ function makeValidator(
       return mNumber(false, part['minimum'], part['maximum']);
     case 'object':
       const additional = part['additionalProperties'] ?? true;
-      return mObject(
+      const obj = mObject(
         new Map(
           Object.entries(part['properties'] ?? {}).map(([k, d]) => [k, convert(d as SchemaObject)]),
         ),
         typeof additional === 'object' ? convert(additional) : additional ? mAny : mNever,
         part['required'] ?? [],
       );
+      if (part['$comment']?.startsWith('flatten:')) {
+        const property = part['$comment'].substring(8);
+        return (o, ctx) => (obj(o, ctx) as any)[property];
+      }
+      return obj;
     case 'string':
+      if (part['format'] === 'regex') {
+        return mRegExp();
+      }
       let pattern: RegExp | null = null;
       if (part['pattern']) {
         pattern = new RegExp(part['pattern']);
@@ -150,6 +158,17 @@ const mNumber =
     }
     return o;
   };
+
+const mRegExp = (): Mapper<RegExp> => (o, ctx) => {
+  if (typeof o !== 'string') {
+    throw new ConfigError(`expected string, got ${typeof o}`, ctx);
+  }
+  try {
+    return new RegExp(o);
+  } catch {
+    throw new ConfigError(`expected regular expression`, ctx);
+  }
+};
 
 const mString =
   (pattern: RegExp | null, format: string): Mapper<string> =>

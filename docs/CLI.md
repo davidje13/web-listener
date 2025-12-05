@@ -331,8 +331,8 @@ npx web-listener . --brotli --gzip
           "type": "files",
           "options": {
             "negotiation": [
-              { "type": "encoding", "options": [{ "match": "br", "file": "{file}.br" }] },
-              { "type": "encoding", "options": [{ "match": "gzip", "file": "{file}.gz" }] }
+              { "feature": "encoding", "options": [{ "match": "br", "file": "{file}.br" }] },
+              { "feature": "encoding", "options": [{ "match": "gzip", "file": "{file}.gz" }] }
             ]
           }
         }

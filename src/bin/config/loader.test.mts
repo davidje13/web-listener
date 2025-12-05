@@ -90,21 +90,21 @@ describe('loadConfig', () => {
           name: 'zstd',
           args: ['--zstd'],
           expected: withNegotiation([
-            { type: 'encoding', options: [{ match: 'zstd', file: '{file}.zst' }] },
+            { feature: 'encoding', options: [{ match: 'zstd', file: '{file}.zst' }] },
           ]),
         },
         {
           name: 'brotli',
           args: ['--brotli'],
           expected: withNegotiation([
-            { type: 'encoding', options: [{ match: 'br', file: '{file}.br' }] },
+            { feature: 'encoding', options: [{ match: 'br', file: '{file}.br' }] },
           ]),
         },
         {
           name: 'gzip',
           args: ['--gzip'],
           expected: withNegotiation([
-            { type: 'encoding', options: [{ match: 'gzip', file: '{file}.gz' }] },
+            { feature: 'encoding', options: [{ match: 'gzip', file: '{file}.gz' }] },
           ]),
         },
         {
@@ -112,7 +112,7 @@ describe('loadConfig', () => {
           args: ['--deflate'],
           expected: withNegotiation([
             {
-              type: 'encoding',
+              feature: 'encoding',
               options: [{ match: 'deflate', file: '{file}.deflate' }],
             },
           ]),

@@ -1715,9 +1715,10 @@ for a given path, and includes various safety checks.
   - `allowDirectIndexAccess` [`<boolean>`] **Default:** `false`.
   - `allow` [`<string[]>`][`<string>`] list of files and directories to explicitly allow access to
     (which may otherwise be blocked by another rule). **Default:** `['.well-known']`.
-  - `hide` [`<string[]>`][`<string>`] list of files and directories to hide. This is not a security
-    guarantee, as the files may still be served by other means (e.g. content negotiation or
-    directory index), but can be used to provide a cleaner API. **Default:** `[]`.
+  - `hide` [`<string[]>`][`<string>`] | [`<RegExp[]>`][`<RegExp>`] list of files and directories to
+    hide. This is not a security guarantee, as the files may still be served by other means (e.g.
+    content negotiation or directory index), but can be used to provide a cleaner API. **Default:**
+    `[]`.
   - `indexFiles` [`<string[]>`][`<string>`] list of filenames which should be used as index files if
     a directory is requested. **Default:** `['index.htm', 'index.html']`.
   - `implicitSuffixes` [`<string[]>`][`<string>`] list of implicit suffixes to add to requested
@@ -1799,49 +1800,46 @@ change). This is used internally by the `'static-paths'` `mode` of [`fileServer`
 Structure returned by [`filefinder.find`]. This structure contains an open [`<fs.FileHandle>`] which
 must be closed by the caller.
 
-#### `handle`
+#### `resolvedfileinfo.handle`
 
 - Type: [`<fs.FileHandle>`]
 
 An active `FileHandle` for the resolved file. Note that this **must** be closed by the caller.
 
-#### `canonicalPath`
+#### `resolvedfileinfo.canonicalPath`
 
 - Type: [`<string>`]
 
 The full path of the requested file (after adding implicit extensions and index files).
 
-#### `negotiatedPath`
+#### `resolvedfileinfo.negotiatedPath`
 
 - Type: [`<string>`]
 
 The full path of the resolved file (which may differ from canonicalPath by including e.g. `.gz` if
 gzip encoding was negotiated).
 
-#### `stats`
+#### `resolvedfileinfo.stats`
 
 - Type: [`<fs.Stats>`]
 
 Filesystem stats about the resolved file.
 
-#### `mime`
+#### `resolvedfileinfo.headers`
 
-- Type: [`<string>`] | [`<undefined>`]
+- Type: [`<Object>`] (compatible with [`<Headers>`] constructor)
 
-The negotiated mime type for the resolved file, or `undefined` if mime type negotiation did not
-occur.
+A collection of headers related to content negotiation which should be included in the response.
 
-#### `language`
+This can include:
 
-- Type: [`<string>`] | [`<undefined>`]
+- [`'content-type'`][`Content-Type`] The negotiated mime type for the resolved file;
+- [`'content-language'`][`Content-Language`] The negotiated language for the resolved file;
+- [`'content-encoding'`][`Content-Encoding`] The negotiated encoding for the resolved file;
+- [`'vary'`][`Vary`] The request headers which were checked during negotiation.
 
-The negotiated language for the resolved file, or `undefined` if language negotiation did not occur.
-
-#### `encoding`
-
-- Type: [`<string>`] | [`<undefined>`]
-
-The negotiated encoding for the resolved file, or `undefined` if encoding negotiation did not occur.
+You can assign these directly (e.g. `res.setHeaders(new Headers(resolvedfileinfo.headers))`), or
+merge them with existing headers manually.
 
 ### `ServerSentEvents`
 
@@ -2009,12 +2007,6 @@ Represents the server address a request was sent to.
 
 See the helper [`negotiateEncoding`] for a simple way to support pre-compressed files.
 
-#### `negotiator.vary`
-
-- Type: [`<string>`]
-
-The value for the [`Vary`] header which should be sent for the configured negotiations.
-
 #### `negotiator.options(base, reqHeaders)`
 
 - `base` [`<string>`] the basename of the file to negotiate (e.g. `foo.txt`)
@@ -2023,13 +2015,24 @@ The value for the [`Vary`] header which should be sent for the configured negoti
 - Returns: [`<Generator>`] of [`<Object>`]
 
 Returns possible file names to serve, in descending preference order. Returns at most
-`maxFailedAttempts` filenames, then ends the [`<Generator>`].
+`maxFailedAttempts` negotiated filenames, then returns a single entry for the original unmodified
+filename (if this has not already been attempted), then ends the [`<Generator>`].
 
 Each returned [`<Object>`] contains:
 
 - `filename` [`<string>`] the filename to serve (e.g. `foo.txt.gz`)
-- `info` [`<Object>`] information about the match. May contain `mime`, `language`, and/or `encoding`
-  keys. The values can be sent to the corresponding response headers.
+- `headers` [`<Object>`] (compatible with [`<Headers>`] constructor) a collection of headers related
+  to content negotiation which should be included in the response.
+
+The `headers` can include:
+
+- [`'content-type'`][`Content-Type`] The negotiated mime type for the resolved file;
+- [`'content-language'`][`Content-Language`] The negotiated language for the resolved file;
+- [`'content-encoding'`][`Content-Encoding`] The negotiated encoding for the resolved file;
+- [`'vary'`][`Vary`] The request headers which were checked during negotiation.
+
+You can assign these directly (e.g. `res.setHeaders(new Headers(file.headers))`), or merge them with
+existing headers manually.
 
 ### `FileNegotiation`
 
@@ -2037,19 +2040,27 @@ Each returned [`<Object>`] contains:
 
 Configuration interface used by [`<Negotiator>`].
 
-#### `filenegotiation.type`
+#### `filenegotiation.feature`
 
-[`filenegotiation.type`]: #filenegotiationtype
+[`filenegotiation.feature`]: #filenegotiationfeature
 
-- Type: [`<string>`] `'mime'`, `'language'`, or `'encoding'`.
+- Type: [`<string>`] `'type'`, `'language'`, or `'encoding'`.
 
 Configures which headers this negotiation stage uses.
 
-| `type`       | Request header      | Response header      |
+| `feature`    | Request header      | Response header      |
 | ------------ | ------------------- | -------------------- |
-| `'mime'`     | [`Accept`]          | [`Content-Type`]     |
+| `'type'`     | [`Accept`]          | [`Content-Type`]     |
 | `'language'` | [`Accept-Language`] | [`Content-Language`] |
 | `'encoding'` | [`Accept-Encoding`] | [`Content-Encoding`] |
+
+#### `filenegotiation.match`
+
+[`filenegotiation.match`]: #filenegotiationmatch
+
+- Type: [`<string>`] | [`<RegExp>`] | [`<undefined>`].
+
+Optional filename filter. The current negotiation will only be applied to files which match.
 
 #### `filenegotiation.options`
 
@@ -2074,13 +2085,13 @@ Configuration interface used by [`filenegotiation.options`] and [`compressFileOf
 
 - Type: [`<string>`] | [`<RegExp>`].
 
-Value to match in the corresponding request header for the [`filenegotiation.type`].
+Value to match in the corresponding request header for the [`filenegotiation.feature`].
 
 #### `filenegotiationoption.as`
 
 - Type: [`<string>`] | [`<undefined>`].
 
-Value to return in the corresponding response header for the [`filenegotiation.type`].
+Value to return in the corresponding response header for the [`filenegotiation.feature`].
 
 If [`filenegotiationoption.match`] is a [`<string>`], this is automatically set to the same value.
 
@@ -2762,7 +2773,8 @@ Reads a `;`-delimited string of `key=value`, with optionally quoted values.
 
 [`readHTTPQualityValues`]: #readhttpqualityvaluesraw
 
-- `raw` [`<string>`] | [`<undefined>`] the raw value of the header
+- `raw` [`<string>`] | [`<string[]>`][`<string>`] | [`<number>`] | [`<undefined>`] the raw value of
+  the header
 - Returns: [`<Object[]>`][`<Object>`]
 
 Reads a `,`-delimited string of `key=value; q=n` (i.e. the format of the `Accept-*` headers).

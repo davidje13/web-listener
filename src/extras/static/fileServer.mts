@@ -156,15 +156,26 @@ export const fileServer = async (
         if (isFallback) {
           res.statusCode = fallbackStatusCode;
         }
-        res.setHeader('content-type', file.mime ?? getMime(extname(file.canonicalPath)));
-        if (file.encoding && file.encoding !== 'identity') {
-          res.setHeader('content-encoding', file.encoding);
+
+        const contentType = file.headers['content-type'] ?? getMime(extname(file.canonicalPath));
+        res.setHeader('content-type', contentType);
+
+        const contentLanguage = file.headers['content-language'];
+        if (contentLanguage) {
+          res.setHeader('content-language', contentLanguage);
         }
-        const vary = fileLookup.vary;
+
+        const contentEncoding = file.headers['content-encoding'];
+        if (contentEncoding && contentEncoding !== 'identity') {
+          res.setHeader('content-encoding', contentEncoding);
+        }
+
+        const vary = file.headers.vary;
         if (vary) {
           const existing = res.getHeader('vary') ?? '';
           res.setHeader('vary', (existing ? existing + ', ' : '') + vary);
         }
+
         await callback(req, res, file, isFallback);
         await sendFile(req, res, file.handle, file.stats);
       } finally {

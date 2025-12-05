@@ -2,53 +2,6 @@ import { Negotiator, type FileNegotiation } from './Negotiator.mts';
 import 'lean-test';
 
 describe('Negotiator', () => {
-  it('has a vary property which can be used in the Vary header', () => {
-    const mime = new Negotiator([
-      {
-        type: 'mime',
-        options: [
-          { match: 'foo/bar', file: '{file}.foobar' },
-          { match: 'blah/blah', file: '{file}.blah' },
-        ],
-      },
-    ]);
-    expect(mime.vary).equals('accept');
-
-    const enc = new Negotiator([
-      {
-        type: 'encoding',
-        options: [{ match: 'gzip', file: '{file}.gz' }],
-      },
-    ]);
-    expect(enc.vary).equals('accept-encoding');
-
-    const lang = new Negotiator([
-      {
-        type: 'language',
-        options: [{ match: 'en-GB', file: '{base}-en{ext}' }],
-      },
-    ]);
-    expect(lang.vary).equals('accept-language');
-
-    const multi = new Negotiator([
-      {
-        type: 'mime',
-        options: [{ match: 'foo/bar', file: '{file}.foobar' }],
-      },
-      {
-        type: 'language',
-        options: [{ match: 'en-GB', file: '{base}-en{ext}' }],
-      },
-    ]);
-    expect(multi.vary).equals('accept accept-language');
-
-    const none = new Negotiator([]);
-    expect(none.vary).equals('');
-
-    const empty = new Negotiator([{ type: 'mime', options: [] }]);
-    expect(empty.vary).equals('');
-  });
-
   describe('.options', () => {
     it('returns a generator of all matching options, in descending priority order', () => {
       const multi = new Negotiator(COMPLEX_RULES, { maxFailedAttempts: 20 });
@@ -87,6 +40,26 @@ describe('Negotiator', () => {
       expect(optionGenerator.next().done).isTrue();
     });
 
+    it('returns only the original filename if no rules are configured', () => {
+      const multi = new Negotiator([], { maxFailedAttempts: 20 });
+
+      const optionGenerator = multi.options('my-file.txt', {
+        'accept-language': 'pl;q=0.9, en;q=0.9',
+      });
+
+      expect(optionGenerator.next().value?.filename).equals('my-file.txt');
+      expect(optionGenerator.next().done).isTrue();
+    });
+
+    it('returns only the original filename if no accept headers are set', () => {
+      const multi = new Negotiator(COMPLEX_RULES, { maxFailedAttempts: 20 });
+
+      const optionGenerator = multi.options('my-file.txt', {});
+
+      expect(optionGenerator.next().value?.filename).equals('my-file.txt');
+      expect(optionGenerator.next().done).isTrue();
+    });
+
     it('excludes options the client did not request', () => {
       const multi = new Negotiator(COMPLEX_RULES, { maxFailedAttempts: 20 });
 
@@ -102,7 +75,7 @@ describe('Negotiator', () => {
       expect(optionGenerator.next().done).isTrue();
     });
 
-    it('includes information about each match', () => {
+    it('includes headers for each match', () => {
       const multi = new Negotiator(COMPLEX_RULES, { maxFailedAttempts: 20 });
 
       const optionGenerator = multi.options('my-file.txt', {
@@ -111,23 +84,67 @@ describe('Negotiator', () => {
         'accept-encoding': 'gzip;q=0.5',
       });
 
-      expect(optionGenerator.next().value?.info).equals({
-        mime: 'text/fun',
-        language: 'en-GB',
-        encoding: 'gzip',
+      expect(optionGenerator.next().value?.headers).equals({
+        'content-type': 'text/fun',
+        'content-language': 'en-GB',
+        'content-encoding': 'gzip',
+        vary: 'accept, accept-language, accept-encoding',
       });
 
-      expect(optionGenerator.next().value?.info).equals({
-        mime: 'text/fun',
-        language: 'en-GB',
-        encoding: undefined,
+      expect(optionGenerator.next().value?.headers).equals({
+        'content-type': 'text/fun',
+        'content-language': 'en-GB',
+        vary: 'accept, accept-language, accept-encoding',
       });
 
-      expect(optionGenerator.next().value?.info).equals({
-        mime: 'text/fun',
-        language: 'pl',
-        encoding: 'gzip',
+      expect(optionGenerator.next().value?.headers).equals({
+        'content-type': 'text/fun',
+        'content-language': 'pl',
+        'content-encoding': 'gzip',
+        vary: 'accept, accept-language, accept-encoding',
       });
+    });
+
+    it('includes headers for fallback matches', () => {
+      const multi = new Negotiator(COMPLEX_RULES, { maxFailedAttempts: 20 });
+
+      const optionGenerator = multi.options('my-file.txt', {
+        'accept-language': 'cn',
+      });
+
+      expect(optionGenerator.next().value?.headers).equals({
+        vary: 'accept, accept-language, accept-encoding',
+      });
+    });
+
+    it('adapts vary header depending on matching rules', () => {
+      const multi = new Negotiator(
+        [
+          {
+            feature: 'type',
+            match: 'f1.txt',
+            options: [{ match: 'text/fun', file: '{base}.fun' }],
+          },
+          {
+            feature: 'language',
+            match: /2/,
+            options: [{ match: 'pl', file: '{base}-pl{ext}' }],
+          },
+          {
+            feature: 'encoding',
+            options: [{ match: 'gzip', file: '{file}.gz' }],
+          },
+        ],
+        { maxFailedAttempts: 20 },
+      );
+
+      const optionGenerator1 = multi.options('f1.txt', {});
+      expect(optionGenerator1.next().value?.headers.vary).equals('accept, accept-encoding');
+
+      const optionGenerator2 = multi.options('f2.txt', {});
+      expect(optionGenerator2.next().value?.headers.vary).equals(
+        'accept-language, accept-encoding',
+      );
     });
 
     it('stops after a configured number of attempts', () => {
@@ -142,27 +159,29 @@ describe('Negotiator', () => {
       expect(optionGenerator.next().value?.filename).equals('my-file-en.fun.gz');
       expect(optionGenerator.next().value?.filename).equals('my-file-en.fun');
       expect(optionGenerator.next().value?.filename).equals('my-file-pl.fun.gz');
+      // base filename is returned once limit is reached if we haven't tried it already
+      expect(optionGenerator.next().value?.filename).equals('my-file.txt');
       expect(optionGenerator.next().done).isTrue();
     });
   });
 
   it('rejects unknown types', () => {
     expect(
-      () => new Negotiator([{ type: 'unknown' as any, options: [{ match: 'a/b', file: 'x' }] }]),
-    ).throws('unknown rule type: unknown');
+      () => new Negotiator([{ feature: 'unknown' as any, options: [{ match: 'a/b', file: 'x' }] }]),
+    ).throws('unknown negotiation feature: unknown');
   });
 });
 
 const COMPLEX_RULES: FileNegotiation[] = [
   {
-    type: 'mime',
+    feature: 'type',
     options: [
       { match: 'text/plain', file: '{file}' },
       { match: 'text/fun', file: '{base}.fun' },
     ],
   },
   {
-    type: 'language',
+    feature: 'language',
     options: [
       { match: 'en-GB', file: '{base}-en{ext}' },
       { match: 'en', file: '{base}-en{ext}' },
@@ -170,7 +189,7 @@ const COMPLEX_RULES: FileNegotiation[] = [
     ],
   },
   {
-    type: 'encoding',
+    feature: 'encoding',
     options: [{ match: 'gzip', file: '{file}.gz' }],
   },
 ];

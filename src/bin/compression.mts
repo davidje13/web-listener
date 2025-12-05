@@ -8,13 +8,16 @@ export async function runCompression(servers: ConfigServer[], minCompression: nu
   for (const server of servers) {
     for (const mount of server.mount) {
       if (mount.type === 'files') {
-        const options = mount.options.negotiation?.find((n) => n.type === 'encoding')?.options;
-        if (!options?.length) {
+        const config = mount.options.negotiation?.find((n) => n.feature === 'encoding');
+        if (!config?.options?.length) {
           log(2, `skipping ${mount.dir} because no compression is configured`);
           continue;
         }
-        log(2, `compressing files in ${mount.dir} using ${options.map((o) => o.match).join(', ')}`);
-        const processed = await compressFilesInDir(mount.dir, options, { minCompression });
+        log(
+          2,
+          `compressing files in ${mount.dir} using ${config.options.map((o) => o.match).join(', ')}`,
+        );
+        const processed = await compressFilesInDir(mount.dir, config.options, { minCompression });
         const textTotals = sumTotals(processed.filter(({ mime }) => mime.startsWith('text/')));
         const miscTotals = sumTotals(processed.filter(({ mime }) => !mime.startsWith('text/')));
         log(2, `text:  ${bytes(textTotals.rawSize)} / ${bytes(textTotals.bestSize)} compressed`);

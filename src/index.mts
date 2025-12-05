@@ -157,7 +157,7 @@ export {
   type FileNegotiation,
   type FileNegotiationOption,
   type NegotiationOutput,
-  type NegotiationOutputInfo,
+  type NegotiationOutputHeaders,
 } from './extras/request/Negotiator.mts';
 export { getRemainingPathComponents } from './extras/request/pathComponents.mts';
 

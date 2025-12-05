@@ -179,11 +179,10 @@ export function readHTTPInteger(raw: string | undefined) {
   return Number.parseInt(raw, 10);
 }
 
-export function readHTTPQualityValues(raw: string | undefined): QualityValue[] | undefined {
-  if (!raw) {
-    return undefined;
-  }
-  return raw.split(',').map((item): QualityValue => {
+export const readHTTPQualityValues = (
+  raw: LooseHeaderValue | undefined,
+): QualityValue[] | undefined =>
+  readHTTPUnquotedCommaSeparated(raw)?.map((item): QualityValue => {
     const [id, ...options] = item.split(';');
     const specifiers = new Map(
       options.map((o) => {
@@ -196,7 +195,6 @@ export function readHTTPQualityValues(raw: string | undefined): QualityValue[] |
     const q = Math.max(0, Math.min(1, Number.parseFloat(specifiers.get('q') ?? '1')));
     return { name: name, specifiers, specificity, q };
   });
-}
 
 export function readHTTPKeyValues(raw: string): Map<string, string> {
   const result = new Map<string, string>();

@@ -148,7 +148,11 @@
             "allowAllDotfiles": { "type": "boolean", "default": false },
             "allowAllTildefiles": { "type": "boolean", "default": false },
             "allowDirectIndexAccess": { "type": "boolean", "default": false },
-            "hide": { "type": "array", "default": [], "items": { "type": "string" } },
+            "hide": {
+              "type": "array",
+              "default": [],
+              "items": { "$ref": "#/$defs/stringOrRegex" }
+            },
             "allow": {
               "type": "array",
               "items": { "type": "string" },
@@ -166,8 +170,10 @@
               "items": {
                 "type": "object",
                 "additionalProperties": false,
+                "required": ["feature", "options"],
                 "properties": {
-                  "type": { "enum": ["mime", "language", "encoding"] },
+                  "feature": { "enum": ["type", "language", "encoding"] },
+                  "match": { "$ref": "#/$defs/stringOrRegex" },
                   "options": {
                     "type": "array",
                     "items": {
@@ -175,7 +181,7 @@
                       "additionalProperties": false,
                       "required": ["match", "file"],
                       "properties": {
-                        "match": { "type": "string" },
+                        "match": { "$ref": "#/$defs/stringOrRegex" },
                         "file": { "type": "string" }
                       }
                     }
@@ -266,6 +272,18 @@
         { "type": "string", "pattern": "^file://", "format": "uri-reference" },
         { "type": "string", "pattern": "^([^=;]+=[^/;]+/[^;]+(;|$))+$" },
         { "type": "object", "additionalProperties": { "type": "string", "pattern": "/" } }
+      ]
+    },
+    "stringOrRegex": {
+      "anyOf": [
+        { "type": "string" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["pattern"],
+          "properties": { "pattern": { "type": "string", "format": "regex" } },
+          "$comment": "flatten:pattern"
+        }
       ]
     },
     "status": { "type": "integer", "minimum": 200, "maximum": 599 }

@@ -21,6 +21,7 @@ import {
   emitError,
   conditionalErrorHandler,
   acceptUpgrade,
+  Negotiator,
 } from 'web-listener';
 
 // this file just checks types; the code is not executed
@@ -210,6 +211,14 @@ r.get('/:id/:2', async (req, res) => {
   });
   sse.signal.addEventListener('abort', () => proxy.close());
 });
+
+function negotiate() {
+  for (const option of new Negotiator([]).options('foo.txt', {})) {
+    assertType(option.filename)<string>();
+    new Headers(option.headers);
+    assertType(option.headers['content-type'])<string | undefined>();
+  }
+}
 
 new WebListener(r).listen(8080, 'localhost');
 

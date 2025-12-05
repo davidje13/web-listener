@@ -3,16 +3,23 @@ import { extname } from 'node:path';
 import { internalOverrideFlags } from '../../util/regexpFlags.mts';
 import { readHTTPQualityValues, type QualityValue } from './headers.mts';
 
-const HEADERS = {
-  mime: 'accept',
-  language: 'accept-language',
-  encoding: 'accept-encoding',
-};
+const FEATURES = {
+  type: { _requestHeader: 'accept', _responseHeader: 'content-type' },
+  language: { _requestHeader: 'accept-language', _responseHeader: 'content-language' },
+  encoding: { _requestHeader: 'accept-encoding', _responseHeader: 'content-encoding' },
+} satisfies Record<
+  string,
+  { _requestHeader: keyof IncomingHttpHeaders; _responseHeader: keyof NegotiationOutputHeaders }
+>;
 
-type NegotiationType = keyof typeof HEADERS;
+type NegotiationFeature = keyof typeof FEATURES;
 
 export interface FileNegotiation {
-  type: NegotiationType;
+  /** Feature to negotiate ('type', 'language', or 'encoding') */
+  feature: NegotiationFeature;
+  /** Filename filter (only apply this negotiation for requests with filenames matching the pattern) */
+  match?: string | RegExp;
+  /** List of negotiation options available, ordered by server preference */
   options: FileNegotiationOption[];
 }
 
@@ -66,7 +73,7 @@ const ENCODING_MAPPING_LOOKUP = /*@__PURE__*/ new Map<FileEncodingFormat, string
 export const negotiateEncoding = (
   options: FileEncodingFormat[] | Record<FileEncodingFormat, string>,
 ): FileNegotiation => ({
-  type: 'encoding',
+  feature: 'encoding',
   options: internalReadMap(options, ENCODING_MAPPING_LOOKUP),
 });
 
@@ -84,35 +91,41 @@ function internalReadMap<T extends string>(
   }
 }
 
-export interface NegotiationOutputInfo {
+export type NegotiationOutputHeaders = {
   /** The negotiated mime type for the resolved file */
-  mime?: string | undefined;
+  'content-type'?: string;
+
   /** The negotiated language for the resolved file */
-  language?: string | undefined;
+  'content-language'?: string;
+
   /** The negotiated encoding for the resolved file */
-  encoding?: string | undefined;
-}
+  'content-encoding'?: string;
+
+  /** A list of request headers which were considered when negotiating this file */
+  vary?: string;
+} & Record<string, string>;
 
 export interface NegotiationOutput {
   filename: string;
-  info: NegotiationOutputInfo;
+  /** Response headers relevant to the negotiation */
+  headers: NegotiationOutputHeaders;
 }
 
 interface InternalRule {
-  _type: NegotiationType;
+  _feature: NegotiationFeature;
+  _match: (value: string) => boolean;
   _options: InternalOption[];
 }
 
 interface InternalOption {
-  _match: string | RegExp;
-  _as: string | undefined;
+  _match: (value: string) => boolean;
+  _as: string;
   _file: string;
 }
 
 export class Negotiator {
   /** @internal */ declare private readonly _normalisedRules: InternalRule[];
   /** @internal */ declare private readonly _maxFailedAttempts: number;
-  declare public readonly vary: string;
 
   /**
    * Content negotiation rules.
@@ -137,54 +150,63 @@ export class Negotiator {
   constructor(rules: FileNegotiation[], { maxFailedAttempts = 10 } = {}) {
     this._normalisedRules = rules
       .map((rule): InternalRule => {
-        if (!Object.prototype.hasOwnProperty.call(HEADERS, rule.type)) {
-          throw new RangeError(`unknown rule type: ${rule.type}`);
+        if (!Object.prototype.hasOwnProperty.call(FEATURES, rule.feature)) {
+          throw new RangeError(`unknown negotiation feature: ${rule.feature}`);
         }
         return {
-          _type: rule.type,
+          _feature: rule.feature,
+          _match: makeCheck(rule.match),
           _options: rule.options.map((option) => ({
             _file: option.file,
-            _match:
-              typeof option.match === 'string'
-                ? option.match.toLowerCase()
-                : internalOverrideFlags(option.match, true),
-            _as: option.as ?? (typeof option.match === 'string' ? option.match : undefined),
+            _match: makeCheck(option.match),
+            _as: option.as ?? (typeof option.match === 'string' ? option.match : ''),
           })),
         };
       })
       .filter((rule) => rule._options.length > 0);
     this._maxFailedAttempts = maxFailedAttempts;
-    this.vary = [...new Set(this._normalisedRules.map((rule) => HEADERS[rule._type]))].join(' ');
   }
 
-  options(
+  *options(
     base: string,
     reqHeaders: IncomingHttpHeaders,
   ): Generator<NegotiationOutput, undefined, undefined> {
-    const negotiation = {
-      mime: readHTTPQualityValues(reqHeaders['accept']),
-      language: readHTTPQualityValues(reqHeaders['accept-language']),
-      encoding: readHTTPQualityValues(reqHeaders['accept-encoding']),
-    };
-    let attempts = this._maxFailedAttempts;
     const rules = this._normalisedRules;
-    const info: NegotiationOutputInfo = {};
+    const attempts = new Set<string>();
+    const limit = this._maxFailedAttempts;
+    const headers: NegotiationOutputHeaders = {};
+    const vary = new Set<string>();
+    let varyChanged = false;
+
     function* next(name: string, pos: number): Generator<NegotiationOutput> {
       const rule = rules[pos];
       if (!rule) {
-        --attempts;
-        yield { filename: name, info };
+        if (!attempts.has(name)) {
+          attempts.add(name);
+          if (varyChanged) {
+            headers.vary = [...vary].join(', ');
+            varyChanged = false;
+          }
+          yield { filename: name, headers };
+        }
+        return;
+      }
+      if (!rule._match(base)) {
+        yield* next(name, pos + 1);
+        return;
+      }
+      const header = FEATURES[rule._feature];
+      vary.add(FEATURES[rule._feature]._requestHeader);
+      varyChanged = true;
+      const values = readHTTPQualityValues(reqHeaders[header._requestHeader])?.sort(byQuality);
+      if (!values?.length) {
+        yield* next(name, pos + 1);
         return;
       }
       const seen = new Set<string>();
-      const values = internalSortQuality(negotiation[rule._type]);
       const matchedOptions: (QualityValue & { _option: InternalOption })[] = [];
       for (const option of rule._options) {
-        const firstMatch = values.find((v) =>
-          typeof option._match === 'string'
-            ? v.name.toLowerCase() === option._match
-            : option._match.test(v.name),
-        );
+        const firstMatch = values.find((v) => option._match(v.name));
         if (firstMatch) {
           matchedOptions.push({ ...firstMatch, _option: option });
         }
@@ -195,30 +217,40 @@ export class Negotiator {
           continue;
         }
         seen.add(sub);
-        info[rule._type] = match._option._as;
+        headers[header._responseHeader] = match._option._as;
         yield* next(sub, pos + 1);
-        if (attempts <= 0) {
+        if (attempts.size >= limit) {
           return;
         }
       }
-      info[rule._type] = undefined;
-      if (!seen.has(name) && attempts > 0) {
+      delete headers[header._responseHeader];
+      if (!seen.has(name) && attempts.size < limit) {
         yield* next(name, pos + 1);
       }
     }
-    return next(base, 0);
+    if (limit > 0) {
+      yield* next(base, 0);
+    }
+    if (!attempts.has(base)) {
+      if (varyChanged) {
+        headers.vary = [...vary].join(', ');
+      }
+      yield { filename: base, headers };
+    }
   }
 }
 
-function internalSortQuality(list: QualityValue[] | undefined): QualityValue[] {
-  if (!list?.length) {
-    return [];
+const makeCheck = (condition: string | RegExp | undefined): ((value: string) => boolean) => {
+  if (condition === undefined) {
+    return () => true;
   }
-  if (list.length === 1) {
-    return list;
+  if (typeof condition === 'string') {
+    const lower = condition.toLowerCase();
+    return (value) => value.toLowerCase() === lower;
   }
-  return [...list].sort(byQuality);
-}
+  const pattern = internalOverrideFlags(condition, true);
+  return (value) => pattern.test(value);
+};
 
 const byQuality = <T extends QualityValue>(a: T, b: T) =>
   b.q - a.q || b.specificity - a.specificity;
