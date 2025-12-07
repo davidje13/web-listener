@@ -17,7 +17,7 @@ export async function runCompression(servers: ConfigServer[], minCompression: nu
         const match = config.match ? ` matching ${config.match}` : '';
         log(
           2,
-          `compressing files in ${mount.dir}${match} using ${config.options.map((o) => o.match).join(', ')}`,
+          `compressing files in ${mount.dir}${match} using ${config.options.map((o) => o.value).join(', ')}`,
         );
         const filenameFilter = stringPredicate(config.match, true);
         const processed = await compressFilesInDir(mount.dir, config.options, {

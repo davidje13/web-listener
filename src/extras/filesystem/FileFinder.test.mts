@@ -284,7 +284,7 @@ function fileFinderTestSuite(isPrecomputed: boolean) {
       },
       {
         negotiator: new Negotiator([
-          { feature: 'encoding', options: [{ match: 'gzip', file: '{file}.gz' }] },
+          { feature: 'encoding', options: [{ value: 'gzip', file: '{file}.gz' }] },
         ]),
       },
     );

@@ -2080,21 +2080,33 @@ preference.
 
 Configuration interface used by [`filenegotiation.options`] and [`compressFileOffline`].
 
-#### `filenegotiationoption.match`
+#### `filenegotiationoption.value`
 
-[`filenegotiationoption.match`]: #filenegotiationoptionmatch
+[`filenegotiationoption.value`]: #filenegotiationoptionvalue
 
-- Type: [`<string>`] | [`<RegExp>`].
+- Type: [`<string>`].
 
-Value to match in the corresponding request header for the [`filenegotiation.feature`].
+Value to send in the corresponding `Content-*` response header for the [`filenegotiation.feature`].
 
-#### `filenegotiationoption.as`
+#### `filenegotiationoption.for`
 
-- Type: [`<string>`] | [`<undefined>`].
+[`filenegotiationoption.for`]: #filenegotiationoptionfor
 
-Value to return in the corresponding response header for the [`filenegotiation.feature`].
+- Type: [`<RegExp>`] | [`<undefined>`]. **Default:** a case-insensitive check matching
+  [`filenegotiationoption.value`].
 
-If [`filenegotiationoption.match`] is a [`<string>`], this is automatically set to the same value.
+Optional pattern to match in the corresponding `Accept-*` request header for the
+[`filenegotiation.feature`].
+
+This can be used to support wildcards, for example:
+
+```js
+{
+  value: 'text/plain',
+  for: /^text\//,
+  file: '{file}.txt',
+}
+```
 
 #### `filenegotiationoption.file`
 
@@ -3339,7 +3351,7 @@ resulting ranges.
 
 Creates a predicate which can be used to test if a string matches any of the `conditions`. This is
 used internally by various features, such as [`<FileFinder>`]'s `hide` option,
-[`filenegotiation.match`], and [`filenegotiationoption.match`].
+[`filenegotiation.match`], and [`filenegotiationoption.for`].
 
 # Paths
 

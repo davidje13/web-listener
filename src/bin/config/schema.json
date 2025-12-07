@@ -179,9 +179,10 @@
                     "items": {
                       "type": "object",
                       "additionalProperties": false,
-                      "required": ["match", "file"],
+                      "required": ["value", "file"],
                       "properties": {
-                        "match": { "$ref": "#/$defs/stringOrRegex" },
+                        "value": { "type": "string" },
+                        "for": { "type": "string", "format": "regex" },
                         "file": { "type": "string" }
                       }
                     }

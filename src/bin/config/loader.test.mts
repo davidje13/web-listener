@@ -1,5 +1,12 @@
+import type { FileNegotiation } from '../../index.mts';
 import { loadSchema, makeSchemaParser } from './schema.mts';
-import type { Config } from './types.mts';
+import type {
+  Config,
+  ConfigMount,
+  ConfigMountFilesOptions,
+  ConfigServer,
+  ConfigServerOptions,
+} from './types.mts';
 import { loadConfig, readArgs } from './loader.mts';
 import 'lean-test';
 
@@ -90,21 +97,21 @@ describe('loadConfig', () => {
           name: 'zstd',
           args: ['--zstd'],
           expected: withNegotiation([
-            { feature: 'encoding', options: [{ match: 'zstd', file: '{file}.zst' }] },
+            { feature: 'encoding', options: [{ value: 'zstd', file: '{file}.zst' }] },
           ]),
         },
         {
           name: 'brotli',
           args: ['--brotli'],
           expected: withNegotiation([
-            { feature: 'encoding', options: [{ match: 'br', file: '{file}.br' }] },
+            { feature: 'encoding', options: [{ value: 'br', file: '{file}.br' }] },
           ]),
         },
         {
           name: 'gzip',
           args: ['--gzip'],
           expected: withNegotiation([
-            { feature: 'encoding', options: [{ match: 'gzip', file: '{file}.gz' }] },
+            { feature: 'encoding', options: [{ value: 'gzip', file: '{file}.gz' }] },
           ]),
         },
         {
@@ -113,7 +120,7 @@ describe('loadConfig', () => {
           expected: withNegotiation([
             {
               feature: 'encoding',
-              options: [{ match: 'deflate', file: '{file}.deflate' }],
+              options: [{ value: 'deflate', file: '{file}.deflate' }],
             },
           ]),
         },
@@ -247,7 +254,7 @@ describe('loadConfig', () => {
   );
 });
 
-const DEFAULT_SERVER_OPTIONS = {
+const DEFAULT_SERVER_OPTIONS: ConfigServerOptions = {
   backlog: 511,
   rejectNonStandardExpect: false,
   autoContinue: false,
@@ -256,7 +263,7 @@ const DEFAULT_SERVER_OPTIONS = {
   shutdownTimeout: 500,
 };
 
-const DEFAULT_FILES_OPTIONS = {
+const DEFAULT_FILES_OPTIONS: ConfigMountFilesOptions = {
   mode: 'dynamic',
   subDirectories: true,
   caseSensitive: 'exact',
@@ -271,21 +278,21 @@ const DEFAULT_FILES_OPTIONS = {
   negotiation: [],
 };
 
-const DEFAULT_FILES = {
+const DEFAULT_FILES: ConfigMount = {
   type: 'files',
   dir: '.',
   options: DEFAULT_FILES_OPTIONS,
   path: '/',
 };
 
-const DEFAULT_SERVER = {
+const DEFAULT_SERVER: ConfigServer = {
   port: 8080,
   mount: [DEFAULT_FILES],
   host: 'localhost',
   options: DEFAULT_SERVER_OPTIONS,
 };
 
-const DEFAULT_CONFIG = {
+const DEFAULT_CONFIG: Config = {
   servers: [DEFAULT_SERVER],
   mime: [],
   writeCompressed: false,
@@ -294,7 +301,7 @@ const DEFAULT_CONFIG = {
   log: 'progress',
 };
 
-const withNegotiation = (negotiation: unknown[]) => ({
+const withNegotiation = (negotiation: FileNegotiation[]) => ({
   ...DEFAULT_CONFIG,
   servers: [
     {

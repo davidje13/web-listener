@@ -194,7 +194,7 @@ export async function loadConfig(
             enc = { feature, options: [] };
             mount.options.negotiation = [...mount.options.negotiation, enc];
           }
-          if (!enc.options.find((o) => o.match === encoding.match)) {
+          if (!enc.options.find((o) => o.value === encoding.value)) {
             enc.options.push(encoding);
           }
         }
@@ -252,8 +252,8 @@ export async function loadConfig(
 }
 
 const ENCODINGS = new Map<string, FileNegotiationOption>([
-  ['zstd', { match: 'zstd', file: '{file}.zst' }],
-  ['brotli', { match: 'br', file: '{file}.br' }],
-  ['gzip', { match: 'gzip', file: '{file}.gz' }],
-  ['deflate', { match: 'deflate', file: '{file}.deflate' }],
+  ['zstd', { value: 'zstd', file: '{file}.zst' }],
+  ['brotli', { value: 'br', file: '{file}.br' }],
+  ['gzip', { value: 'gzip', file: '{file}.gz' }],
+  ['deflate', { value: 'deflate', file: '{file}.deflate' }],
 ]);

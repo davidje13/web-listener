@@ -10,9 +10,9 @@ describe('compressFileOffline', () => {
   });
 
   const encodings = [
-    { match: 'gzip', file: '{file}.gz' },
-    { match: 'br', file: '{file}.br' },
-    { match: 'deflate', file: 'custom-{file}.deflate' },
+    { value: 'gzip', file: '{file}.gz' },
+    { value: 'br', file: '{file}.br' },
+    { value: 'deflate', file: 'custom-{file}.deflate' },
   ];
 
   it('applies multiple possible compressions to a file', async ({ getTyped }) => {
@@ -99,7 +99,7 @@ describe('compressFilesInDir', () => {
 
   it('compresses files which can be reduced', async ({ getTyped }) => {
     const dir = getTyped(TEST_DIR);
-    const stats = await compressFilesInDir(dir, [{ match: 'gzip', file: '{file}.gz' }], {
+    const stats = await compressFilesInDir(dir, [{ value: 'gzip', file: '{file}.gz' }], {
       minCompression: 300,
     });
     expect(stats).hasLength(6);

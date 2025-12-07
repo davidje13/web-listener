@@ -25,24 +25,21 @@ export interface FileNegotiation {
 
 export interface FileNegotiationOption {
   /**
-   * Value to match in `Accept-*` header.
-   * The comparison is case-insensitive.
+   * Value to send in response `Content-*` header.
+   * This is also used as a default (case-insensitive) request `Accept-*` comparison if no `for` pattern is given.
    *
    * @example 'gzip'
    * @example 'en-GB'
-   * @example /^en/
    * @example 'text/html'
-   * @example /^text\//
    */
-  match: string | RegExp;
+  value: string;
 
   /**
-   * Override value to return in `Content-Type` or `Content-Encoding`.
-   * You can use this to give a concrete type when matching against a wildcard:
+   * Optional wildcard matcher for the `Accept-*` header.
    *
-   * @example { match: 'text/*', as: 'text/plain', file: '{base}.txt' }
+   * @example { value: 'text/plain', for: /^text\//, file: '{base}.txt' }
    */
-  as?: string | undefined;
+  for?: RegExp;
 
   /**
    * Filename modifier to apply. Several tokens are available:
@@ -80,12 +77,12 @@ export const negotiateEncoding = (
 function internalReadMap<T extends string>(
   items: T[] | Record<T, string>,
   lookup: Map<T, string>,
-): { match: T; file: string }[] {
+): { value: T; file: string }[] {
   if (Array.isArray(items)) {
-    return items.map((format) => ({ match: format, file: lookup.get(format)! }));
+    return items.map((value) => ({ value, file: lookup.get(value)! }));
   } else {
-    return Object.entries(items).map(([match, file]) => ({
-      match: match as T,
+    return Object.entries(items).map(([value, file]) => ({
+      value: value as T,
       file: file as string,
     }));
   }
@@ -118,8 +115,8 @@ interface InternalRule {
 }
 
 interface InternalOption {
+  _value: string;
   _match: (value: string) => boolean;
-  _as: string;
   _file: string;
 }
 
@@ -158,8 +155,8 @@ export class Negotiator {
           _match: stringPredicate(rule.match, true),
           _options: rule.options.map((option) => ({
             _file: option.file,
-            _match: stringPredicate(option.match, true),
-            _as: option.as ?? (typeof option.match === 'string' ? option.match : ''),
+            _value: option.value,
+            _match: stringPredicate(option.for ?? option.value, true),
           })),
         };
       })
@@ -217,7 +214,7 @@ export class Negotiator {
           continue;
         }
         seen.add(sub);
-        headers[header._responseHeader] = match._option._as;
+        headers[header._responseHeader] = match._option._value;
         yield* next(sub, pos + 1);
         if (attempts.size >= limit) {
           return;

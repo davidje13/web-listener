@@ -69,7 +69,7 @@ export async function compressFileOffline(
 
   const threshold = info.rawSize - minCompression;
   for (const opt of encodings) {
-    const compress = ENCODERS.get(opt.match as string);
+    const compress = ENCODERS.get(opt.value);
     const mutated = join(dirname(file), internalMutateName(basename(file), opt.file));
     if (!compress || mutated === opt.file) {
       continue;

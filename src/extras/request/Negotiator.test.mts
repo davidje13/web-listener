@@ -123,16 +123,16 @@ describe('Negotiator', () => {
           {
             feature: 'type',
             match: 'f1.txt',
-            options: [{ match: 'text/fun', file: '{base}.fun' }],
+            options: [{ value: 'text/fun', file: '{base}.fun' }],
           },
           {
             feature: 'language',
             match: /2/,
-            options: [{ match: 'pl', file: '{base}-pl{ext}' }],
+            options: [{ value: 'pl', file: '{base}-pl{ext}' }],
           },
           {
             feature: 'encoding',
-            options: [{ match: 'gzip', file: '{file}.gz' }],
+            options: [{ value: 'gzip', file: '{file}.gz' }],
           },
         ],
         { maxFailedAttempts: 20 },
@@ -165,9 +165,37 @@ describe('Negotiator', () => {
     });
   });
 
+  it('performs pattern matching if `for` is given', () => {
+    const multi = new Negotiator([
+      {
+        feature: 'type',
+        options: [
+          { value: 'text/plain', for: /^text\//, file: '{file}.txt' },
+          { value: 'font/woff', for: /^font\/\*$/, file: '{base}.woff' },
+        ],
+      },
+    ]);
+
+    const optionGenerator1 = multi.options('foo', {
+      accept: 'text/whatever;q=0.9, text/another;q=0.8, text/*;q=0.7, font/nope;q=0.5',
+    });
+
+    expect(optionGenerator1.next().value?.filename).equals('foo.txt');
+    expect(optionGenerator1.next().value?.filename).equals('foo');
+    expect(optionGenerator1.next().done).isTrue();
+
+    const optionGenerator2 = multi.options('foo', {
+      accept: 'font/*;q=0.5',
+    });
+
+    expect(optionGenerator2.next().value?.filename).equals('foo.woff');
+    expect(optionGenerator2.next().value?.filename).equals('foo');
+    expect(optionGenerator2.next().done).isTrue();
+  });
+
   it('rejects unknown types', () => {
     expect(
-      () => new Negotiator([{ feature: 'unknown' as any, options: [{ match: 'a/b', file: 'x' }] }]),
+      () => new Negotiator([{ feature: 'unknown' as any, options: [{ value: 'a/b', file: 'x' }] }]),
     ).throws('unknown negotiation feature: unknown');
   });
 });
@@ -176,20 +204,20 @@ const COMPLEX_RULES: FileNegotiation[] = [
   {
     feature: 'type',
     options: [
-      { match: 'text/plain', file: '{file}' },
-      { match: 'text/fun', file: '{base}.fun' },
+      { value: 'text/plain', file: '{file}' },
+      { value: 'text/fun', file: '{base}.fun' },
     ],
   },
   {
     feature: 'language',
     options: [
-      { match: 'en-GB', file: '{base}-en{ext}' },
-      { match: 'en', file: '{base}-en{ext}' },
-      { match: 'pl', file: '{base}-pl{ext}' },
+      { value: 'en-GB', file: '{base}-en{ext}' },
+      { value: 'en', file: '{base}-en{ext}' },
+      { value: 'pl', file: '{base}-pl{ext}' },
     ],
   },
   {
     feature: 'encoding',
-    options: [{ match: 'gzip', file: '{file}.gz' }],
+    options: [{ value: 'gzip', file: '{file}.gz' }],
   },
 ];

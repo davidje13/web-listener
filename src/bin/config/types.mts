@@ -6,11 +6,15 @@ import type {
 } from '../../index.mts';
 import type { LogLevel } from '../log.mts';
 
+export type ConfigMountFilesOptions = Omit<FileServerOptions, 'negotiator'> & {
+  negotiation?: FileNegotiation[];
+};
+
 interface ConfigMountFiles {
   type: 'files';
   path: string;
   dir: string;
-  options: Omit<FileServerOptions, 'negotiator'> & { negotiation?: FileNegotiation[] };
+  options: ConfigMountFilesOptions;
 }
 
 interface ConfigMountProxy {
