@@ -228,6 +228,10 @@ export class FileFinder implements FileFinderCore {
     if (this._caseSensitive === 'force-lowercase') {
       subPath = subPath.toLowerCase();
     }
+    if (/(^|[\\\/])\.\.($|[\\\/])|^[\\\/]/.test(subPath)) {
+      warnings?.push(`${JSON.stringify(subPath)} is not permitted`);
+      return null; // attempted directory traversal (may reveal root directory): fail
+    }
     let resolvedPath = resolve(this._baseDir, subPath);
     if (!resolvedPath.startsWith(this._baseDir) && resolvedPath + sep !== this._baseDir) {
       warnings?.push(

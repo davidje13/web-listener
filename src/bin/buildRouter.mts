@@ -77,7 +77,12 @@ export async function buildRouter(mount: ConfigMount[], log: (info: LogInfo) => 
         router.at(
           item.path,
           requestHandler((req, res) => {
-            res.setHeader('location', populate(req, item.target));
+            let redirect = populate(req, item.target);
+            if (item.target[0] === '/') {
+              // ensure location has exactly one leading /, else some clients may interpret it as a full URL
+              redirect = redirect.replace(/^\/{2,}/, '/');
+            }
+            res.setHeader('location', redirect);
             res.statusCode = item.status;
             res.end();
           }),

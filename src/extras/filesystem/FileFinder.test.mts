@@ -6,11 +6,11 @@ import {
 } from '../../test-helpers/makeFileStructure.mts';
 import { Negotiator } from '../request/Negotiator.mts';
 import { FileFinder, type FileFinderCore, type FileFinderOptions } from './FileFinder.mts';
-import type { TypedParameters } from 'lean-test';
+import 'lean-test';
 
 function fileFinderTestSuite(isPrecomputed: boolean) {
-  it('resolves files within a directory', async (props) => {
-    const fileFinder = await initialise(props, {
+  it('resolves files within a directory', async ({ getTyped }) => {
+    const fileFinder = await initialise(getTyped(TEST_DIR), {
       'one.txt': 'Content',
       'two.txt': 'Other',
       sub: { 'three.txt': 'Nested Content' },
@@ -43,8 +43,8 @@ function fileFinderTestSuite(isPrecomputed: boolean) {
     expect(await fileExists(fileFinder, ['three.txt'])).isFalse();
   });
 
-  it('serves index files if a directory is requested', async (props) => {
-    const fileFinder = await initialise(props, {
+  it('serves index files if a directory is requested', async ({ getTyped }) => {
+    const fileFinder = await initialise(getTyped(TEST_DIR), {
       sub1: {
         'index.htm': 'Index Content',
         'foo.htm': 'Other Content',
@@ -69,8 +69,8 @@ function fileFinderTestSuite(isPrecomputed: boolean) {
     expect(await fileExists(fileFinder, ['sub2'])).isFalse();
   });
 
-  it('serves the root index file if the root is requested', async (props) => {
-    const fileFinder = await initialise(props, {
+  it('serves the root index file if the root is requested', async ({ getTyped }) => {
+    const fileFinder = await initialise(getTyped(TEST_DIR), {
       'index.htm': 'Index Content',
     });
 
@@ -88,9 +88,9 @@ function fileFinderTestSuite(isPrecomputed: boolean) {
     expect(await fileExists(fileFinder, ['index.htm'])).isFalse();
   });
 
-  it('uses configured index files', async (props) => {
+  it('uses configured index files', async ({ getTyped }) => {
     const fileFinder = await initialise(
-      props,
+      getTyped(TEST_DIR),
       { sub: { 'index.htm': 'Index Content', 'custom.thing': 'Custom Content' } },
       { indexFiles: ['custom.thing'] },
     );
@@ -109,9 +109,9 @@ function fileFinderTestSuite(isPrecomputed: boolean) {
     expect(await fileExists(fileFinder, ['sub', 'custom.thing'])).isFalse();
   });
 
-  it('prioritises index files by their configured order', async (props) => {
+  it('prioritises index files by their configured order', async ({ getTyped }) => {
     const fileFinder = await initialise(
-      props,
+      getTyped(TEST_DIR),
       { a: 'nope', m: 'yep', z: 'nope' },
       { indexFiles: ['m', 'a', 'z'] },
     );
@@ -127,9 +127,9 @@ function fileFinderTestSuite(isPrecomputed: boolean) {
     }
   });
 
-  it('uses configured suffixes if the requested file does not exist', async (props) => {
+  it('uses configured suffixes if the requested file does not exist', async ({ getTyped }) => {
     const fileFinder = await initialise(
-      props,
+      getTyped(TEST_DIR),
       {
         'file.foo': 'Foo',
         'other.bar': 'Bar',
@@ -177,9 +177,9 @@ function fileFinderTestSuite(isPrecomputed: boolean) {
     expect(await fileExists(fileFinder, ['sub', 'custom.thing'])).isFalse();
   });
 
-  it('prioritises suffixes by their configured order', async (props) => {
+  it('prioritises suffixes by their configured order', async ({ getTyped }) => {
     const fileFinder = await initialise(
-      props,
+      getTyped(TEST_DIR),
       { aa: 'nope', am: 'yep', az: 'nope' },
       { implicitSuffixes: ['m', 'a', 'z'] },
     );
@@ -198,7 +198,7 @@ function fileFinderTestSuite(isPrecomputed: boolean) {
   it('does not allow access to files outside the directory', async (props) => {
     const dir = props.getTyped(TEST_DIR);
     const fileFinder = await initialise(
-      props,
+      dir,
       {
         'one.txt': 'Blocked Content',
         sub: { 'ok.txt': 'Permitted Content' },
@@ -221,8 +221,20 @@ function fileFinderTestSuite(isPrecomputed: boolean) {
     }
   });
 
-  it('does not allow access to special files by default', async (props) => {
-    const fileFinder = await initialise(props, {
+  it('does not disclose the root path', async (props) => {
+    const dir = props.getTyped(TEST_DIR);
+    const fileFinder = await initialise(dir, { sub: { 'ok.txt': 'Permitted Content' } }, {}, 'sub');
+
+    expect(await fileExists(fileFinder, ['..', 'sub', 'ok.txt'])).isFalse();
+    expect(await fileExists(fileFinder, ['../sub/ok.txt'])).isFalse();
+    expect(await fileExists(fileFinder, ['a', '..', '..', 'sub', 'ok.txt'])).isFalse();
+    expect(await fileExists(fileFinder, ['a/../../sub/ok.txt'])).isFalse();
+    expect(await fileExists(fileFinder, [...dir.split(sep), 'sub', 'ok.txt'])).isFalse();
+    expect(await fileExists(fileFinder, [join(dir, 'sub', 'ok.txt')])).isFalse();
+  });
+
+  it('does not allow access to special files by default', async ({ getTyped }) => {
+    const fileFinder = await initialise(getTyped(TEST_DIR), {
       '.dot': 'Blocked Content',
       '~tilde': 'Blocked Content',
       'tilde~': 'Blocked Content',
@@ -244,8 +256,8 @@ function fileFinderTestSuite(isPrecomputed: boolean) {
     }
   });
 
-  it('is case sensitive by default', async (props) => {
-    const fileFinder = await initialise(props, {
+  it('is case sensitive by default', async ({ getTyped }) => {
+    const fileFinder = await initialise(getTyped(TEST_DIR), {
       'one.txt': 'Content',
       'TWO.txt': 'Other',
       Sub: { 'three.txt': 'Nested Content' },
@@ -258,9 +270,9 @@ function fileFinderTestSuite(isPrecomputed: boolean) {
     expect(await fileExists(fileFinder, ['Sub', 'three.txt'])).isTrue();
   });
 
-  it('forces all paths lowercase if configured', async (props) => {
+  it('forces all paths lowercase if configured', async ({ getTyped }) => {
     const fileFinder = await initialise(
-      props,
+      getTyped(TEST_DIR),
       {
         'one.txt': 'Content',
         sub: { 'two.txt': 'Nested Content' },
@@ -274,9 +286,9 @@ function fileFinderTestSuite(isPrecomputed: boolean) {
     expect(await fileExists(fileFinder, ['Sub', 'two.TXT'])).isTrue();
   });
 
-  it('returns specific file variants if negotiated', async (props) => {
+  it('returns specific file variants if negotiated', async ({ getTyped }) => {
     const fileFinder = await initialise(
-      props,
+      getTyped(TEST_DIR),
       {
         'one.txt': 'Content',
         'one.txt.gz': 'Compressed Content',
@@ -333,8 +345,8 @@ function fileFinderTestSuite(isPrecomputed: boolean) {
   });
 
   describe('debugAllPaths', () => {
-    it('returns a set of all recognised paths', async (props) => {
-      const fileFinder = await initialise(props, {
+    it('returns a set of all recognised paths', async ({ getTyped }) => {
+      const fileFinder = await initialise(getTyped(TEST_DIR), {
         'foo.txt': 'Hello',
         sub1: {
           'index.htm': 'Index Content',
@@ -351,12 +363,11 @@ function fileFinderTestSuite(isPrecomputed: boolean) {
   const TEST_DIR = makeTestTempDir('ff-');
 
   async function initialise(
-    { getTyped }: TypedParameters,
+    dir: string,
     structure: FilesDefinition,
     options: FileFinderOptions = {},
     relativePath = '',
   ) {
-    const dir = getTyped(TEST_DIR);
     await makeFileStructure(dir, structure);
     const fileFinder = await FileFinder.build(join(dir, relativePath), options);
     if (isPrecomputed) {
