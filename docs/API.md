@@ -189,6 +189,17 @@ parameters from a parent, which can be typed with `Router<WithPathParameters<{ n
   - [`stringPredicate`]
   - [`<BlockingQueue>`]
   - [`<Queue>`]
+- [Examples](#examples)
+  - [Simple server]
+  - [HTTPS server]
+  - [Custom error logging]
+  - [Path parameters]
+  - [Bearer authentication middleware]
+  - [Custom authentication middleware]
+  - [Using properties]
+  - [Using templates]
+  - [Logging duration]
+  - [WebSocket requests]
 
 ## Core Classes
 
@@ -232,7 +243,7 @@ manually).
 
 Attach listeners to the given `server`.
 
-Example usage: [HTTPS](#https)
+Example usage: [HTTPS server]
 
 ##### `detach([reason[, existingConnectionTimeout[, forShutdown[, callback]]]])`
 
@@ -296,7 +307,7 @@ an error.
 Call `event.preventDefault()` if you do not want to use the default logging behaviour (which calls
 `console.error` for all errors except [`<HTTPError>`]s with `statusCode` < `500`.
 
-Example usage: [Error handling](#error-handling)
+Example usage: [Custom error logging]
 
 ### `AugmentedServer`
 
@@ -337,7 +348,7 @@ new Promise((resolve) => {
 A collection of listeners which can be attached to a [`<http.Server>`]. This is returned by
 [`toListeners`].
 
-#### `request`
+#### `nativelisteners.request`
 
 A request listener compatible with
 [`<http.Server>` `'request'`](https://nodejs.org/api/http.html#event-request).
@@ -345,23 +356,23 @@ A request listener compatible with
 Also compatible with [`'checkContinue'`](https://nodejs.org/api/http.html#event-checkcontinue) and
 [`'checkExpectation'`](https://nodejs.org/api/http.html#event-checkexpectation).
 
-#### `upgrade`
+#### `nativelisteners.upgrade`
 
 An upgrade listener compatible with
 [`<http.Server>` `'upgrade'`](https://nodejs.org/api/http.html#event-upgrade_1).
 
-#### `shouldUpgrade`
+#### `nativelisteners.shouldUpgrade`
 
 A function compatible with [`http.createServer`]'s `shouldUpgradeCallback` option (Node.js 24.9+).
 
-#### `clientError`
+#### `nativelisteners.clientError`
 
 An error listener compatible with
 [`<http.Server>` `'clientError'`](https://nodejs.org/api/http.html#event-clienterror).
 
-#### `softClose(reason, onError[, callback])`
+#### `nativelisteners.softClose(reason, onError[, callback])`
 
-[`softClose`]: #softclosereason-onerror-callback
+[`softClose`]: #nativelistenerssoftclosereason-onerror-callback
 
 - `reason` [`<string>`] a label describing the type of close, used in error messages and passed to
   soft close helpers.
@@ -378,7 +389,7 @@ creation. Also ensures [`Connection: close`][`Connection`] is set in response he
 handlers may chose to close their connections immediately or in the near future in response to the
 event.
 
-#### `hardClose([callback])`
+#### `nativelisteners.hardClose([callback])`
 
 - `callback` [`<Function>`] function to invoke once all connections have closed.
 
@@ -387,7 +398,7 @@ received a response are closed with HTTP status [503 Service Unavailable]. Upgra
 have been [accepted][`acceptUpgrade`] or [delegated][`delegateUpgrade`] are closed at the socket
 level with no additional data sent.
 
-#### `countConnections()`
+#### `nativelisteners.countConnections()`
 
 - Returns: [`<number>`]
 
@@ -506,8 +517,8 @@ wrapped by [`requestHandler`]).
 
 For common methods, you can use the convenience shorthand functions:
 
-- [`router.get`]
 - [`router.delete`]
+- [`router.get`]
 - [`router.getOnly`]
 - [`router.head`]
 - [`router.options`]
@@ -575,28 +586,31 @@ Return handlers are not ordered with the other handlers, so they can be register
 desired. If a return handler throws, the error will be passed to the next error handler after the
 request handler which triggered it.
 
-Example usage: [Using templates](#using-templates).
-
-#### `router.get(path, ...handlers)`
-
-[`router.get`]: #routergetpath-handlers
-
-Shorthand for [`router.onRequest(['GET', 'HEAD'], path, ...handlers)`][`router.onRequest`].
-
-Note that this registers both `GET` and `HEAD` handlers. If you want to use a custom `HEAD` handler,
-either register it first, or use [`router.getOnly`] instead.
+Example usage: [Using templates].
 
 #### `router.delete(path, ...handlers)`
 
 [`router.delete`]: #routerdeletepath-handlers
 
-Shorthand for [`router.onRequest('DELETE', path, ...handlers)`][`router.onRequest`].
+Handle [`DELETE`] requests. Shorthand for
+[`router.onRequest('DELETE', path, ...handlers)`][`router.onRequest`].
+
+#### `router.get(path, ...handlers)`
+
+[`router.get`]: #routergetpath-handlers
+
+Handle [`GET`] and [`HEAD`] requests. Shorthand for
+[`router.onRequest(['GET', 'HEAD'], path, ...handlers)`][`router.onRequest`].
+
+Note that this registers both `GET` and `HEAD` handlers. If you want to use a custom `HEAD` handler,
+either register it first, or use [`router.getOnly`] instead.
 
 #### `router.getOnly(path, ...handlers)`
 
 [`router.getOnly`]: #routergetonlypath-handlers
 
-Shorthand for [`router.onRequest('GET', path, ...handlers)`][`router.onRequest`].
+Handle [`GET`] requests. Shorthand for
+[`router.onRequest('GET', path, ...handlers)`][`router.onRequest`].
 
 Use this if you want to perform your own `HEAD` handling. Otherwise it is usually better to use
 [`router.get`] to register handlers for both `GET` _and_ `HEAD` simultaneously.
@@ -605,37 +619,43 @@ Use this if you want to perform your own `HEAD` handling. Otherwise it is usuall
 
 [`router.head`]: #routerheadpath-handlers
 
-Shorthand for [`router.onRequest('HEAD', path, ...handlers)`][`router.onRequest`].
+Handle [`HEAD`] requests. Shorthand for
+[`router.onRequest('HEAD', path, ...handlers)`][`router.onRequest`].
 
 #### `router.options(path, ...handlers)`
 
 [`router.options`]: #routeroptionspath-handlers
 
-Shorthand for [`router.onRequest('OPTIONS', path, ...handlers)`][`router.onRequest`].
+Handle [`OPTIONS`] requests. Shorthand for
+[`router.onRequest('OPTIONS', path, ...handlers)`][`router.onRequest`].
 
 #### `router.patch(path, ...handlers)`
 
 [`router.patch`]: #routerpatchpath-handlers
 
-Shorthand for [`router.onRequest('PATCH', path, ...handlers)`][`router.onRequest`].
+Handle [`PATCH`] requests. Shorthand for
+[`router.onRequest('PATCH', path, ...handlers)`][`router.onRequest`].
 
 #### `router.post(path, ...handlers)`
 
 [`router.post`]: #routerpostpath-handlers
 
-Shorthand for [`router.onRequest('POST', path, ...handlers)`][`router.onRequest`].
+Handle [`POST`] requests. Shorthand for
+[`router.onRequest('POST', path, ...handlers)`][`router.onRequest`].
 
 #### `router.put(path, ...handlers)`
 
 [`router.put`]: #routerputpath-handlers
 
-Shorthand for [`router.onRequest('PUT', path, ...handlers)`][`router.onRequest`].
+Handle [`PUT`] requests. Shorthand for
+[`router.onRequest('PUT', path, ...handlers)`][`router.onRequest`].
 
 #### `router.ws(path, ...handlers)`
 
 [`router.ws`]: #routerwspath-handlers
 
-Shorthand for [`router.onUpgrade('GET', 'websocket', path, ...handlers)`][`router.onUpgrade`].
+Handle [WebSocket] requests. Shorthand for
+[`router.onUpgrade('GET', 'websocket', path, ...handlers)`][`router.onUpgrade`].
 
 Registers a WebSocket handler. You may want to call [`acceptWebSocket`][`makeAcceptWebSocket`] in
 the handler to actually establish the WebSocket connection, or delegate the request to another
@@ -653,7 +673,7 @@ The `Handler` interface is used in several places, notably as input to [`<Router
 
 #### `handler.handleRequest(req, res)`
 
-[`handleRequest`]: #handlerhandlerequestreq-res
+[`handler.handleRequest`]: #handlerhandlerequestreq-res
 
 - `req` [`<http.IncomingMessage>`]
 - `res` [`<http.ServerResponse>`]
@@ -693,6 +713,15 @@ Optional, _synchronous_ function for determining whether an upgrade request shou
 
 By default, this is assumed to return `true` if [`handler.handleUpgrade`] is defined.
 
+If you have defined [`handler.handleUpgrade`], but it acts more as a filter (e.g. authentication or
+IP blocking) rather than actually handling the request, you should set this to a function which
+returns `false`. This will prevent requests being handled as upgrades simply because the filter
+handler matches, even if no actual upgrade handlers match. Handlers created using [`anyHandler`]
+return `false` for `shouldUpgrade` by default.
+
+Note that setting `shouldUpgradeCallback` on a [`<http.Server>`] requires Node.js 24.9+, so this
+will be ignored in earlier versions unless you are using a custom server implementation.
+
 #### `handler.handleError(error, req, output)`
 
 [`handler.handleError`]: #handlerhandleerrorerror-req-output
@@ -700,7 +729,7 @@ By default, this is assumed to return `true` if [`handler.handleUpgrade`] is def
 - `error` the error to handle (may be of any type)
 - `req` [`<http.IncomingMessage>`]
 - `output` [`<Object>`] an object containing _either_:
-  - for errors thrown from [`handleRequest`]:
+  - for errors thrown from [`handler.handleRequest`]:
     - `response` [`<http.ServerResponse>`]
   - or for errors thrown from [`handler.handleUpgrade`]:
     - `socket` [`<stream.Duplex>`]
@@ -716,9 +745,10 @@ Can return or throw a [`<RoutingInstruction>`] to continue running additional ha
 To skip handling an error (e.g. if the error type is not recognised or the output type is not
 recognised), re-throw it.
 
-Note that this function is not typically defined on the same handler entity as [`handleRequest`] or
-[`handler.handleUpgrade`]. In particular: if a request or upgrade handler throws, the error will
-_not_ be sent to its own `handleError`, but to the next one in the chain.
+Note that this function is not typically defined on the same `Handler` entity as
+[`handler.handleRequest`] or [`handler.handleUpgrade`]. In particular: if a request or upgrade
+handler throws, the error will _not_ be sent to its own `handleError`, but to the next one in the
+chain.
 
 #### `handler.shouldHandleError(error, req, output)`
 
@@ -756,8 +786,8 @@ next route, or the next router. If there are no further handlers, this will caus
 status [404 Not Found] to be returned.
 
 If this is thrown or returned by a [`handler.handleError`] handler, the error is considered handled
-successfully and the next [`handleRequest`] or [`handler.handleUpgrade`] will be called (to continue
-to the next error handler, re-throw the error instead).
+successfully and the next [`handler.handleRequest`] or [`handler.handleUpgrade`] will be called (to
+continue to the next error handler, re-throw the error instead).
 
 #### `NEXT_ROUTE`
 
@@ -766,8 +796,8 @@ current chain. This may be the next route, or the next router. If there are no f
 this will cause an automatic HTTP status [404 Not Found] to be returned.
 
 If this is thrown or returned by a [`handler.handleError`] handler, the error is considered handled
-successfully and the next [`handleRequest`] or [`handler.handleUpgrade`] will be called (to continue
-to the next error handler, re-throw the error instead).
+successfully and the next [`handler.handleRequest`] or [`handler.handleUpgrade`] will be called (to
+continue to the next error handler, re-throw the error instead).
 
 #### `NEXT_ROUTER`
 
@@ -776,8 +806,8 @@ current router. If there are no further handlers, this will cause an automatic H
 Found] to be returned.
 
 If this is thrown or returned by a [`handler.handleError`] handler, the error is considered handled
-successfully and the next [`handleRequest`] or [`handler.handleUpgrade`] will be called (to continue
-to the next error handler, re-throw the error instead).
+successfully and the next [`handler.handleRequest`] or [`handler.handleUpgrade`] will be called (to
+continue to the next error handler, re-throw the error instead).
 
 ### `Property`
 
@@ -802,7 +832,7 @@ calculation (but see [`makeMemo`] for a simpler memoisation API).
 The `defaultValue` function _can_ be asynchronous, but note you must `await` all calls to
 [`property.get`] in this case.
 
-Example usage: [Using properties](#using-properties).
+Example usage: [Using properties].
 
 #### `property.set(req, value)`
 
@@ -1085,6 +1115,8 @@ This is useful for cleaning up temporary state.
 
 Teardown functions are executed in the reverse order of registration.
 
+Example usage: [Logging duration].
+
 ### `getAbortSignal(req)`
 
 [`getAbortSignal`]: #getabortsignalreq
@@ -1148,7 +1180,7 @@ Wraps the given upgrade handling function in a `Handler`. Equivalent to:
   - `error` the error to handle (may be of any type)
   - `req` [`<http.IncomingMessage>`]
   - `output` [`<Object>`] an object containing _either_:
-    - for errors thrown from [`handleRequest`]:
+    - for errors thrown from [`handler.handleRequest`]:
       - `response` [`<http.ServerResponse>`]
     - or for errors thrown from [`handler.handleUpgrade`]:
       - `socket` [`<stream.Duplex>`]
@@ -1594,9 +1626,8 @@ The [close reason] which should be sent to the client for this error.
 
 [`makeAcceptWebSocket`]: #makeacceptwebsocketserverclass-options
 
-- `ServerClass` [`<Function>`] a server class to use, such as
-  [`WebSocketServer`](https://github.com/websockets/ws/blob/HEAD/doc/ws.md#class-websocketserver)
-  from [ws](https://www.npmjs.com/package/ws). Instances must, at a minimum, implement
+- `ServerClass` [`<Function>`] a server class to use, such as [`<ws.WebSocketServer>`] from
+  [ws](https://www.npmjs.com/package/ws). Instances must, at a minimum, implement
   [`handleUpgrade`](https://github.com/websockets/ws/blob/HEAD/doc/ws.md#serverhandleupgraderequest-socket-head-callback).
 - `options` [`<Object>`]
   - `softCloseStatusCode` [`<number>`]. **Default:** `1001`.
@@ -1611,9 +1642,9 @@ with a WebSocket instance, as created by `ServerClass.handleUpgrade`.
 It internally uses [`acceptUpgrade`], providing the necessary wrappers for error and soft close
 handling. It is safe to call this multiple times for the same request (e.g. from different
 handlers), but only the configuration for the first call will be used (subsequent calls will simply
-return the same websocket instance).
+return the same WebSocket instance).
 
-Example usage: [WebSocket requests](#websocket-requests).
+Example usage: [WebSocket requests].
 
 ### `getWebSocketOrigin(req)`
 
@@ -1950,7 +1981,7 @@ To close the connection permanently, it must be closed from the client side.
 
 Interface returned by [`getRange`] and [`simplifyRange`]. Can be passed to [`sendRanges`].
 
-#### `ranges`
+#### `httprange.ranges`
 
 - Type: [`<Object[]>`][`<Object>`]
 
@@ -1961,7 +1992,7 @@ List of range parts. Each entry has:
 
 Note that both `start` and `end` are inclusive, so it is not possible to represent an empty range.
 
-#### `totalSize`
+#### `httprange.totalSize`
 
 - Type: [`<number>`] | [`<undefined>`]
 
@@ -1973,25 +2004,25 @@ Total size of the content the range applies to, in bytes.
 
 Interface returned by [`getClient`][`makeGetClient`].
 
-#### `client`
+#### `proxynode.client`
 
 - Type: [`<Object>`] | [`<undefined>`] an address as returned by [`parseAddress`]
 
 Represents the client address making a request (this will often be the `server` address of the next
 proxy in the chain, but the address may differ in some situations).
 
-#### `server`
+#### `proxynode.server`
 
 - Type: [`<Object>`] | [`<undefined>`] an address as returned by [`parseAddress`]
 
 Represents the server address a request was sent to.
 
-#### `host`
+#### `proxynode.host`
 
 - Type: [`<string>`] | [`<undefined>`] the host name in the request (e.g. the value of the `Host`
   header).
 
-#### `proto`
+#### `proxynode.proto`
 
 - Type: [`<string>`] | [`<undefined>`] the connection protocol used by the request (e.g. `http` or
   `https`).
@@ -2061,7 +2092,8 @@ Configures which headers this negotiation stage uses.
 
 - Type: [`<string>`] | [`<RegExp>`] | [`<undefined>`].
 
-Optional filename filter. The current negotiation will only be applied to files which match.
+Optional filename filter. The current negotiation will only be applied to files which match. The
+match is always case-insensitive.
 
 #### `filenegotiation.options`
 
@@ -2096,7 +2128,7 @@ Value to send in the corresponding `Content-*` response header for the [`fileneg
   [`filenegotiationoption.value`].
 
 Optional pattern to match in the corresponding `Accept-*` request header for the
-[`filenegotiation.feature`].
+[`filenegotiation.feature`]. The pattern is automatically converted to be case insensitive.
 
 This can be used to support wildcards, for example:
 
@@ -2247,7 +2279,7 @@ If the value returned by `extractAndValidateToken` is an object with certain
 The returned [`<Handler>`] also has an extra method: `getTokenData(req)`. This can be used from any
 authenticated handler to retrieve the raw value returned by `extractAndValidateToken`.
 
-Example usage: [Bearer authentication middleware](#bearer-authentication-middleware)
+Example usage: [Bearer authentication middleware]
 
 ### `requireAuthScope(scope)`
 
@@ -2260,7 +2292,7 @@ Checks that the request has been authenticated (e.g. by [`requireBearerAuth`]) a
 scope (case sensitive). If this succeeds, it continues to the next handler. Otherwise, it returns
 [403 Forbidden] with a [`WWW-Authenticate`] header specifying the required scope.
 
-Example usage: [Bearer authentication middleware](#bearer-authentication-middleware)
+Example usage: [Bearer authentication middleware]
 
 ### `hasAuthScope(req, scope)`
 
@@ -2358,7 +2390,7 @@ Creates a simple proxy handler which forwards requests to a configured host. Thi
 example, for serving both an API and frontend content from the same server, especially during
 development (when the frontend content may be served by a dynamic server).
 
-Note that this proxy does _not_ support proxying [`Upgrade`] or `CONNECT` requests.
+Note that this proxy does _not_ support proxying [`Upgrade`] or [`CONNECT`] requests.
 
 Internally, a [`<http.Agent>`] or [`<https.Agent>`] pool is used to reduce communication overhead.
 This pool is never `destroy`ed, so if you are creating lots of short-lived `proxy`s, you should
@@ -3504,7 +3536,12 @@ This will match `/foo//bar`, but not `/foo///bar`
 
 # Examples
 
-## Simple Server
+## Simple server
+
+[Simple server]: #simple-server
+
+Example of a simple server with an API endpoint (`/config`) and static content from the directory
+`./static-content-dir`:
 
 ```js
 import { fileServer, Router, sendJSON, WebListener } from 'web-listener';
@@ -3528,9 +3565,16 @@ const weblistener = new WebListener(router);
 const server = await weblistener.listen(8080, 'localhost');
 ```
 
+In this example, requests for unknown files are served with `index.html` (Single-Page-App style).
+
 Reference: [`fileServer`], [`<Router>`], [`sendJSON`], [`<WebListener>`], [`weblistener.listen`]
 
-## HTTPS
+## HTTPS Server
+
+[HTTPS server]: #https-server
+
+Example of attaching a WebListener to a [`<https.Server>`] to directly support HTTPS requests
+without needing a reverse proxy:
 
 ```js
 import { createServer } from 'node:https';
@@ -3544,9 +3588,14 @@ weblistener.attach(server);
 server.listen(8080, 'localhost');
 ```
 
-Reference: [`weblistener.attach`]
+Reference: [`weblistener.attach`], [`https.createServer`]
 
-## Error Handling
+## Custom error logging
+
+[Custom error logging]: #custom-error-logging
+
+Example of listening for errors and logging them to the console unless they represent a client
+error:
 
 ```js
 import { findCause, HTTPError, WebListener } from 'web-listener';
@@ -3565,6 +3614,10 @@ weblistener.addEventListener('error', (evt) => {
 Reference: [`findCause`], [`<HTTPError>`], [`<WebListener>`], ['error' event](#event-error)
 
 ## Path parameters
+
+[Path parameters]: #path-parameters
+
+Example of using path parameters in routes and sub-routes:
 
 ```js
 import { getPathParameter, getPathParameters, Router } from 'web-listener';
@@ -3606,6 +3659,10 @@ subRouter.get('/item/:subid', (req, res) => {
 
 ## Bearer authentication middleware
 
+[Bearer authentication middleware]: #bearer-authentication-middleware
+
+Example of requiring `Bearer` token authentication on requests:
+
 ```js
 import { requireAuthScope, requireBearerAuth, Router } from 'web-listener';
 
@@ -3632,6 +3689,10 @@ Reference: [`requireAuthScope`], [`requireBearerAuth`], [`<Router>`]
 
 ## Custom authentication middleware
 
+[Custom authentication middleware]: #custom-authentication-middleware
+
+Example of requiring custom header-based authentication on requests:
+
 ```js
 import { CONTINUE, HTTPError, Router, sendJSON } from 'web-listener';
 
@@ -3654,8 +3715,12 @@ Reference: [`CONTINUE`], [`<HTTPError>`], [`<Router>`], [`sendJSON`]
 
 ## Using properties
 
+[Using properties]: #using-properties
+
+Example of passing a value from one handler to another for the same request:
+
 ```js
-import { Property, Router } from 'web-listener';
+import { CONTINUE, Property, Router } from 'web-listener';
 
 const router = new Router();
 
@@ -3672,9 +3737,13 @@ router.get('/', (req, res) => {
 });
 ```
 
-Reference: [`<Property>`], [`<Router>`]
+Reference: [`CONTINUE`], [`<Property>`], [`<Router>`]
 
 ## Using templates
+
+[Using templates]: #using-templates
+
+Example of defining a simple template for rendering values returned from handlers:
 
 ```js
 import { Router } from 'web-listener';
@@ -3691,12 +3760,40 @@ router.onReturn((value, req, res) => {
 
 Reference: [`<Router>`], [`router.onReturn`]
 
+## Logging duration
+
+[Logging duration]: #logging-duration
+
+Example of logging the amount of time taken to serve a request by registering a teardown from a
+handler:
+
+```js
+import { addTeardown, CONTINUE, Router } from 'web-listener';
+
+const router = new Router();
+
+router.use((req) => {
+  const begin = Date.now();
+  addTeardown(req, () => {
+    const end = Date.now();
+    console.log(`Served ${req.url} in ${end - begin}ms`);
+  });
+  return CONTINUE;
+});
+
+router.get('/something', (req, res) => {
+  res.end('response');
+});
+```
+
+Reference: [`addTeardown`], [`CONTINUE`], [`<Router>`]
+
 ## WebSocket requests
 
-`web-listener` supports Upgrade requests but does not include its own WebSocket handling. If you
-want to support WebSockets, you can bring in another library (such as
-[ws](https://www.npmjs.com/package/ws)) and wrap it to gain the advantages of routing and error
-handling:
+[WebSocket requests]: #websocket-requests
+
+Example using [ws](https://www.npmjs.com/package/ws) to handle [WebSocket] requests, with the
+routing and error handling capabilities of `web-listener`:
 
 ```js
 import { getPathParameters, makeAcceptWebSocket, nextWebSocketMessage, Router } from 'web-listener';
@@ -3723,7 +3820,8 @@ router.ws('/things/:id', async (req) => {
 });
 ```
 
-Reference: [`getPathParameters`], [`makeAcceptWebSocket`], [`nextWebSocketMessage`], [`<Router>`]
+Reference: [`getPathParameters`], [`makeAcceptWebSocket`], [`nextWebSocketMessage`], [`<Router>`],
+[`<ws.WebSocketServer>`]
 
 [`<any>`]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Data_structures#Data_types
 [`<null>`]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Data_structures#null_type
@@ -3775,6 +3873,8 @@ Reference: [`getPathParameters`], [`makeAcceptWebSocket`], [`nextWebSocketMessag
 [`<fs.FileHandle>`]: https://nodejs.org/api/fs.html#class-filehandle
 [`<http.Server>`]: https://nodejs.org/api/http.html#class-httpserver
 [`http.createServer`]: https://nodejs.org/api/http.html#httpcreateserveroptions-requestlistener
+[`<https.Server>`]: https://nodejs.org/api/https.html#class-httpsserver
+[`https.createServer`]: https://nodejs.org/api/https.html#httpscreateserveroptions-requestlistener
 [`server.setTimeout`]: https://nodejs.org/api/http.html#serversettimeoutmsecs-callback
 [`server.listen`]: https://nodejs.org/api/net.html#serverlistenport-host-backlog-callback
 [`server.address`]: https://nodejs.org/api/net.html#serveraddress
@@ -3783,7 +3883,18 @@ Reference: [`getPathParameters`], [`makeAcceptWebSocket`], [`nextWebSocketMessag
 [`<http.ServerResponse>`]: https://nodejs.org/api/http.html#class-httpserverresponse
 [`<http.Agent>`]: https://nodejs.org/api/http.html#class-httpagent
 [`<https.Agent>`]: https://nodejs.org/api/https.html#class-httpsagent
+[`<ws.WebSocketServer>`]: https://github.com/websockets/ws/blob/HEAD/doc/ws.md#class-websocketserver
 [HTTP verb]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods
+[`CONNECT`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods/CONNECT
+[`DELETE`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods/DELETE
+[`GET`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods/GET
+[`HEAD`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods/HEAD
+[`OPTIONS`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods/OPTIONS
+[`PATCH`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods/PATCH
+[`POST`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods/POST
+[`PUT`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods/PUT
+[WebSocket]:
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Protocol_upgrade_mechanism#upgrading_to_a_websocket_connection
 [HTTP status code]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status
 [100 Continue]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/100
 [304 Not Modified]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/304
