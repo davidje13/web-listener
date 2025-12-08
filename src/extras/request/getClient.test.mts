@@ -1,4 +1,5 @@
 import type { IncomingMessage, IncomingHttpHeaders } from 'node:http';
+import { inRequestHandler } from '../../test-helpers/withServer.mts';
 import { internalGetDirectConnection, makeGetClient } from './getClient.mts';
 import 'lean-test';
 
@@ -23,9 +24,20 @@ describe('getDirectConnection', () => {
       client: { family: 'IPv4', address: '5.5.5.5', port: 1234 },
       server: { family: 'IPv4', address: '5.6.7.8', port: 5678 },
       host: 'this.example.com',
-      proto: undefined,
+      proto: 'http',
     });
   });
+
+  it('returns https for the protocol if the server is a https.Server', { timeout: 3000 }, () =>
+    inRequestHandler(
+      async (req) => {
+        const node = internalGetDirectConnection(req);
+        expect(node.proto).equals('https');
+      },
+      {},
+      { tls: true },
+    ),
+  );
 });
 
 describe('makeGetClient', () => {
@@ -44,7 +56,7 @@ describe('makeGetClient', () => {
       client: { family: 'IPv4', address: '5.5.5.5', port: 1234 },
       server: { family: 'IPv4', address: '5.6.7.8', port: 5678 },
       host: 'this.example.com',
-      proto: undefined,
+      proto: 'http',
     },
     {
       client: { family: 'IPv4', address: '1.2.3.4', port: undefined },
@@ -97,7 +109,7 @@ describe('makeGetClient', () => {
         client: { family: 'IPv4', address: '5.5.5.5', port: 1234 },
         server: { family: 'IPv4', address: '5.6.7.8', port: 5678 },
         host: 'this.example.com',
-        proto: undefined,
+        proto: 'http',
       },
       {
         client: { family: 'IPv4', address: '1.2.3.4', port: undefined },
@@ -139,7 +151,7 @@ describe('makeGetClient', () => {
         client: { family: 'IPv4', address: '5.5.5.5', port: 1234 },
         server: { family: 'IPv4', address: '5.6.7.8', port: 5678 },
         host: 'this.example.com',
-        proto: undefined,
+        proto: 'http',
       },
       {
         client: { family: 'IPv4', address: '1.2.3.4', port: undefined },
@@ -181,7 +193,7 @@ describe('makeGetClient', () => {
         client: { family: 'IPv4', address: '5.5.5.5', port: 1234 },
         server: { family: 'IPv4', address: '5.6.7.8', port: 5678 },
         host: 'this.example.com',
-        proto: undefined,
+        proto: 'http',
       },
       {
         client: { family: 'IPv4', address: '1.2.3.4', port: undefined },
@@ -221,7 +233,7 @@ describe('makeGetClient', () => {
         client: { family: 'IPv4', address: '5.5.5.5', port: 1234 },
         server: { family: 'IPv4', address: '5.6.7.8', port: 5678 },
         host: 'this.example.com',
-        proto: undefined,
+        proto: 'http',
       },
       {
         client: undefined,
@@ -262,7 +274,7 @@ describe('makeGetClient', () => {
         client: { family: 'IPv4', address: '5.5.5.5', port: 1234 },
         server: { family: 'IPv4', address: '5.6.7.8', port: 5678 },
         host: 'this.example.com',
-        proto: undefined,
+        proto: 'http',
       },
       {
         client: { family: 'IPv4', address: '1.2.3.4', port: undefined },
@@ -306,7 +318,7 @@ describe('makeGetClient', () => {
         client: { family: 'IPv4', address: '5.5.5.5', port: 1234 },
         server: { family: 'IPv4', address: '5.6.7.8', port: 5678 },
         host: 'this.example.com',
-        proto: undefined,
+        proto: 'http',
       },
       {
         client: { family: 'IPv4', address: '1.2.3.4', port: undefined },

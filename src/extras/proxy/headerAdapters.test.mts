@@ -53,7 +53,7 @@ describe('replaceForwarded', () => {
 
     expect(outputHeaders).equals({
       host: 'next.example.com',
-      forwarded: 'for=1.2.3.4; by=5.6.7.8; host=next.example.com',
+      forwarded: 'for=1.2.3.4; by=5.6.7.8; host=next.example.com; proto=http',
       other: 'remains',
     });
   });
@@ -86,7 +86,7 @@ describe('simpleAppendForwarded', () => {
     expect(outputHeaders).equals({
       host: 'next.example.com',
       forwarded:
-        'for=9.9.9.9; by=1.2.3.4; host=example.com; proto=https, invalid, for=1.2.3.4; by=5.6.7.8; host=next.example.com',
+        'for=9.9.9.9; by=1.2.3.4; host=example.com; proto=https, invalid, for=1.2.3.4; by=5.6.7.8; host=next.example.com; proto=http',
       other: 'remains',
     });
   });
@@ -122,7 +122,7 @@ describe('sanitiseAndAppendForwarded', () => {
     expect(outputHeaders).equals({
       host: 'next.example.com',
       forwarded:
-        'for=1.1.1.1; by=9.9.9.9; host=nope.example.com; proto=https, for=9.9.9.9; by=1.2.3.4; host=example.com; proto=https, for=1.2.3.4; by=5.5.5.5, for=5.5.5.5; by=5.6.7.8; host=next.example.com',
+        'for=1.1.1.1; by=9.9.9.9; host=nope.example.com; proto=https, for=9.9.9.9; by=1.2.3.4; host=example.com; proto=https, for=1.2.3.4; by=5.5.5.5, for=5.5.5.5; by=5.6.7.8; host=next.example.com; proto=http',
       other: 'remains',
     });
   });
@@ -154,7 +154,7 @@ describe('sanitiseAndAppendForwarded', () => {
     expect(outputHeaders).equals({
       host: 'next.example.com',
       forwarded:
-        'for=9.9.9.9; by=1.2.3.4; host=example.com; proto=https, for=1.2.3.4; by=5.5.5.5, for=5.5.5.5; by=5.6.7.8; host=next.example.com',
+        'for=9.9.9.9; by=1.2.3.4; host=example.com; proto=https, for=1.2.3.4; by=5.5.5.5, for=5.5.5.5; by=5.6.7.8; host=next.example.com; proto=http',
     });
   });
 });

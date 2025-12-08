@@ -1,13 +1,10 @@
-import { createServer as httpsCreateServer } from 'node:https';
 import { request, type IncomingMessage } from 'node:http';
 import { text } from 'node:stream/consumers';
 import { withServer } from '../../test-helpers/withServer.mts';
 import { responds } from '../../test-helpers/responds.mts';
 import { makeStreamSearch } from '../../test-helpers/streamSearch.mts';
 import { rawRequest, rawRequestStream } from '../../test-helpers/rawRequest.mts';
-import { generateTLSConfig } from '../../test-helpers/generateTLSConfig.mts';
 import { disableProtoDelete, disableProtoThrow } from '../../test-helpers/proto.mts';
-import { getAddressURL } from '../../util/getAddressURL.mts';
 import { requestHandler } from '../../core/handler.mts';
 import { getAbortSignal } from '../../core/close.mts';
 import { CONTINUE } from '../../core/RoutingInstruction.mts';
@@ -35,22 +32,22 @@ describe('proxy', () => {
     );
   });
 
-  it('supports https connections', { timeout: 3000 }, async () => {
-    const upstreamServer = httpsCreateServer(await generateTLSConfig(), (req, res) => {
-      res.end(`secure upstream handling ${req.method} ${req.url}`);
-    });
-    await new Promise<void>((resolve) => upstreamServer.listen(0, 'localhost', resolve));
-    try {
-      const handler = proxy(getAddressURL(upstreamServer.address(), 'https'), {
-        rejectUnauthorized: false, // test certificate is self-signed
-      });
-      await withServer(handler, async (url) => {
-        await expect(fetch(url), responds({ body: 'secure upstream handling GET /' }));
-      });
-    } finally {
-      await new Promise<void>((resolve) => upstreamServer.close(() => resolve()));
-    }
-  });
+  it('supports https connections', { timeout: 3000 }, () =>
+    withServer(
+      requestHandler((req, res) => {
+        res.end(`secure upstream handling ${req.method} ${req.url}`);
+      }),
+      async (upstreamUrl) => {
+        const handler = proxy(upstreamUrl, {
+          rejectUnauthorized: false, // test certificate is self-signed
+        });
+        await withServer(handler, async (url) => {
+          await expect(fetch(url), responds({ body: 'secure upstream handling GET /' }));
+        });
+      },
+      { tls: true },
+    ),
+  );
 
   it('streams request and response data', { timeout: 3000 }, () => {
     const upstream = requestHandler((req, res) => {

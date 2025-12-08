@@ -1,4 +1,5 @@
 import { createServer, type Server, type IncomingMessage, type ServerResponse } from 'node:http';
+import { createServer as httpsCreateServer } from 'node:https';
 import { getAddressURL } from '../util/getAddressURL.mts';
 import { BlockingQueue } from '../util/BlockingQueue.mts';
 import { requestHandler, type Handler } from '../core/handler.mts';
@@ -8,6 +9,7 @@ import {
   type NativeListeners,
   type NativeListenersOptions,
 } from '../core/toListeners.mts';
+import { generateTLSConfig } from './generateTLSConfig.mts';
 
 interface TestParams {
   server: Server;
@@ -15,10 +17,12 @@ interface TestParams {
   expectError: (message?: string | RegExp) => void;
 }
 
+type TestServerOptions = Omit<NativeListenersOptions, 'onError'> & { tls?: boolean };
+
 export async function withServer(
   handler: Handler,
   test: (address: string, params: TestParams) => Promise<void>,
-  options: Omit<NativeListenersOptions, 'onError'> = {},
+  { tls, ...options }: TestServerOptions = {},
 ) {
   const errors: string[] = [];
   const listeners = toListeners(handler, {
@@ -40,7 +44,7 @@ export async function withServer(
       errors.push(message);
     },
   });
-  const server = createServer();
+  const server = tls ? httpsCreateServer(await generateTLSConfig()) : createServer();
   server.addListener('clientError', listeners.clientError);
   server.addListener('request', listeners.request);
   server.addListener('checkContinue', listeners.request);
@@ -49,7 +53,7 @@ export async function withServer(
   server.shouldUpgradeCallback = listeners.shouldUpgrade;
   await new Promise<void>((resolve) => server.listen(0, 'localhost', resolve));
   try {
-    await test(getAddressURL(server.address()), {
+    await test(getAddressURL(server.address(), tls ? 'https' : 'http'), {
       server,
       listeners,
       expectError: (message: string | RegExp = '') => {
@@ -115,6 +119,7 @@ export async function inRequestHandler(
     },
   ) => Promise<void>,
   requestInit: RequestInit = {},
+  options: TestServerOptions = {},
 ) {
   const captured = new BlockingQueue<{ req: IncomingMessage; res: ServerResponse }>();
   const hold = new BlockingQueue();
@@ -125,34 +130,57 @@ export async function inRequestHandler(
       res.end();
     }
   });
-  return withServer(handler, async (url, params) => {
-    const ac = new AbortController();
-    let handleError = fail;
-    const request = fetch(url, { signal: ac.signal, ...requestInit }).catch((error) =>
-      handleError(error),
-    );
-    const { req, res } = await captured.shift();
-    const teardownSignal = new Promise<void>((resolve) => addTeardown(req, resolve));
-    const teardown = () => {
-      hold.push('done');
-      return teardownSignal;
-    };
-    try {
-      await test(req, res, {
-        ...params,
-        expectFetchError: () => {
-          handleError = () => {};
-        },
-        abort: async () => {
-          handleError = () => {};
-          ac.abort();
-          await request;
-        },
-        teardown,
+  return withServer(
+    handler,
+    async (url, params) => {
+      const ac = new AbortController();
+      let resolveRequest!: () => void;
+      let rejectRequest!: (err: Error) => void;
+      const requestPromise = new Promise<void>((resolve, reject) => {
+        resolveRequest = resolve;
+        rejectRequest = reject;
       });
-    } finally {
-      await teardown();
-    }
-    await request;
-  });
+      await Promise.all([
+        requestPromise,
+        (async () => {
+          if (options.tls) {
+            process.env['NODE_TLS_REJECT_UNAUTHORIZED'] = '0';
+          }
+          const request = fetch(url, { signal: ac.signal, ...requestInit }).then(
+            resolveRequest,
+            (err) => rejectRequest(new Error(`failed to fetch ${url}`, { cause: err })),
+          );
+          const { req, res } = await captured.shift();
+          const teardownSignal = new Promise<void>((resolve) => addTeardown(req, resolve));
+          const teardown = () => {
+            hold.push('done');
+            return teardownSignal;
+          };
+          try {
+            await test(req, res, {
+              ...params,
+              expectFetchError: () => {
+                rejectRequest = () => {};
+                resolveRequest();
+              },
+              abort: async () => {
+                rejectRequest = () => {};
+                resolveRequest();
+                ac.abort();
+                await request;
+              },
+              teardown,
+            });
+          } finally {
+            await teardown();
+          }
+        })(),
+      ]).finally(() => {
+        if (options.tls) {
+          delete process.env['NODE_TLS_REJECT_UNAUTHORIZED'];
+        }
+      });
+    },
+    options,
+  );
 }

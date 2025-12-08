@@ -1,4 +1,5 @@
 import type { IncomingMessage } from 'node:http';
+import type { TLSSocket } from 'node:tls';
 import { makeAddressTester, parseAddress, type Address } from '../../util/address.mts';
 import { readHTTPUnquotedCommaSeparated, readHTTPKeyValues } from './headers.mts';
 import { makeMemo } from '../Property.mts';
@@ -160,7 +161,7 @@ export const internalGetDirectConnection = (req: IncomingMessage): ProxyNode => 
     port: req.socket.localPort,
   },
   host: req.headers.host,
-  proto: undefined, // seems to be no good way to detect this without knowing if the server was started as a http or https server
+  proto: (req.socket as TLSSocket).encrypted ? 'https' : 'http',
 });
 
 const DISCONNECTED: Address = {
