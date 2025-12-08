@@ -145,11 +145,69 @@ describe('compilePathPattern', () => {
     const path = internalCompilePathPattern('/foo-:thing-bar', false);
     expect(path._pattern.test('/foo-one-bar')).isTrue();
     expect(path._pattern.test('/foo-two-bar')).isTrue();
+    expect(path._pattern.test('/foo-one-two-bar')).isTrue();
     expect(path._pattern.test('/foo--bar')).isFalse();
     expect(path._pattern.test('/foo-one-nope')).isFalse();
     expect(path._pattern.test('/nope-one-bar')).isFalse();
 
     expect(getPathParameters(path, '/foo-one-bar')).equals(new Map([['thing', 'one']]));
+    expect(getPathParameters(path, '/foo-one-two-bar')).equals(new Map([['thing', 'one-two']]));
+  });
+
+  it('supports multiple path parameters in one segment', () => {
+    const path = internalCompilePathPattern('/:foo-:bar', false);
+    expect(path._pattern.test('/one-two')).isTrue();
+    expect(path._pattern.test('/onetwo')).isFalse();
+    expect(path._pattern.test('/one-')).isFalse();
+    expect(path._pattern.test('/-two')).isFalse();
+    expect(path._pattern.test('/-')).isFalse();
+    expect(path._pattern.test('/--b')).isTrue();
+
+    expect(getPathParameters(path, '/one-two')).equals(
+      new Map([
+        ['foo', 'one'],
+        ['bar', 'two'],
+      ]),
+    );
+    expect(getPathParameters(path, '/--b')).equals(
+      new Map([
+        ['foo', '-'],
+        ['bar', 'b'],
+      ]),
+    );
+    expect(getPathParameters(path, '/a-b-c')).equals(
+      new Map([
+        ['foo', 'a-b'],
+        ['bar', 'c'],
+      ]),
+    );
+  });
+
+  it('supports multiple path parameters with a suffix', () => {
+    const path = internalCompilePathPattern('/:foo-:bar-baz', false);
+    expect(path._pattern.test('/one-two-baz')).isTrue();
+    expect(path._pattern.test('/onetwo-baz')).isFalse();
+    expect(path._pattern.test('/one-baz')).isFalse();
+    expect(path._pattern.test('/one--baz')).isFalse();
+    expect(path._pattern.test('/one-two-three-baz')).isTrue();
+    expect(path._pattern.test('/one-two-three')).isFalse();
+
+    expect(getPathParameters(path, '/one-two-three-baz')).equals(
+      new Map([
+        ['foo', 'one-two'],
+        ['bar', 'three'],
+      ]),
+    );
+  });
+
+  it('prefers consuming optional suffixes rather than greedy path parameters', () => {
+    const path = internalCompilePathPattern('/:file{.ext}', false);
+    expect(path._pattern.test('/foo')).isTrue();
+    expect(path._pattern.test('/foo.ext')).isTrue();
+
+    expect(getPathParameters(path, '/foo')).equals(new Map([['file', 'foo']]));
+    expect(getPathParameters(path, '/foo.ext')).equals(new Map([['file', 'foo']]));
+    expect(getPathParameters(path, '/foo.other')).equals(new Map([['file', 'foo.other']]));
   });
 
   it('supports multi-component path parameters', () => {
@@ -164,6 +222,50 @@ describe('compilePathPattern', () => {
     expect(getPathParameters(path, '/foo/')).equals(new Map([['bar', []]]));
   });
 
+  it('supports multiple path parameters with optional parts', () => {
+    const path1 = internalCompilePathPattern('/:a{-:b}-:c', false);
+    expect(path1._pattern.test('/1-2-3')).isTrue();
+    expect(path1._pattern.test('/1-2')).isTrue();
+    expect(path1._pattern.test('/1')).isFalse();
+
+    expect(getPathParameters(path1, '/1-2-3')).equals(
+      new Map([
+        ['a', '1'],
+        ['b', '2'],
+        ['c', '3'],
+      ]),
+    );
+
+    expect(getPathParameters(path1, '/1-2')).equals(
+      new Map([
+        ['a', '1'],
+        ['b', undefined],
+        ['c', '2'],
+      ]),
+    );
+
+    const path2 = internalCompilePathPattern('/:a-{:b-}:c', false);
+    expect(path2._pattern.test('/1-2-3')).isTrue();
+    expect(path2._pattern.test('/1-2')).isTrue();
+    expect(path2._pattern.test('/1')).isFalse();
+
+    expect(getPathParameters(path2, '/1-2-3')).equals(
+      new Map([
+        ['a', '1'],
+        ['b', '2'],
+        ['c', '3'],
+      ]),
+    );
+
+    expect(getPathParameters(path2, '/1-2')).equals(
+      new Map([
+        ['a', '1'],
+        ['b', undefined],
+        ['c', '2'],
+      ]),
+    );
+  });
+
   it('rejects unbalanced brackets', () => {
     expect(() => internalCompilePathPattern('/foo{/bar', false)).throws(
       'unbalanced optional braces in path',
@@ -171,6 +273,12 @@ describe('compilePathPattern', () => {
 
     expect(() => internalCompilePathPattern('/foo/bar}', false)).throws(
       'unbalanced optional braces in path',
+    );
+  });
+
+  it('rejects empty optional sections', () => {
+    expect(() => internalCompilePathPattern('/foo{}', false)).throws(
+      'empty optional section in path',
     );
   });
 
@@ -191,6 +299,38 @@ describe('compilePathPattern', () => {
   it('rejects paths with an optional leading /', () => {
     expect(() => internalCompilePathPattern('{/}foo', false)).throws(
       "path must begin with '/' or flags",
+    );
+  });
+
+  it('rejects touching path parameters', () => {
+    expect(() => internalCompilePathPattern('/:foo:bar', false)).throws(
+      'path parameters must be separated by at least one character',
+    );
+
+    expect(() => internalCompilePathPattern('/:foo*bar', false)).throws(
+      'path parameters must be separated by at least one character',
+    );
+
+    expect(() => internalCompilePathPattern('/*foo:bar', false)).throws(
+      'path parameters must be separated by at least one character',
+    );
+
+    expect(() => internalCompilePathPattern('/:foo{:bar}', false)).throws(
+      'path parameters must be separated by at least one character',
+    );
+
+    expect(() => internalCompilePathPattern('/{:foo}:bar', false)).throws(
+      'path parameters must be separated by at least one character',
+    );
+
+    expect(() => internalCompilePathPattern('/:foo{-}:bar', false)).throws(
+      'path parameters must be separated by at least one character',
+    );
+  });
+
+  it('rejects paths with more than one multi-component parameter', () => {
+    expect(() => internalCompilePathPattern('/*foo/bar/*baz', false)).throws(
+      'paths must not contain more than one multi-component path parameter',
     );
   });
 
@@ -258,6 +398,23 @@ describe('compilePathPattern', () => {
     expect(getRest(pathOptional, '/foo//')).equals('/');
     expect(getRest(pathOptional, '/foo/')).equals('');
     expect(getRest(pathOptional, '/foo')).equals('');
+  });
+
+  it('does not create patterns vulnerable to polynomial attacks', async () => {
+    const path = internalCompilePathPattern('/:a-:b-:c-:d/end', false);
+
+    // ensure we are not running alongside lots of slow synchronous tests which will slow us down.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const begin1 = Date.now();
+    path._pattern.test('/' + '-'.repeat(1000) + '/nope');
+    const end1 = Date.now();
+    expect(end1 - begin1).isLessThan(500);
+
+    const begin2 = Date.now();
+    path._pattern.test('/' + 'a-'.repeat(1000) + '/nope');
+    const end2 = Date.now();
+    expect(end2 - begin2).isLessThan(500);
   });
 });
 

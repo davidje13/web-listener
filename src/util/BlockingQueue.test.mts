@@ -31,8 +31,9 @@ describe('BlockingQueue', () => {
   it('throws if the timeout is reached before an item is available', async () => {
     const queue = new BlockingQueue<number>();
 
-    // ensure we are not running alongside lots of slow synchronous tests that will slow us down.
+    // ensure we are not running alongside lots of slow synchronous tests which will slow us down.
     await new Promise((resolve) => setTimeout(resolve, 0));
+
     const begin = Date.now();
     await expect(() => queue.shift(10)).throws('timeout after 10ms');
     const end = Date.now();

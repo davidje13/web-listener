@@ -60,7 +60,9 @@ All request parsing helpers can be configured with `maxContentBytes`: a limit to
 the request data after decompression is applied. If this limit is reached, the request is discarded.
 This helps to avoid resource starvation from requests which send highly compressed data.
 
-## RegExp Catastrophic Backtracking
+## RegExp Denial of Service
+
+### Catastrophic Backtracking
 
 [Path patterns](./API.md#paths) are compiled to
 [`RegExp`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/RegExp)
@@ -72,6 +74,18 @@ patterns.
 To avoid this issue, all internal regular expressions have been carefully checked to ensure they are
 not vulnerable to catastrophic backtracking, and the path pattern compilation has been defined in a
 way which does not introduce these vulnerabilities.
+
+### Backtracking
+
+Although less severe than catastrophic backtracking (which has exponential complexity in input
+length), ambiguous regular expressions can also be vulnerable to polynomial attacks from
+backtracking, termed
+[ReDoS](https://owasp.org/www-community/attacks/Regular_expression_Denial_of_Service_-_ReDoS).
+
+To avoid vulnerable ambiguous patterns, [path parameters](./API.md#paths) are not allowed to contain
+the token or string which separates them from previous path parameters in the same segment. For
+example `/:one-:two` is not permitted to include a `'-'` in `two` (so `/a-b-c` will match as
+`one='a-b'` and `two='c'`). Similarly, `/first-:a-second-:b` cannot include `'-second-'` in `b`.
 
 ## Brute Force Attacks and Distributed Denial of Service
 

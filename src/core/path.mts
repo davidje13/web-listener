@@ -50,6 +50,11 @@ const READ_MULTI_PARAM = (v: string | undefined) =>
 const READ_MULTI_PARAM_MERGE = (v: string | undefined) =>
   v === undefined ? undefined : v === '' ? [] : v.split('/').filter((o) => o);
 
+interface NestState {
+  _interParam: string | null;
+  _interParamEmpty: boolean;
+}
+
 export function internalCompilePathPattern(
   flagsAndPath: string,
   allowSubRoutes: boolean,
@@ -65,51 +70,98 @@ export function internalCompilePathPattern(
     throw new TypeError("path must begin with '/' or flags");
   }
   let p = 0;
-  let optionalNesting = 0;
+  let cur: NestState = { _interParam: null, _interParamEmpty: false };
+  const nesting: NestState[] = [cur];
+  let hasMultiParam = false;
   for (const match of path.matchAll(part)) {
     if (match.index > p) {
-      patternParts.push(internalRegExpEscape(path.substring(p, match.index)));
+      const fragment = internalRegExpEscape(path.substring(p, match.index));
+      if (cur._interParam !== null) {
+        cur._interParam += fragment;
+        cur._interParamEmpty = false;
+      }
+      patternParts.push(fragment);
     }
     const token = match[0];
     if (token === '{') {
       patternParts.push('(?:');
-      ++optionalNesting;
+      cur = { ...cur };
+      nesting.push(cur);
     } else if (token === '}') {
-      if (optionalNesting === 0) {
+      nesting.pop();
+      if (!nesting.length) {
         throw new TypeError(`unbalanced optional braces in path at ${match.index}`);
       }
-      --optionalNesting;
+      const prev = cur;
+      cur = nesting[nesting.length - 1]!;
+      if (cur._interParam === null) {
+        cur._interParam = prev._interParam;
+        cur._interParamEmpty = prev._interParamEmpty;
+      } else if (prev._interParam !== null) {
+        cur._interParam = `(?:${cur._interParam}|${prev._interParam})`;
+        cur._interParamEmpty ||= prev._interParamEmpty;
+      }
+      if (patternParts[patternParts.length - 1] === '(?:') {
+        throw new Error(`empty optional section in path at ${match.index}`);
+      }
       patternParts.push(')?');
     } else if (token[0] === '/') {
+      cur._interParam = null;
       patternParts.push(token);
       if (!_noMergeSlashes) {
         patternParts.push('+');
       }
     } else if (token[0] === '\\') {
-      patternParts.push(internalRegExpEscape(match[1]!));
+      const fragment = internalRegExpEscape(match[1]!);
+      if (cur._interParam !== null) {
+        cur._interParam += fragment;
+        cur._interParamEmpty = false;
+      }
+      patternParts.push(fragment);
     } else {
       const type = token[0];
       const name = match[2];
       if (!name) {
         throw new TypeError(`unnamed parameter or unescaped '${type}' at ${match.index}`);
       }
+      if (cur._interParam !== null && cur._interParamEmpty) {
+        throw new TypeError(
+          `path parameters must be separated by at least one character at ${match.index}`,
+        );
+      }
       if (type === '*') {
-        patternParts.push('(.*?)');
+        if (hasMultiParam) {
+          throw new TypeError(
+            'paths must not contain more than one multi-component path parameter',
+          );
+        }
+        hasMultiParam = true;
+        if (cur._interParam !== null) {
+          patternParts.push(`((?:(?!${cur._interParam})[^/])*?(?:/.*?)?)`);
+        } else {
+          patternParts.push('(.*?)');
+        }
         parameters.push({
           _name: name,
           _reader: _noMergeSlashes ? READ_MULTI_PARAM : READ_MULTI_PARAM_MERGE,
         });
       } else {
-        patternParts.push('([^/]+?)');
+        if (cur._interParam !== null) {
+          patternParts.push(`((?:(?!${cur._interParam})[^/])+?)`);
+        } else {
+          patternParts.push('([^/]+?)');
+        }
         parameters.push({ _name: name, _reader: READ_SINGLE_PARAM });
       }
+      cur._interParam = '';
+      cur._interParamEmpty = true;
     }
     p = match.index + token.length;
   }
   if (p < path.length) {
     patternParts.push(internalRegExpEscape(path.substring(p)));
   }
-  if (optionalNesting > 0) {
+  if (nesting.length > 1) {
     throw new TypeError('unbalanced optional braces in path');
   }
   if (allowSubRoutes) {

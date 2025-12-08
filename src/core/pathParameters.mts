@@ -24,7 +24,7 @@ export function internalBeginPathScope(
 
   // re-encode the scoped path so that native handlers (which expect to have to decode it themselves) work without modification
   props._request.url =
-    encodeURIComponent(scopedPathname).replaceAll(/%2F/g, '/') + props._originalURL.search;
+    encodeURIComponent(scopedPathname).replaceAll('%2F', '/') + props._originalURL.search;
   props._decodedPathname = scopedPathname;
   if (scopedPathParameters.length > 0) {
     props._pathParams = Object.freeze(

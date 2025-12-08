@@ -83,7 +83,7 @@ export function makeGetClient({
     const forwardedProtocol = get('x-forwarded-protocol');
     const urlScheme = get('x-url-scheme');
     const via = get('via')?.map((item) => {
-      const match = /^([^/ ]+\/)?([^ ]+) (.+)$/.exec(item);
+      const match = /^([^/ ]+\/)?([^/ ]+) (.+)$/.exec(item);
       return match?.[3] ? parseAddress(match[3]) : undefined;
     });
 

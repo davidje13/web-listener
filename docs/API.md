@@ -468,6 +468,8 @@ path if needed with [`getAbsolutePath`] and [`restoreAbsolutePath`].
 
 #### `router.within(path)`
 
+[`router.within`]: #routerwithinpath
+
 - `path` [`<string>`] a path prefix to filter on. See [Paths] for information about path patterns.
 - Returns: [`<Router>`] a router mounted at the path.
 
@@ -3429,6 +3431,17 @@ The parameter name can only contain ASCII alphanumeric characters and `_`. Anyth
 considered to be the end of the path parameter (but note when using TypeScript: only `-`, `.`, `/`,
 `:`, and `*` will be recognised as ending a path parameter name by the type system).
 
+You can also specify multiple parameters in a single path segment:
+
+```
+/:name.:ext
+```
+
+When using this syntax, the separator (`.` in this example) will be excluded from the latter
+parameter. In the pattern above, `/file.tar.gz` will set `name` to `'file.tar'` and `ext` to `'gz'`.
+Note that this is not "greedy" matching: path parameters always use "lazy" matching, but `ext` is
+not allowed to contain `'tar.gz'` because its separator is `.`.
+
 Literal `:`s in a path pattern can be escaped using `\`.
 
 ## Multi-component path parameters
@@ -3455,6 +3468,16 @@ if you want to support this (see [Optional parts](#optional-parts) for details).
 As with single-component path parameters, the name can only contain ASCII alphanumeric characters
 and `_`.
 
+To avoid poor performance, you can only specify one multi-component path parameter per path pattern.
+If you need nested multi-component parameters, you can split the path into 2 nested routes using
+[`router.within`]:
+
+```js
+router.within('/things/*path/sub').get('/*rest', (req, res) => {
+  /* ... */
+});
+```
+
 Literal `*`s in a path pattern can be escaped using `\`.
 
 ## Optional parts
@@ -3480,6 +3503,15 @@ This will match both `/do` (setting `action` to `undefined`), and `/do/thing` (s
 ```
 
 This will match both `/stuff` and `/stuff/`.
+
+Optional parts are consumed greedily, whereas path parameters are consumed lazily. This means you
+can use patterns such as:
+
+```
+/:file{.ignore}
+```
+
+Which will match both `/thing` and `/thing.ignore`, setting `file` to `'thing'` in both cases.
 
 Literal `{`s and `}`s in a path pattern can be escaped using `\`.
 

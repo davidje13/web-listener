@@ -198,18 +198,18 @@ export const readHTTPQualityValues = (
 
 export function readHTTPKeyValues(raw: string): Map<string, string> {
   const result = new Map<string, string>();
-  const matcher = /\s*([^=]+)=([^";]*?|"(?:[^\\"]|\\.)*")\s*(?:;|$)/y;
+  const matcher = /\s*([^=]+)=(?:([^";]*)|"((?:[^\\"]|\\.)*)"\s*)(?:;|$)/y;
   while (matcher.lastIndex < raw.length) {
     const part = matcher.exec(raw);
     if (!part) {
       throw new HTTPError(400, { body: 'invalid HTTP key values' });
     }
     const key = part[1]!.toLowerCase();
-    let value = part[2]!;
-    if (value[0] === '"') {
-      value = value.substring(1, value.length - 1).replaceAll(/\\(.)/g, (_, v) => v);
+    if (part[3] !== undefined) {
+      result.set(key, part[3].replaceAll(/\\(.)/g, '$1'));
+    } else {
+      result.set(key, part[2]!.trim());
     }
-    result.set(key, value);
   }
   return result;
 }

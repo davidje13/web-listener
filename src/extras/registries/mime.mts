@@ -27,7 +27,7 @@ export function readMimeTypes(types: string): Map<string, string> {
 export function decompressMime(definitions: string): Map<string, string> {
   const result = new Map<string, string>();
   for (const def of definitions.split(/[\n;]/g)) {
-    const [_, exts, rawMime] = /^ *([^=]+)=(.*)$/.exec(def) ?? [null, null, ''];
+    const [_, exts, rawMime] = /^ *([^ =]+)=(.*)$/.exec(def) ?? [null, null, ''];
     for (const ext of exts?.split(',') ?? []) {
       const [_, pre, opt = '', suf = ''] = /^([^(]*)(?:\(([^)]*)\)(.*))?$/.exec(ext)!;
       const fullExt = pre + opt + suf;
