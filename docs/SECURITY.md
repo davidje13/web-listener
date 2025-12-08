@@ -42,6 +42,18 @@ majority of sensitive files and folders if they are accidentally left in a serve
 should not be relied on, as it will not prevent access to sensitive files which do not match these
 common patterns, but serves as a rudamentary safety net to protect against common mistakes.
 
+## Open Redirect
+
+The CLI's [templated redirect](./CLI.md#templates) feature adapts redirects which begin with `//`,
+which can be interpreted by some clients as the beginning of a full URL despite being intended as a
+path in the current domain.
+
+The default path handling behaviour of slash merging means path parameters will never begin with a
+`/`, unless the `!` flag is used, avoiding this issue for redirects based soely on path parameters.
+
+This library does not include any other redirect handling. If you are providing your own dynamic
+redirect feature, you should ensure the resulting URL can never start with `//`.
+
 ## Compression Bombs
 
 All request parsing helpers can be configured with `maxContentBytes`: a limit to the maximum size of

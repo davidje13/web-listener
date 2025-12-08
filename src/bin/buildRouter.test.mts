@@ -147,6 +147,44 @@ describe('buildRouter', () => {
         );
       });
     });
+
+    it('avoids accidental open redirects', { timeout: 3000 }, async () => {
+      const router = await buildRouter([
+        {
+          type: 'redirect',
+          path: '!/*route.html',
+          status: 301,
+          target: '/${route}.htm${?}',
+        },
+      ]);
+      return withServer(router, async (url) => {
+        await expect(
+          fetch(url + '//file.html', { redirect: 'manual' }),
+          responds({ status: 301, headers: { location: '/file.htm' } }),
+        );
+        await expect(
+          fetch(url + '///file.html', { redirect: 'manual' }),
+          responds({ status: 301, headers: { location: '/file.htm' } }),
+        );
+      });
+    });
+
+    it('allows intentional external redirects', { timeout: 3000 }, async () => {
+      const router = await buildRouter([
+        {
+          type: 'redirect',
+          path: '/*route',
+          status: 301,
+          target: 'https://example.com/${route}',
+        },
+      ]);
+      return withServer(router, async (url) => {
+        await expect(
+          fetch(url + '/file', { redirect: 'manual' }),
+          responds({ status: 301, headers: { location: 'https://example.com/file' } }),
+        );
+      });
+    });
   });
 
   it('logs requests', { timeout: 3000 }, async () => {
