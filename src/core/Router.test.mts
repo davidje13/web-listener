@@ -536,6 +536,7 @@ describe('router', () => {
         [
           'HTTP/1.1 404 Not Found',
           'content-type: text/plain; charset=utf-8',
+          'x-content-type-options: nosniff',
           'content-length: 0',
           'connection: close',
           '',

@@ -22,6 +22,7 @@ describe('defaultErrorHandler', () => {
       [
         'HTTP/1.1 400 Oops',
         'content-type: text/plain; charset=utf-8',
+        'x-content-type-options: nosniff',
         'foo: bar',
         'content-length: 27',
         '',

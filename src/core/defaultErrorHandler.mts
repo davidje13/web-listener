@@ -14,6 +14,7 @@ export const internalDefaultErrorHandler: ErrorHandlerFn = (error, _, output) =>
 
   const httpError = findCause(error, HTTPError) ?? new HTTPError(500);
   res.setHeader('content-type', 'text/plain; charset=utf-8');
+  res.setHeader('x-content-type-options', 'nosniff');
   res.setHeaders(httpError.headers);
   res.setHeader('content-length', String(Buffer.byteLength(httpError.body, 'utf-8')));
   if (!output.response) {

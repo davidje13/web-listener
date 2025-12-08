@@ -56,6 +56,7 @@ export const jsonErrorHandler = (
     const encoded = JSON.stringify(conversion(httpError));
     res.setHeaders(httpError.headers);
     res.setHeader('content-type', contentType);
+    res.setHeader('x-content-type-options', 'nosniff');
     res.setHeader('content-length', String(Buffer.byteLength(encoded, 'utf-8')));
     if (!output.response) {
       res.setHeader('connection', 'close');

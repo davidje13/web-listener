@@ -44,7 +44,7 @@ common patterns, but serves as a rudamentary safety net to protect against commo
 
 ## Open Redirect
 
-The CLI's [templated redirect](./CLI.md#templates) feature adapts redirects which begin with `//`,
+The CLI's [templated redirect](./CLI.md#templates) feature adjusts redirects which begin with `//`,
 which can be interpreted by some clients as the beginning of a full URL despite being intended as a
 path in the current domain.
 
@@ -86,6 +86,26 @@ To avoid vulnerable ambiguous patterns, [path parameters](./API.md#paths) are no
 the token or string which separates them from previous path parameters in the same segment. For
 example `/:one-:two` is not permitted to include a `'-'` in `two` (so `/a-b-c` will match as
 `one='a-b'` and `two='c'`). Similarly, `/first-:a-second-:b` cannot include `'-second-'` in `b`.
+
+## Cross-Site Scripting (XSS)
+
+It is possible for the standard error handlers to reflect some user-provided input (for example, if
+the client sends an invalid form field, the name of the form field will be included in the
+user-facing error to assist debugging).
+
+The standard error handlers set explicit `Content-Type` and `X-Content-Type-Options: nosniff`
+headers to avoid clients confusing the output for CSS or Javascript sources. In most applications
+you should set `X-Content-Type-Options: nosniff` (as well as some other security headers) on all
+endpoints, for example:
+
+```js
+myRootRouter.use((req, res) => {
+  res.setHeader('x-content-type-options', 'nosniff');
+  res.setHeader('referrer-policy', 'no-referrer');
+  // etc.
+  return CONTINUE;
+});
+```
 
 ## Brute Force Attacks and Distributed Denial of Service
 

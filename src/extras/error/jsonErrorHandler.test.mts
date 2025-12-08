@@ -14,6 +14,7 @@ describe('jsonErrorHandler', () => {
         const res = await fetch(url, { headers: { accept: 'application/json;q=0.9' } });
         expect(res.status).equals(555);
         expect(res.headers.get('content-type')).equals('application/json');
+        expect(res.headers.get('x-content-type-options')).equals('nosniff');
         expect(await res.text()).equals('{"error":"oops","extra":"hi"}');
         expectError('handling request /: HTTPError(555 -): oops');
       },
@@ -28,6 +29,7 @@ describe('jsonErrorHandler', () => {
         const res = await fetch(url, { headers: {} });
         expect(res.status).equals(555);
         expect(res.headers.get('content-type')).equals('text/plain; charset=utf-8');
+        expect(res.headers.get('x-content-type-options')).equals('nosniff');
         expect(await res.text()).equals('oops');
         expectError('handling request /: HTTPError(555 -): oops');
       },
@@ -76,6 +78,7 @@ describe('jsonErrorHandler', () => {
       async (url, { expectError }) => {
         const res = await fetch(url, { headers: { accept: 'application/json' } });
         expect(res.headers.get('content-type')).equals('application/json+error');
+        expect(res.headers.get('x-content-type-options')).equals('nosniff');
         expectError('handling request /: HTTPError(555 -): oops');
       },
     );
