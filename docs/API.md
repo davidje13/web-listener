@@ -3644,14 +3644,25 @@ Reference: [`weblistener.attach`], [`https.createServer`]
 
 [Proxy]: #proxy
 
-Example of setting up a transparent proxy to another server for requests to `/api`, cleaning any
-[`Forwarded`] or related headers:
+Example of setting up a transparent proxy to another server for requests to `/api`:
+
+```js
+import { proxy, Router } from 'web-listener';
+
+const router = new Router();
+
+// proxy everything in /api
+router.mount('/api', proxy('https://example.com/sub'));
+```
+
+Extension to explicitly trust a single upstream proxy and clean any [`Forwarded`] or related
+headers:
 
 ```js
 import { makeGetClient, proxy, Router, sanitiseAndAppendForwarded } from 'web-listener';
 
+// example configuration if we are behind a reverse proxy ourselves:
 const getClient = makeGetClient({
-  // example configuration if we are behind a reverse proxy ourselves:
   trustedProxyCount: 1,
   trustedHeaders: ['forwarded'],
 });
@@ -3662,7 +3673,11 @@ const router = new Router();
 router.mount(
   '/api',
   proxy('https://example.com/sub', {
-    requestHeaders: [sanitiseAndAppendForwarded(getClient, { onlyTrusted: true })],
+    requestHeaders: [
+      sanitiseAndAppendForwarded(getClient, {
+        onlyTrusted: true,
+      }),
+    ],
   }),
 );
 ```
