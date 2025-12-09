@@ -192,6 +192,7 @@ parameters from a parent, which can be typed with `Router<WithPathParameters<{ n
 - [Examples](#examples)
   - [Simple server]
   - [HTTPS server]
+  - [Proxy]
   - [Custom error logging]
   - [Path parameters]
   - [Bearer authentication middleware]
@@ -2445,7 +2446,7 @@ Returns a function which can be passed as a `requestHeaders` mutator function to
 Sanitises any existing forwarding headers into a consistent [`Forwarded`] header, and combines
 information about the current proxy. Removes all other forwarding headers (see [`removeForwarded`]).
 
-Example usage:
+Example usage: [Proxy]
 
 ```js
 const getClient = makeGetClient({
@@ -3101,6 +3102,8 @@ The returned function accepts a request [`<http.IncomingMessage>`] and returns a
 - `edge`: [`<ProxyNode>`] the outermost trusted proxy (which may be the current request rather than
   an actual proxy). Shorthand for `trusted[trusted.length - 1]`.
 
+Example usage: [Proxy]
+
 ## Utility Classes
 
 These internal helper classes are exported in case they are useful.
@@ -3636,6 +3639,35 @@ server.listen(8080, 'localhost');
 ```
 
 Reference: [`weblistener.attach`], [`https.createServer`]
+
+## Proxy
+
+[Proxy]: #proxy
+
+Example of setting up a transparent proxy to another server for requests to `/api`, cleaning any
+[`Forwarded`] or related headers:
+
+```js
+import { makeGetClient, proxy, Router, sanitiseAndAppendForwarded } from 'web-listener';
+
+const getClient = makeGetClient({
+  // example configuration if we are behind a reverse proxy ourselves:
+  trustedProxyCount: 1,
+  trustedHeaders: ['forwarded'],
+});
+
+const router = new Router();
+
+// proxy everything in /api
+router.mount(
+  '/api',
+  proxy('https://example.com/sub', {
+    requestHeaders: [sanitiseAndAppendForwarded(getClient, { onlyTrusted: true })],
+  }),
+);
+```
+
+Reference: [`makeGetClient`], [`proxy`], [`<Router>`], [`sanitiseAndAppendForwarded`]
 
 ## Custom error logging
 
