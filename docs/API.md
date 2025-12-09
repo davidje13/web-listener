@@ -3119,6 +3119,8 @@ Create a new empty `BlockingQueue`.
 
 [`blockingqueue.push`]: #blockingqueuepushvalue
 
+- `value` [`<any>`]
+
 Add an item to the queue, immediately unblocking the oldest pending [`blockingqueue.shift`] call if
 there is one, or adding it to an internal queue if nothing is waiting.
 
@@ -3139,7 +3141,8 @@ closed).
 
 [`blockingqueue.close`]: #blockingqueueclosereason
 
-- `reason` the reason for the closure, used as the reject value for `shift`. Typically an `Error`.
+- `reason` [`<any>`] the reason for the closure, used as the reject value for `shift`. Typically an
+  [`<Error>`].
 
 Mark the queue as closed, signaling that no further items will be [`blockingqueue.push`]ed. All
 existing and new [`blockingqueue.shift`] calls will reject with the given `reason`. Async iterators
@@ -3149,7 +3152,8 @@ will complete successfully after this has been called.
 
 [`blockingqueue.fail`]: #blockingqueuefailreason
 
-- `reason` the reason for the closure, used as the reject value for `shift`. Typically an `Error`.
+- `reason` [`<any>`] the reason for the closure, used as the reject value for `shift`. Typically an
+  [`<Error>`].
 
 Mark the queue as closed and failed, signaling that no further items will be
 [`blockingqueue.push`]ed. All existing and new [`blockingqueue.shift`] calls will reject with the
@@ -3173,6 +3177,8 @@ Create a new empty `Queue`.
 
 #### `queue.isEmpty()`
 
+- Returns: [`<boolean>`]
+
 Returns `true` if the queue is currently empty. `O(1)`.
 
 #### `queue.clear()`
@@ -3181,21 +3187,25 @@ Removes all items from the queue. `O(1)`.
 
 #### `queue.push(item)`
 
-- `item` the item to add to the queue.
+- `item` [`<any>`] the item to add to the queue.
 
 Adds an item to the queue. `O(1)`.
 
 #### `queue.shift()`
 
-Removes the next item from the queue and returns it. `O(1)`.
+- Returns: [`<any>`] | [`<null>`]
+
+Removes the next item from the queue and returns it. Returns `null` if the queue is empty. `O(1)`.
 
 #### `queue.remove(item)`
+
+- `item` [`<any>`]
 
 Searches the queue for a specific item and removes the first occurrence. `O(n)`.
 
 #### `for (const item of queue)`
 
-Extracts one item at a time from the queue. Never completes.
+Extracts one item at a time from the queue. Completes once the queue is empty.
 
 ## Utility Functions
 
@@ -3204,6 +3214,7 @@ Extracts one item at a time from the queue. Never completes.
 [`parseAddress`]: #parseaddressaddress
 
 - `address` [`<string>`] | [`<undefined>`]
+- Returns: [`<Object>`] | [`<undefined>`]
 
 Reads an IPv4, IPv6, or alias address with an optional port (as used in [`Via`], [`Forwarded`], and
 `X-Forwarded-For` headers).
@@ -3219,6 +3230,7 @@ If `address` is `undefined`, `''`, or `'unknown'`, this returns `undefined`.
 [`makeAddressTester`]: #makeaddresstestercidrranges
 
 - `cidrRanges` [`<string[]>`][`<string>`] a list of CIDR range strings to test against
+- Returns: [`<Function>`]
 
 Returns a function which takes an address (as returned by [`parseAddress`]) and returns `true` if it
 matches any configured CIDR range, or `false` otherwise.
@@ -3233,6 +3245,7 @@ explicit aliases (e.g. `_my_proxy`).
 - `addressInfo` [`<string>`] | [`<Object>`] | [`<null>`] | [`<undefined>`] an address, as returned
   by [server.address] or [`parseAddress`]
 - `protocol` [`<string>`] the protocol to use in the URL. **Default:** `http`.
+- Returns: [`<string>`]
 
 Returns a string of the form `protocol://host:port` which matches the address. This can be used to
 display the URL of the server to a user, or for tests.
@@ -3250,6 +3263,7 @@ await fetch(url + '/path');
 
 - `error` [`<any>`]
 - `type` [`<Function>`] the error class to look for
+- Returns: [`<any>`] | [`<undefined>`]
 
 Searches `error`'s `cause`s for an error of the requested type, and returns the first one found (or
 `undefined` if no matching error is found). Also checks `.error` for compatibility with
@@ -3360,7 +3374,7 @@ them entirely in RAM.
 
 [`simplifyRange`]: #simplifyrangeoriginal-options
 
-- `original` [`<HTTPRange>`] a range request as returned by [`getRange`]
+- `original` [`<HTTPRange>`] a range request as returned by [`getRange`] (not modified)
 - `options` [`<Object>`] options for the simplifications to apply
   - `forceSequential` [`<boolean>`] `true` to reorder the ranges requested from lowest index to
     highest. This is typically more efficient to process, but can be less efficient for the client
@@ -3369,6 +3383,7 @@ them entirely in RAM.
   - `mergeOverlapDistance` [`<number>`] the distance (in bytes) between ranges which will cause them
     to be combined. If this is 0, ranges will only be combined if they touch or overlap. If this is
     negative, no ranges will be merged. **Default:** `100`.
+- Returns: [`<HTTPRange>`]
 
 Simplifies a parsed HTTP range request by combining overlapping ranges and optionally sorting the
 resulting ranges.
