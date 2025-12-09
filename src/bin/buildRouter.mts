@@ -56,18 +56,18 @@ export async function buildRouter(mount: ConfigMount[], log: (info: LogInfo) => 
         const handler = (req: IncomingMessage, res: ServerResponse) => {
           for (const [key, value] of Object.entries(item.headers)) {
             if (typeof value === 'string') {
-              res.setHeader(key, populate(req, value));
+              res.setHeader(key, render(value, getParam(req)));
             } else if (typeof value === 'number') {
               res.setHeader(key, value);
             } else {
               res.setHeader(
                 key,
-                value.map((v) => populate(req, v)),
+                value.map((v) => render(v, getParam(req))),
               );
             }
           }
           res.statusCode = item.status;
-          res.end(populate(req, item.body));
+          res.end(render(item.body, getParam(req)));
         };
         if (item.method === 'GET') {
           router.onRequest('HEAD', item.path, handler);
@@ -78,7 +78,7 @@ export async function buildRouter(mount: ConfigMount[], log: (info: LogInfo) => 
         router.at(
           item.path,
           requestHandler((req, res) => {
-            let redirect = populate(req, item.target, 'uri');
+            let redirect = render(item.target, getParam(req), 'uri');
             if (item.target[0] === '/') {
               // ensure location has exactly one leading /, else some clients may interpret it as a full URL
               redirect = redirect.replace(/^\/{2,}/, '/');
@@ -94,14 +94,9 @@ export async function buildRouter(mount: ConfigMount[], log: (info: LogInfo) => 
   return router;
 }
 
-const populate = (req: IncomingMessage, template: string, encoding?: string) =>
-  render(
-    template,
-    (key) =>
-      key === '?'
-        ? { _value: getSearch(req) || undefined, _encoding: 'uri' }
-        : key[0] === '?'
-          ? { _value: getQuery(req, key.substring(1)), _encoding: 'raw' }
-          : { _value: getPathParameter(req, key), _encoding: 'raw' },
-    encoding,
-  );
+const getParam = (req: IncomingMessage) => (key: string) =>
+  key === '?'
+    ? { _value: getSearch(req) || undefined, _encoding: 'uri' }
+    : key[0] === '?'
+      ? { _value: getQuery(req, key.substring(1)), _encoding: 'raw' }
+      : { _value: getPathParameter(req, key), _encoding: 'raw' };
