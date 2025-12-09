@@ -87,6 +87,29 @@ describe('buildRouter', () => {
         );
       });
     });
+
+    it('supports encoding in template values', { timeout: 3000 }, async () => {
+      const router = await buildRouter([
+        {
+          type: 'fixture',
+          method: 'GET',
+          path: '/{:p}',
+          status: 200,
+          headers: {},
+          body: 'Got ${raw(p)} ${html(p)} ${html(p:-<b>fallback</b>)} ${html(p):-<b>fallback</b>} ${uri(p)}',
+        },
+      ]);
+      return withServer(router, async (url) => {
+        await expect(
+          fetch(url + '/f<oo>'),
+          responds({ body: 'Got f<oo> f&lt;oo&gt; f&lt;oo&gt; f&lt;oo&gt; f%3Coo%3E' }),
+        );
+        await expect(
+          fetch(url + '/'),
+          responds({ body: 'Got   &lt;b&gt;fallback&lt;/b&gt; <b>fallback</b> ' }),
+        );
+      });
+    });
   });
 
   describe('redirect', () => {
@@ -144,6 +167,33 @@ describe('buildRouter', () => {
         await expect(
           fetch(url + '/file.html?query=string', { redirect: 'manual' }),
           responds({ status: 301, headers: { location: '/file.htm?query=string' } }),
+        );
+        await expect(
+          fetch(url + '/encoded%25file%20name.html?a=b&c=d+e&f=%25', { redirect: 'manual' }),
+          responds({
+            status: 301,
+            headers: { location: '/encoded%25file%20name.htm?a=b&c=d+e&f=%25' },
+          }),
+        );
+      });
+    });
+
+    it('supports encoding in template values', { timeout: 3000 }, async () => {
+      const router = await buildRouter([
+        {
+          type: 'redirect',
+          path: '/*route',
+          status: 301,
+          target: '/go?path=${uri(route)}&q=${uri(?)}',
+        },
+      ]);
+      return withServer(router, async (url) => {
+        await expect(
+          fetch(url + '/encoded%25path.html?a=b&c=d+e', { redirect: 'manual' }),
+          responds({
+            status: 301,
+            headers: { location: '/go?path=encoded%25path.html&q=%3Fa%3Db%26c%3Dd%2Be' },
+          }),
         );
       });
     });

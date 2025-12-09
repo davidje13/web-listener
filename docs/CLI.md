@@ -119,6 +119,59 @@ are:
 Templates are mostly useful for creating dynamic redirects as shown above, but can also be used in
 the `body` and `header` values for `fixture` definitions.
 
+To specify a fallback value, use the shell-style `:-`:
+
+```
+${pathParameter:-fallback}
+```
+
+Redirects automatically uri-encode parameters as needed for convenience (but you can override this
+by explicitly specifying `raw` or `uri` encoding). Other templates do not apply any encoding by
+default. To apply encoding, specify the type you need:
+
+```
+{
+  "servers": [
+    {
+      "port": 8080,
+      "mount": [
+        {
+          "type": "fixture",
+          "method": "GET",
+          "path": "/*path.htm",
+          "status": 200,
+          "body": "<html><body><h1>You requested ${html(path)}!</h1><p>You also added: ${html(?):-<em>no query string</em>}</p></body></html>"
+        },
+        {
+          "type": "fixture",
+          "method": "GET",
+          "path": "/*path.json",
+          "status": 200,
+          "body": "{\"path\":${json(path),\"page\":${int(?page:-1)}}}"
+        }
+      ]
+    }
+  ]
+}
+```
+
+The available encoding types are:
+
+- `raw()`: the original value, unmodified (path and query parameters will be URL decoded)
+- `html()`: the value with special HTML characters escaped using `&` escapes
+- `json()`: the value as a JSON string (even if it could be represented as a number, it will be
+  encoded as a string)
+- `int()`: the value as a plain integer, safe to include in HTML, JSON, URIs, etc. (prints `0` if
+  the input is not a valid integer)
+- `uri()`: the value mapped through `encodeURIComponent` (for multi-component path parameters, each
+  component is encoded individually then joined with `/`). This is the default encoding when writing
+  redirects, except for `${?}` which is encoded `raw` by default.
+
+Note that this template language is designed to serve common needs for simple templating, such as
+redirects and simple testing stubs; it is not intended to be comprehensive. If you have more
+demanding needs you should use a dedicated templating library and build an application, rather than
+configuring endpoints using the CLI.
+
 ## Features and Examples
 
 ### Serve static files for a single-page-app

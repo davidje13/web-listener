@@ -12,6 +12,7 @@ import {
   Router,
 } from '../index.mts';
 import type { ConfigMount } from './config/types.mts';
+import { render } from './template.mts';
 
 export interface LogInfo {
   method: string;
@@ -77,7 +78,7 @@ export async function buildRouter(mount: ConfigMount[], log: (info: LogInfo) => 
         router.at(
           item.path,
           requestHandler((req, res) => {
-            let redirect = populate(req, item.target);
+            let redirect = populate(req, item.target, 'uri');
             if (item.target[0] === '/') {
               // ensure location has exactly one leading /, else some clients may interpret it as a full URL
               redirect = redirect.replace(/^\/{2,}/, '/');
@@ -93,25 +94,14 @@ export async function buildRouter(mount: ConfigMount[], log: (info: LogInfo) => 
   return router;
 }
 
-function populate(req: IncomingMessage, template: string): string {
-  return template.replaceAll(
-    /\$\{([^${}:]+)(?::-(([^}\\]|\\.)*))?\}/g,
-    (_, key: string, def?: string) => {
-      let p: unknown;
-      if (key === '?') {
-        p = getSearch(req);
-      } else if (key[0] === '?') {
-        p = getQuery(req, key.substring(1));
-      } else {
-        p = getPathParameter(req, key);
-      }
-      if (typeof p === 'string') {
-        return p;
-      } else if (Array.isArray(p)) {
-        return p.join('/');
-      } else {
-        return def ?? '';
-      }
-    },
+const populate = (req: IncomingMessage, template: string, encoding?: string) =>
+  render(
+    template,
+    (key) =>
+      key === '?'
+        ? { _value: getSearch(req) || undefined, _encoding: 'uri' }
+        : key[0] === '?'
+          ? { _value: getQuery(req, key.substring(1)), _encoding: 'raw' }
+          : { _value: getPathParameter(req, key), _encoding: 'raw' },
+    encoding,
   );
-}
