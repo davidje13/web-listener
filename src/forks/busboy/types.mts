@@ -110,12 +110,6 @@ export interface Limits {
    * @default Infinity
    */
   parts?: number | undefined;
-
-  /**
-   * For multipart forms, the max number of header key-value pairs to parse.
-   * @default 2000 (same as node's http module)
-   */
-  headerPairs?: number | undefined;
 }
 
 declare global {

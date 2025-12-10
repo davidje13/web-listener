@@ -1045,6 +1045,111 @@ const tests: TestDef[] = [
     ],
   },
   {
+    name: 'Unknown header is ignored',
+    source: [
+      [
+        `--${COMMON_BOUNDARY}`,
+        'Content-Disposition: form-data; name="f1"; filename="f.txt"',
+        'Content-Type: application/octet-stream',
+        'Foo: bar',
+        '',
+        'ab',
+        `--${COMMON_BOUNDARY}--`,
+      ],
+    ],
+    boundary: COMMON_BOUNDARY,
+    expected: [
+      {
+        type: 'file',
+        name: 'f1',
+        data: Buffer.from('ab'),
+        info: { ...COMMON_FILE_INFO, filename: 'f.txt' },
+        limited: false,
+        truncated: false,
+        err: undefined,
+      },
+    ],
+  },
+  {
+    name: 'Duplicate content-type header is ignored',
+    source: [
+      [
+        `--${COMMON_BOUNDARY}`,
+        'Content-Disposition: form-data; name="f1"; filename="f.txt"',
+        'Content-Type: text/plain; charset=utf8',
+        'Content-Type: other/thing; charset=latin1',
+        '',
+        'ab',
+        `--${COMMON_BOUNDARY}--`,
+      ],
+    ],
+    boundary: COMMON_BOUNDARY,
+    expected: [
+      {
+        type: 'file',
+        name: 'f1',
+        data: Buffer.from('ab'),
+        info: { ...COMMON_FILE_INFO, mimeType: 'text/plain', filename: 'f.txt' },
+        limited: false,
+        truncated: false,
+        err: undefined,
+      },
+    ],
+  },
+  {
+    name: 'Duplicate content-disposition header is ignored',
+    source: [
+      [
+        `--${COMMON_BOUNDARY}`,
+        'Content-Disposition: form-data; name="f1"; filename="f.txt"',
+        'Content-Disposition: form-data; name="f2"; filename="f2.txt"',
+        'Content-Type: application/octet-stream',
+        '',
+        'ab',
+        `--${COMMON_BOUNDARY}--`,
+      ],
+    ],
+    boundary: COMMON_BOUNDARY,
+    expected: [
+      {
+        type: 'file',
+        name: 'f1',
+        data: Buffer.from('ab'),
+        info: { ...COMMON_FILE_INFO, filename: 'f.txt' },
+        limited: false,
+        truncated: false,
+        err: undefined,
+      },
+    ],
+  },
+  {
+    name: 'Duplicate content-transfer-encoding header is merged',
+    source: [
+      [
+        `--${COMMON_BOUNDARY}`,
+        'Content-Disposition: form-data; name="f1"; filename="f.txt"',
+        'Content-Type: application/octet-stream',
+        'Content-Transfer-Encoding: a',
+        'Content-Transfer-Encoding: b',
+        '',
+        'ab',
+        `--${COMMON_BOUNDARY}--`,
+      ],
+    ],
+    boundary: COMMON_BOUNDARY,
+    expected: [
+      {
+        type: 'file',
+        name: 'f1',
+        data: Buffer.from('ab'),
+        info: { ...COMMON_FILE_INFO, filename: 'f.txt', encoding: 'a,b' },
+        limited: false,
+        truncated: false,
+        err: undefined,
+      },
+    ],
+  },
+  {
     name: 'Header size limit should be per part',
     source: [
       [

@@ -70,7 +70,7 @@ export class Multipart extends Writable {
 
     const hparser = new HeaderParser((header) => {
       this._hparser = undefined;
-      const disposition = header['content-disposition'];
+      const disposition = header[CONTENT_DISPOSITION];
       if (!disposition) {
         partSizeRemaining = -1;
         return;
@@ -94,11 +94,11 @@ export class Multipart extends Writable {
       if (filename !== undefined && !preservePath) {
         filename = osIndependentBasename(filename);
       }
-      const conType = parseContentType(header['content-type']);
+      const conType = parseContentType(header[CONTENT_TYPE]);
       partType = conType?.mime ?? 'text/plain';
       const partCharset = conType?.params.get('charset')?.toLowerCase() ?? defCharset;
       partDecoder = getTextDecoder(partCharset);
-      partEncoding = header['content-transfer-encoding']?.toLowerCase() ?? '7bit';
+      partEncoding = header[CONTENT_TRANSFER_ENCODING]?.toLowerCase() ?? '7bit';
       if (partType === 'application/octet-stream' || filename !== undefined) {
         // File
         if (files++ === filesLimit) {
@@ -304,68 +304,59 @@ function final(this: Multipart, cb: (error?: Error | null) => void) {
   }
 }
 
-const MAX_HEADER_PAIRS = 2000; // From node
 const MAX_HEADER_SIZE = 16 * 1024; // From node (its default value)
 
 const HPARSER_NAME = 0;
 const HPARSER_PRE_OWS = 1;
 const HPARSER_VALUE = 2;
+const HPARSER_VALUE_CR = 3;
+const HPARSER_VALUE_CRLF = 4;
+const HPARSER_VALUE_CRLFCR = 5;
 
-type Header = Record<string, string>;
+type Headers = (string | undefined)[];
 
 class HeaderParser {
-  /** @internal */ declare private _header: Header;
-  /** @internal */ declare private _pairCount: number;
-  /** @internal */ declare private _byteCount: number;
-  /** @internal */ declare private _state:
-    | typeof HPARSER_NAME
-    | typeof HPARSER_PRE_OWS
-    | typeof HPARSER_VALUE;
-  /** @internal */ declare private _name: string;
-  /** @internal */ declare private _value: string;
-  /** @internal */ declare private _crlf: number;
-  /** @internal */ declare private _cb: (header: Header) => void;
+  /** @internal */ declare private _headers: Headers;
+  /** @internal */ declare private _bytesRemaining: number;
+  /** @internal */ declare private _state: number;
+  /** @internal */ declare private _current: string;
+  /** @internal */ declare private _activeHeader: HeaderInfo | undefined;
+  /** @internal */ declare private _cb: (headers: Headers) => void;
 
-  constructor(cb: (header: Header) => void) {
-    this._header = Object.create(null);
-    this._pairCount = 0;
-    this._byteCount = 0;
-    this._state = HPARSER_NAME;
-    this._name = '';
-    this._value = '';
-    this._crlf = 0;
+  constructor(cb: (headers: Headers) => void) {
     this._cb = cb;
+    this.reset();
   }
 
   reset() {
-    this._header = Object.create(null);
-    this._pairCount = 0;
-    this._byteCount = 0;
+    this._headers = [];
+    this._bytesRemaining = MAX_HEADER_SIZE;
     this._state = HPARSER_NAME;
-    this._name = '';
-    this._value = '';
-    this._crlf = 0;
+    this._current = '';
+    this._activeHeader = undefined;
   }
 
   push(chunk: Buffer, p0: number, p1: number) {
     let start = p0;
     let pos = p0;
-    const end = Math.min(p1, p0 + MAX_HEADER_SIZE - this._byteCount);
+    const end = Math.min(p1, p0 + this._bytesRemaining);
     while (pos < end) {
       switch (this._state) {
         case HPARSER_NAME: {
           for (; pos < end && TOKEN[chunk[pos]!]; ++pos);
           if (pos > start) {
-            this._name += chunk.latin1Slice(start, pos);
+            this._current += chunk.latin1Slice(start, pos);
           }
           if (pos < end) {
             if (chunk[pos] !== 58 /* ':' */) {
               return -1;
             }
-            if (!this._name) {
+            if (!this._current) {
               return -1;
             }
             ++pos;
+            this._activeHeader = PART_HEADERS.get(this._current.toLowerCase());
+            this._current = '';
             this._state = HPARSER_PRE_OWS;
           }
           break;
@@ -383,73 +374,89 @@ class HeaderParser {
           break;
         }
         case HPARSER_VALUE:
-          switch (this._crlf) {
-            case 0: // Nothing yet
-              for (; pos < end; ++pos) {
-                const code = chunk[pos]!;
-                if (code < 32 || code === 127) {
-                  if (code !== 13 /* '\r' */) {
-                    return -1;
-                  }
-                  ++this._crlf;
-                  break;
-                }
-              }
-              this._value += chunk.latin1Slice(start, pos);
-              ++pos;
-              break;
-            case 1: // Received CR
-              if (chunk[pos++] !== 10 /* '\n' */) {
+          for (; pos < end; ++pos) {
+            const code = chunk[pos]!;
+            if (code < 32 || code === 127) {
+              if (code !== 13 /* '\r' */) {
                 return -1;
               }
-              ++this._crlf;
+              this._state = HPARSER_VALUE_CR;
               break;
-            case 2: {
-              // Received CR LF
-              const code = chunk[pos];
-              if (code === 32 /* ' ' */ || code === 9 /* '\t' */) {
-                // Folded value
-                start = pos;
-                this._crlf = 0;
-              } else {
-                if (++this._pairCount < MAX_HEADER_PAIRS) {
-                  this._header[this._name.toLowerCase()] ??= this._value;
-                }
-                if (code === 13 /* '\r' */) {
-                  ++this._crlf;
-                  ++pos;
-                } else {
-                  // Assume start of next header field name
-                  start = pos;
-                  this._crlf = 0;
-                  this._state = HPARSER_NAME;
-                  this._name = '';
-                  this._value = '';
-                }
-              }
-              break;
-            }
-            case 3: {
-              // Received CR LF CR
-              if (chunk[pos++] !== 10 /* '\n' */) {
-                return -1;
-              }
-              // End of header
-              const header = this._header;
-              this.reset();
-              this._cb(header);
-              return pos;
             }
           }
+          if (this._activeHeader) {
+            this._current += chunk.latin1Slice(start, pos);
+          }
+          ++pos;
+          break;
+        case HPARSER_VALUE_CR:
+          if (chunk[pos++] !== 10 /* '\n' */) {
+            return -1;
+          }
+          this._state = HPARSER_VALUE_CRLF;
+          break;
+        case HPARSER_VALUE_CRLF: {
+          const code = chunk[pos];
+          if (code === 32 /* ' ' */ || code === 9 /* '\t' */) {
+            // Folded value
+            start = pos;
+            this._state = HPARSER_VALUE;
+          } else {
+            if (this._activeHeader) {
+              const id = this._activeHeader._id;
+              if (this._headers[id] === undefined) {
+                this._headers[id] = this._current;
+              } else if (this._activeHeader._multi) {
+                this._headers[id] += ',' + this._current;
+              }
+            }
+            if (code === 13 /* '\r' */) {
+              this._state = HPARSER_VALUE_CRLFCR;
+              ++pos;
+            } else {
+              // Assume start of next header field name
+              start = pos;
+              this._state = HPARSER_NAME;
+              this._current = '';
+              this._activeHeader = undefined;
+            }
+          }
+          break;
+        }
+        case HPARSER_VALUE_CRLFCR: {
+          if (chunk[pos++] !== 10 /* '\n' */) {
+            return -1;
+          }
+          // End of header
+          const headers = this._headers;
+          this.reset();
+          this._cb(headers);
+          return pos;
+        }
       }
     }
     if (end < p1) {
-      return -1;
+      return -1; // exceeded maximum headers size
     }
-    this._byteCount += end - p0;
+    this._bytesRemaining -= end - p0;
     return end;
   }
 }
+
+interface HeaderInfo {
+  _id: number;
+  _multi: boolean;
+}
+
+const CONTENT_TYPE = 0;
+const CONTENT_DISPOSITION = 1;
+const CONTENT_TRANSFER_ENCODING = 2;
+
+const PART_HEADERS = new Map<string, HeaderInfo>([
+  ['content-type', { _id: CONTENT_TYPE, _multi: false }],
+  ['content-disposition', { _id: CONTENT_DISPOSITION, _multi: false }],
+  ['content-transfer-encoding', { _id: CONTENT_TRANSFER_ENCODING, _multi: true }],
+]);
 
 class FileStream extends Readable {
   /** @internal */ declare _readcb: (() => void) | undefined;
