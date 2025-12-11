@@ -71,7 +71,7 @@ function write(
   if (this._fields >= this._fieldsLimit) {
     if (!this._fields && chunk !== AMP_BUFFER) {
       ++this._fields;
-      this.emit('fieldsLimit');
+      this.emit('limit', 'fields');
     }
     return cb();
   }
@@ -174,9 +174,12 @@ function write(
             ? this._decoder.decode(Buffer.from(this._current, 'latin1'))
             : this._current;
         if (!this._inKey) {
-          this.emit('field', this._key, current, {
-            nameTruncated: this._keyTrunc,
-            valueTruncated: this._currentLimit < 0,
+          this.emit('field', {
+            name: this._key,
+            _nameTruncated: this._keyTrunc,
+            type: 'string',
+            value: current,
+            _valueTruncated: this._currentLimit < 0,
             encoding: this._charset,
             mimeType: 'text/plain',
           });
@@ -185,9 +188,12 @@ function write(
           this._inKey = true;
           SPECIALS[EQ] = 1;
         } else if (current || this._currentLimit < 0) {
-          this.emit('field', this._current, '', {
-            nameTruncated: this._currentLimit < 0,
-            valueTruncated: false,
+          this.emit('field', {
+            name: this._current,
+            _nameTruncated: this._currentLimit < 0,
+            type: 'string',
+            value: '',
+            _valueTruncated: false,
             encoding: this._charset,
             mimeType: 'text/plain',
           });
@@ -198,7 +204,7 @@ function write(
         this._currentLimit = this._fieldNameSizeLimit;
         this._currentHighNibble = 0;
         if (++this._fields === this._fieldsLimit && chunk !== AMP_BUFFER) {
-          this.emit('fieldsLimit');
+          this.emit('limit', 'fields');
           return cb();
         }
         break;

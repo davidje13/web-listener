@@ -1,75 +1,76 @@
-import type { BusboyOptions } from './types.mts';
+import type { BusboyOptions, FieldData } from './types.mts';
 import { busboy } from './busboy.mts';
 import 'lean-test';
 
-const COMMON_INFO = {
-  nameTruncated: false,
-  valueTruncated: false,
+const COMMON: Partial<FieldData> = {
+  _nameTruncated: false,
+  type: 'string',
+  _valueTruncated: false,
   encoding: 'utf-8',
   mimeType: 'text/plain',
 };
 
 const tests: TestDef[] = [
   // simple keys and values
-  { name: 'foo', expected: [['foo', '', COMMON_INFO]] },
-  { name: 'foo=bar', expected: [['foo', 'bar', COMMON_INFO]] },
-  { name: 'foo=', expected: [['foo', '', COMMON_INFO]] },
-  { name: '=bar', expected: [['', 'bar', COMMON_INFO]] },
-  { name: '=', expected: [['', '', COMMON_INFO]] },
+  { name: 'foo', expected: [{ ...COMMON, name: 'foo', value: '' }] },
+  { name: 'foo=bar', expected: [{ ...COMMON, name: 'foo', value: 'bar' }] },
+  { name: 'foo=', expected: [{ ...COMMON, name: 'foo', value: '' }] },
+  { name: '=bar', expected: [{ ...COMMON, name: '', value: 'bar' }] },
+  { name: '=', expected: [{ ...COMMON, name: '', value: '' }] },
   {
     name: 'foo&bar=baz',
     expected: [
-      ['foo', '', COMMON_INFO],
-      ['bar', 'baz', COMMON_INFO],
+      { ...COMMON, name: 'foo', value: '' },
+      { ...COMMON, name: 'bar', value: 'baz' },
     ],
   },
   {
     name: 'foo=bar&baz',
     expected: [
-      ['foo', 'bar', COMMON_INFO],
-      ['baz', '', COMMON_INFO],
+      { ...COMMON, name: 'foo', value: 'bar' },
+      { ...COMMON, name: 'baz', value: '' },
     ],
   },
   {
     name: 'foo=bar&baz=bla',
     expected: [
-      ['foo', 'bar', COMMON_INFO],
-      ['baz', 'bla', COMMON_INFO],
+      { ...COMMON, name: 'foo', value: 'bar' },
+      { ...COMMON, name: 'baz', value: 'bla' },
     ],
   },
   {
     name: 'foo&bar',
     expected: [
-      ['foo', '', COMMON_INFO],
-      ['bar', '', COMMON_INFO],
+      { ...COMMON, name: 'foo', value: '' },
+      { ...COMMON, name: 'bar', value: '' },
     ],
   },
   {
     name: 'foo&bar&',
     expected: [
-      ['foo', '', COMMON_INFO],
-      ['bar', '', COMMON_INFO],
+      { ...COMMON, name: 'foo', value: '' },
+      { ...COMMON, name: 'bar', value: '' },
     ],
   },
   {
     name: '=&baz',
     expected: [
-      ['', '', COMMON_INFO],
-      ['baz', '', COMMON_INFO],
+      { ...COMMON, name: '', value: '' },
+      { ...COMMON, name: 'baz', value: '' },
     ],
   },
   {
     name: '=bar&baz',
     expected: [
-      ['', 'bar', COMMON_INFO],
-      ['baz', '', COMMON_INFO],
+      { ...COMMON, name: '', value: 'bar' },
+      { ...COMMON, name: 'baz', value: '' },
     ],
   },
   {
     name: 'foo=&baz',
     expected: [
-      ['foo', '', COMMON_INFO],
-      ['baz', '', COMMON_INFO],
+      { ...COMMON, name: 'foo', value: '' },
+      { ...COMMON, name: 'baz', value: '' },
     ],
   },
 
@@ -77,30 +78,30 @@ const tests: TestDef[] = [
   { name: 'blank', source: '', expected: [] },
   { name: '&', expected: [] },
   { name: '&&&&&', expected: [] },
-  { name: '&&foo=bar&&', expected: [['foo', 'bar', COMMON_INFO]] },
+  { name: '&&foo=bar&&', expected: [{ ...COMMON, name: 'foo', value: 'bar' }] },
 
   // character escapes
   {
     name: 'encoded bytes',
     source: 'foo%20bar=baz%20bla%21',
-    expected: [['foo bar', 'baz bla!', COMMON_INFO]],
+    expected: [{ ...COMMON, name: 'foo bar', value: 'baz bla!' }],
   },
   {
     name: 'plus maps to space',
     source: 'foo+1=bar+baz%2Bquux',
-    expected: [['foo 1', 'bar baz+quux', COMMON_INFO]],
+    expected: [{ ...COMMON, name: 'foo 1', value: 'bar baz+quux' }],
   },
   {
     name: 'foo=bar%20%21&num=1000',
     expected: [
-      ['foo', 'bar !', COMMON_INFO],
-      ['num', '1000', COMMON_INFO],
+      { ...COMMON, name: 'foo', value: 'bar !' },
+      { ...COMMON, name: 'num', value: '1000' },
     ],
   },
   {
     name: 'unencoded equals symbol',
     source: 'foo=bar=baz',
-    expected: [['foo', 'bar=baz', COMMON_INFO]],
+    expected: [{ ...COMMON, name: 'foo', value: 'bar=baz' }],
   },
 
   // character sets
@@ -108,13 +109,13 @@ const tests: TestDef[] = [
     name: 'multi-byte charset',
     charset: 'UTF-16LE',
     source: `${percentEncode('foo', 'utf-16le')}=${percentEncode('😀!', 'utf-16le')}`,
-    expected: [['foo', '😀!', { ...COMMON_INFO, encoding: 'UTF-16LE' }]],
+    expected: [{ ...COMMON, name: 'foo', value: '😀!', encoding: 'UTF-16LE' }],
   },
   {
     name: 'single-byte, ASCII-compatible, non-UTF-8 charset',
     charset: 'ISO-8859-1',
     source: `foo=<${percentEncode('©:^þ', 'latin1')}`,
-    expected: [['foo', '<©:^þ', { ...COMMON_INFO, encoding: 'ISO-8859-1' }]],
+    expected: [{ ...COMMON, name: 'foo', value: '<©:^þ', encoding: 'ISO-8859-1' }],
   },
 
   // limits
@@ -134,48 +135,52 @@ const tests: TestDef[] = [
     name: 'fields=1 reached',
     source: 'foo=bar',
     options: { limits: { fields: 1 } },
-    expected: [['foo', 'bar', COMMON_INFO]],
+    expected: [{ ...COMMON, name: 'foo', value: 'bar' }],
   },
   {
     name: 'fields=1 exceeded',
     source: 'foo=bar&baz=bla',
     options: { limits: { fields: 1 } },
-    expected: [['foo', 'bar', COMMON_INFO], 'fieldsLimit'],
+    expected: [{ ...COMMON, name: 'foo', value: 'bar' }, 'fieldsLimit'],
   },
   {
     name: 'fields=2 reached',
     source: 'foo=bar&baz=bla',
     options: { limits: { fields: 2 } },
     expected: [
-      ['foo', 'bar', COMMON_INFO],
-      ['baz', 'bla', COMMON_INFO],
+      { ...COMMON, name: 'foo', value: 'bar' },
+      { ...COMMON, name: 'baz', value: 'bla' },
     ],
   },
   {
     name: 'fields=2 exceeded',
     source: 'foo=bar&baz=bla&more',
     options: { limits: { fields: 2 } },
-    expected: [['foo', 'bar', COMMON_INFO], ['baz', 'bla', COMMON_INFO], 'fieldsLimit'],
+    expected: [
+      { ...COMMON, name: 'foo', value: 'bar' },
+      { ...COMMON, name: 'baz', value: 'bla' },
+      'fieldsLimit',
+    ],
   },
   {
     name: 'subsequent chunks are ignored after reaching the field limit',
     source: 'foo=bar&baz=bla|bla&x=y',
     options: { limits: { fields: 1 } },
-    expected: [['foo', 'bar', COMMON_INFO], 'fieldsLimit'],
+    expected: [{ ...COMMON, name: 'foo', value: 'bar' }, 'fieldsLimit'],
   },
   {
     name: 'fieldSize limit',
     source: 'a&b=&c=ab&d=abc&e=abcd&long=ab&percent=%25%25%25%25&plus=++++',
     options: { limits: { fieldSize: 2 } },
     expected: [
-      ['a', '', COMMON_INFO],
-      ['b', '', COMMON_INFO],
-      ['c', 'ab', COMMON_INFO],
-      ['d', 'ab', { ...COMMON_INFO, valueTruncated: true }],
-      ['e', 'ab', { ...COMMON_INFO, valueTruncated: true }],
-      ['long', 'ab', COMMON_INFO],
-      ['percent', '%%', { ...COMMON_INFO, valueTruncated: true }],
-      ['plus', '  ', { ...COMMON_INFO, valueTruncated: true }],
+      { ...COMMON, name: 'a', value: '' },
+      { ...COMMON, name: 'b', value: '' },
+      { ...COMMON, name: 'c', value: 'ab' },
+      { ...COMMON, name: 'd', value: 'ab', _valueTruncated: true },
+      { ...COMMON, name: 'e', value: 'ab', _valueTruncated: true },
+      { ...COMMON, name: 'long', value: 'ab' },
+      { ...COMMON, name: 'percent', value: '%%', _valueTruncated: true },
+      { ...COMMON, name: 'plus', value: '  ', _valueTruncated: true },
     ],
   },
   {
@@ -183,14 +188,14 @@ const tests: TestDef[] = [
     source: '=baz&ab=baz&abc=baz&abcd=baz&also&cd=bazar&%25%25%25%25&++++',
     options: { limits: { fieldNameSize: 2 } },
     expected: [
-      ['', 'baz', COMMON_INFO],
-      ['ab', 'baz', COMMON_INFO],
-      ['ab', 'baz', { ...COMMON_INFO, nameTruncated: true }],
-      ['ab', 'baz', { ...COMMON_INFO, nameTruncated: true }],
-      ['al', '', { ...COMMON_INFO, nameTruncated: true }],
-      ['cd', 'bazar', COMMON_INFO],
-      ['%%', '', { ...COMMON_INFO, nameTruncated: true }],
-      ['  ', '', { ...COMMON_INFO, nameTruncated: true }],
+      { ...COMMON, name: '', value: 'baz' },
+      { ...COMMON, name: 'ab', value: 'baz' },
+      { ...COMMON, name: 'ab', value: 'baz', _nameTruncated: true },
+      { ...COMMON, name: 'ab', value: 'baz', _nameTruncated: true },
+      { ...COMMON, name: 'al', value: '', _nameTruncated: true },
+      { ...COMMON, name: 'cd', value: 'bazar' },
+      { ...COMMON, name: '%%', value: '', _nameTruncated: true },
+      { ...COMMON, name: '  ', value: '', _nameTruncated: true },
     ],
   },
   {
@@ -198,11 +203,11 @@ const tests: TestDef[] = [
     source: 'a=foo&b&c=&=bar&=',
     options: { limits: { fieldSize: 0 } },
     expected: [
-      ['a', '', { ...COMMON_INFO, valueTruncated: true }],
-      ['b', '', COMMON_INFO],
-      ['c', '', COMMON_INFO],
-      ['', '', { ...COMMON_INFO, valueTruncated: true }],
-      ['', '', COMMON_INFO],
+      { ...COMMON, name: 'a', value: '', _valueTruncated: true },
+      { ...COMMON, name: 'b', value: '' },
+      { ...COMMON, name: 'c', value: '' },
+      { ...COMMON, name: '', value: '', _valueTruncated: true },
+      { ...COMMON, name: '', value: '' },
     ],
   },
   {
@@ -210,11 +215,11 @@ const tests: TestDef[] = [
     source: 'a=foo&b&c=&=bar&=',
     options: { limits: { fieldNameSize: 0 } },
     expected: [
-      ['', 'foo', { ...COMMON_INFO, nameTruncated: true }],
-      ['', '', { ...COMMON_INFO, nameTruncated: true }],
-      ['', '', { ...COMMON_INFO, nameTruncated: true }],
-      ['', 'bar', COMMON_INFO],
-      ['', '', COMMON_INFO],
+      { ...COMMON, name: '', value: 'foo', _nameTruncated: true },
+      { ...COMMON, name: '', value: '', _nameTruncated: true },
+      { ...COMMON, name: '', value: '', _nameTruncated: true },
+      { ...COMMON, name: '', value: 'bar' },
+      { ...COMMON, name: '', value: '' },
     ],
   },
   {
@@ -222,11 +227,11 @@ const tests: TestDef[] = [
     source: 'a=foo&b&c=&=bar&=',
     options: { limits: { fieldNameSize: 0, fieldSize: 0 } },
     expected: [
-      ['', '', { ...COMMON_INFO, nameTruncated: true, valueTruncated: true }],
-      ['', '', { ...COMMON_INFO, nameTruncated: true }],
-      ['', '', { ...COMMON_INFO, nameTruncated: true }],
-      ['', '', { ...COMMON_INFO, valueTruncated: true }],
-      ['', '', COMMON_INFO],
+      { ...COMMON, name: '', value: '', _nameTruncated: true, _valueTruncated: true },
+      { ...COMMON, name: '', value: '', _nameTruncated: true },
+      { ...COMMON, name: '', value: '', _nameTruncated: true },
+      { ...COMMON, name: '', value: '', _valueTruncated: true },
+      { ...COMMON, name: '', value: '' },
     ],
   },
 ];
@@ -244,19 +249,16 @@ describe('urlencoded', () => {
     'reads URL encoded content',
     { parameters: tests },
     async ({ name, source = name, expected, options, charset = 'utf-8' }: any) => {
-      const results = await new Promise<unknown[]>((resolve, reject) => {
+      const results = await new Promise<unknown[]>((resolve) => {
         const results: unknown[] = [];
         const bb = busboy(
           { 'content-type': `application/x-www-form-urlencoded; charset=${charset}` },
           options,
         );
 
-        bb.on('field', (key, val, info) => results.push([key, val, info]));
-        bb.on('file', () => reject(new Error('Unexpected file')));
+        bb.on('field', (data) => results.push(data));
         bb.on('error', (error) => results.push({ error: error.message }));
-        bb.on('partsLimit', () => results.push('partsLimit'));
-        bb.on('filesLimit', () => results.push('filesLimit'));
-        bb.on('fieldsLimit', () => results.push('fieldsLimit'));
+        bb.on('limit', (type) => results.push(type + 'Limit'));
         bb.on('close', () => resolve(results));
 
         for (const src of source.split('|')) {
@@ -272,19 +274,16 @@ describe('urlencoded', () => {
     'works when given one byte at a time',
     { parameters: tests },
     async ({ name, source = name, expected, options, charset = 'utf-8' }: any) => {
-      const results = await new Promise<unknown[]>((resolve, reject) => {
+      const results = await new Promise<unknown[]>((resolve) => {
         const results: unknown[] = [];
         const bb = busboy(
           { 'content-type': `application/x-www-form-urlencoded; charset=${charset}` },
           options,
         );
 
-        bb.on('field', (key, val, info) => results.push([key, val, info]));
-        bb.on('file', () => reject(new Error('Unexpected file')));
+        bb.on('field', (data) => results.push(data));
         bb.on('error', (error) => results.push({ error: error.message }));
-        bb.on('partsLimit', () => results.push('partsLimit'));
-        bb.on('filesLimit', () => results.push('filesLimit'));
-        bb.on('fieldsLimit', () => results.push('fieldsLimit'));
+        bb.on('limit', (type) => results.push(type + 'Limit'));
         bb.on('close', () => resolve(results));
 
         for (const src of source.split('|')) {

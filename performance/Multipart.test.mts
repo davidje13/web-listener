@@ -12,12 +12,15 @@ const implementations: ImplementationDef[] = [
         let n = 0;
         const r: unknown[] = [];
         const o = busboy({ 'content-type': `multipart/form-data; boundary=${boundary}` });
-        o.on('field', (name, value) => r.push({ name, value }));
-        o.on('file', async (name, stream) => {
-          ++n;
-          r.push({ name, data: await buffer(stream) });
-          if (!--n) {
-            resolve(r);
+        o.on('field', async (data) => {
+          if (data.type === 'string') {
+            r.push({ name: data.name, value: data.value });
+          } else {
+            ++n;
+            r.push({ name: data.name, data: await buffer(data.value) });
+            if (!--n) {
+              resolve(r);
+            }
           }
         });
         for (const chunk of chunks) {

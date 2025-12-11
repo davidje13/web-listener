@@ -41,21 +41,20 @@ export interface BusboyOptions {
   defCharset?: string;
 }
 
-type FileStream = Readable & { readonly truncated: boolean };
-
-interface FileInfo {
-  nameTruncated: boolean;
-  filename: string | undefined;
-  encoding: string;
+export type FieldData = {
+  name: string;
+  _nameTruncated: boolean;
   mimeType: string;
-}
-
-interface FieldInfo {
-  nameTruncated: boolean;
-  valueTruncated: boolean;
   encoding: string;
-  mimeType: string;
-}
+} & (
+  | { type: 'string'; value: string; _valueTruncated: boolean }
+  | {
+      type: 'file';
+      value: Readable & { readonly truncated: boolean };
+      _valueTruncated?: never;
+      filename: string;
+    }
+);
 
 export type BusboyInstance = Omit<Writable, keyof NodeJS.EventEmitter> &
   NodeJS.EventEmitter<{
@@ -66,12 +65,8 @@ export type BusboyInstance = Omit<Writable, keyof NodeJS.EventEmitter> &
     pipe: [src: Readable];
     unpipe: [src: Readable];
 
-    filesLimit: [];
-    fieldsLimit: [];
-    partsLimit: [];
-    limit: [];
-    file: [name: string, stream: FileStream, info: FileInfo];
-    field: [name: string, value: string, info: FieldInfo];
+    limit: [type: string];
+    field: [data: FieldData];
   }>;
 
 export interface Limits {

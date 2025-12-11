@@ -9,7 +9,7 @@ const implementations: ImplementationDef[] = [
     run: (chunks) => () => {
       const r: unknown[] = [];
       const o = busboy({ 'content-type': 'application/x-www-form-urlencoded' });
-      o.on('field', (name, value) => r.push({ name, value }));
+      o.on('field', ({ name, value }) => r.push({ name, value }));
       for (const chunk of chunks) {
         o.write(chunk);
       }

@@ -1,17 +1,22 @@
 import { randomFillSync } from 'node:crypto';
-import type { BusboyInstance, BusboyOptions } from './types.mts';
+import type { BusboyInstance, BusboyOptions, FieldData } from './types.mts';
 import { busboy } from './busboy.mts';
 import 'lean-test';
 
-const COMMON_FILE_INFO = {
-  nameTruncated: false,
+const COMMON_FILE = {
+  _nameTruncated: false,
+  type: 'file',
   encoding: '7bit',
   mimeType: 'application/octet-stream',
+  limited: false,
+  truncated: false,
+  err: undefined,
 };
 
-const COMMON_FIELD_INFO = {
-  nameTruncated: false,
-  valueTruncated: false,
+const COMMON_FIELD: Partial<FieldData> = {
+  _nameTruncated: false,
+  type: 'string',
+  _valueTruncated: false,
   encoding: '7bit',
   mimeType: 'text/plain',
 };
@@ -21,7 +26,6 @@ interface TestDef {
   source: (string[] | Buffer)[];
   boundary: string;
   options?: BusboyOptions;
-  omit?: string[];
   expected: unknown[];
 }
 
@@ -55,25 +59,19 @@ const tests: TestDef[] = [
     ],
     boundary: COMMON_BOUNDARY,
     expected: [
-      { type: 'field', name: 'file_name_0', val: 'super alpha file', info: COMMON_FIELD_INFO },
-      { type: 'field', name: 'file_name_1', val: 'super beta file', info: COMMON_FIELD_INFO },
+      { ...COMMON_FIELD, name: 'file_name_0', value: 'super alpha file' },
+      { ...COMMON_FIELD, name: 'file_name_1', value: 'super beta file' },
       {
-        type: 'file',
+        ...COMMON_FILE,
         name: 'upload_file_0',
         data: Buffer.from('A'.repeat(1023)),
-        info: { ...COMMON_FILE_INFO, filename: '1k_a.dat' },
-        limited: false,
-        truncated: false,
-        err: undefined,
+        filename: '1k_a.dat',
       },
       {
-        type: 'file',
+        ...COMMON_FILE,
         name: 'upload_file_1',
         data: Buffer.from('B'.repeat(1023)),
-        info: { ...COMMON_FILE_INFO, filename: '1k_b.dat' },
-        limited: false,
-        truncated: false,
-        err: undefined,
+        filename: '1k_b.dat',
       },
     ],
   },
@@ -98,9 +96,9 @@ const tests: TestDef[] = [
     ],
     boundary: '----WebKitFormBoundaryTB2MiQ36fnSJlrhY',
     expected: [
-      { type: 'field', name: 'cont', val: 'some random content', info: COMMON_FIELD_INFO },
-      { type: 'field', name: 'pass', val: 'some random pass', info: COMMON_FIELD_INFO },
-      { type: 'field', name: 'bit', val: '2', info: COMMON_FIELD_INFO },
+      { ...COMMON_FIELD, name: 'cont', value: 'some random content' },
+      { ...COMMON_FIELD, name: 'pass', value: 'some random pass' },
+      { ...COMMON_FIELD, name: 'bit', value: '2' },
     ],
   },
   {
@@ -121,7 +119,7 @@ const tests: TestDef[] = [
       ],
     ],
     boundary: COMMON_BOUNDARY,
-    expected: [{ type: 'field', name: '', val: 'content', info: COMMON_FIELD_INFO }],
+    expected: [{ ...COMMON_FIELD, name: '', value: 'content' }],
   },
   {
     name: 'Missing field name',
@@ -156,20 +154,14 @@ const tests: TestDef[] = [
     boundary: COMMON_BOUNDARY,
     options: { limits: { fileSize: 13, fieldSize: 5 } },
     expected: [
+      { ...COMMON_FIELD, name: 'file_name_0', value: 'super', _valueTruncated: true },
       {
-        type: 'field',
-        name: 'file_name_0',
-        val: 'super',
-        info: { ...COMMON_FIELD_INFO, valueTruncated: true },
-      },
-      {
-        type: 'file',
+        ...COMMON_FILE,
         name: 'upload_file_0',
         data: Buffer.from('ABCDEFGHIJKLM'),
-        info: { ...COMMON_FILE_INFO, filename: '1k_a.dat' },
+        filename: '1k_a.dat',
         limited: true,
         truncated: true,
-        err: undefined,
       },
     ],
   },
@@ -192,20 +184,12 @@ const tests: TestDef[] = [
     boundary: COMMON_BOUNDARY,
     options: { limits: { fileSize: 13, fieldSize: 5 } },
     expected: [
+      { ...COMMON_FIELD, name: 'file_name_0', value: 'super' },
       {
-        type: 'field',
-        name: 'file_name_0',
-        val: 'super',
-        info: COMMON_FIELD_INFO,
-      },
-      {
-        type: 'file',
+        ...COMMON_FILE,
         name: 'upload_file_0',
         data: Buffer.from('ABCDEFGHIJKLM'),
-        info: { ...COMMON_FILE_INFO, filename: '1k_a.dat' },
-        limited: false,
-        truncated: false,
-        err: undefined,
+        filename: '1k_a.dat',
       },
     ],
   },
@@ -227,42 +211,7 @@ const tests: TestDef[] = [
     ],
     boundary: COMMON_BOUNDARY,
     options: { limits: { files: 0 } },
-    expected: [
-      { type: 'field', name: 'file_name_0', val: 'super alpha file', info: COMMON_FIELD_INFO },
-      'filesLimit',
-    ],
-  },
-  {
-    name: 'Fields and (ignored) files',
-    source: [
-      [
-        `--${COMMON_BOUNDARY}`,
-        'Content-Disposition: form-data; name="file_name_0"',
-        '',
-        'super alpha file',
-        `--${COMMON_BOUNDARY}`,
-        'Content-Disposition: form-data; name="file_name_1"',
-        '',
-        'super beta file',
-        `--${COMMON_BOUNDARY}`,
-        'Content-Disposition: form-data; name="upload_file_0"; filename="1k_a.dat"',
-        'Content-Type: application/octet-stream',
-        '',
-        'A'.repeat(1023),
-        `--${COMMON_BOUNDARY}`,
-        'Content-Disposition: form-data; name="upload_file_1"; filename="1k_b.dat"',
-        'Content-Type: application/octet-stream',
-        '',
-        'B'.repeat(1023),
-        `--${COMMON_BOUNDARY}--`,
-      ],
-    ],
-    boundary: COMMON_BOUNDARY,
-    omit: ['file'],
-    expected: [
-      { type: 'field', name: 'file_name_0', val: 'super alpha file', info: COMMON_FIELD_INFO },
-      { type: 'field', name: 'file_name_1', val: 'super beta file', info: COMMON_FIELD_INFO },
-    ],
+    expected: [{ ...COMMON_FIELD, name: 'file_name_0', value: 'super alpha file' }, 'filesLimit'],
   },
   {
     name: 'Files with filenames containing paths',
@@ -289,31 +238,22 @@ const tests: TestDef[] = [
     boundary: COMMON_BOUNDARY,
     expected: [
       {
-        type: 'file',
+        ...COMMON_FILE,
         name: 'upload_file_0',
         data: Buffer.from('ABCDEFGHIJKLMNOPQRSTUVWXYZ'),
-        info: { ...COMMON_FILE_INFO, filename: '1k_a.dat' },
-        limited: false,
-        truncated: false,
-        err: undefined,
+        filename: '1k_a.dat',
       },
       {
-        type: 'file',
+        ...COMMON_FILE,
         name: 'upload_file_1',
         data: Buffer.from('ABCDEFGHIJKLMNOPQRSTUVWXYZ'),
-        info: { ...COMMON_FILE_INFO, filename: '1k_b.dat' },
-        limited: false,
-        truncated: false,
-        err: undefined,
+        filename: '1k_b.dat',
       },
       {
-        type: 'file',
+        ...COMMON_FILE,
         name: 'upload_file_2',
         data: Buffer.from('ABCDEFGHIJKLMNOPQRSTUVWXYZ'),
-        info: { ...COMMON_FILE_INFO, filename: '1k_c.dat' },
-        limited: false,
-        truncated: false,
-        err: undefined,
+        filename: '1k_c.dat',
       },
     ],
   },
@@ -344,31 +284,22 @@ const tests: TestDef[] = [
     options: { preservePath: true },
     expected: [
       {
-        type: 'file',
+        ...COMMON_FILE,
         name: 'upload_file_0',
         data: Buffer.from('ABCDEFGHIJKLMNOPQRSTUVWXYZ'),
-        info: { ...COMMON_FILE_INFO, filename: '/absolute/1k_a.dat' },
-        limited: false,
-        truncated: false,
-        err: undefined,
+        filename: '/absolute/1k_a.dat',
       },
       {
-        type: 'file',
+        ...COMMON_FILE,
         name: 'upload_file_1',
         data: Buffer.from('ABCDEFGHIJKLMNOPQRSTUVWXYZ'),
-        info: { ...COMMON_FILE_INFO, filename: 'C:\\absolute\\1k_b.dat' },
-        limited: false,
-        truncated: false,
-        err: undefined,
+        filename: 'C:\\absolute\\1k_b.dat',
       },
       {
-        type: 'file',
+        ...COMMON_FILE,
         name: 'upload_file_2',
         data: Buffer.from('ABCDEFGHIJKLMNOPQRSTUVWXYZ'),
-        info: { ...COMMON_FILE_INFO, filename: 'relative/1k_c.dat' },
-        limited: false,
-        truncated: false,
-        err: undefined,
+        filename: 'relative/1k_c.dat',
       },
     ],
   },
@@ -389,9 +320,7 @@ const tests: TestDef[] = [
       ],
     ],
     boundary: '----WebKitFormBoundaryTB2MiQ36fnSJlrhY',
-    expected: [
-      { type: 'field', name: 'cont', val: 'some random content', info: COMMON_FIELD_INFO },
-    ],
+    expected: [{ ...COMMON_FIELD, name: 'cont', value: 'some random content' }],
   },
   {
     name: 'Custom filename* character set',
@@ -408,13 +337,10 @@ const tests: TestDef[] = [
     boundary: COMMON_BOUNDARY,
     expected: [
       {
-        type: 'file',
+        ...COMMON_FILE,
         name: 'file',
         data: Buffer.from('ABCDEFGHIJKLMNOPQRSTUVWXYZ'),
-        info: { ...COMMON_FILE_INFO, filename: 'näme.txt' },
-        limited: false,
-        truncated: false,
-        err: undefined,
+        filename: 'näme.txt',
       },
     ],
   },
@@ -433,17 +359,7 @@ const tests: TestDef[] = [
       ],
     ],
     boundary: COMMON_BOUNDARY,
-    expected: [
-      {
-        type: 'file',
-        name: 'file',
-        data: Buffer.from('.'),
-        info: { ...COMMON_FILE_INFO, filename: 'テスト.dat' },
-        limited: false,
-        truncated: false,
-        err: undefined,
-      },
-    ],
+    expected: [{ ...COMMON_FILE, name: 'file', data: Buffer.from('.'), filename: 'テスト.dat' }],
   },
   {
     // these inputs are technically malformed but this can come from a browser
@@ -456,17 +372,7 @@ const tests: TestDef[] = [
     ],
     boundary: COMMON_BOUNDARY,
     options: { defParamCharset: 'macintosh' },
-    expected: [
-      {
-        type: 'file',
-        name: 'upload_file_0',
-        data: Buffer.from('.'),
-        info: { ...COMMON_FILE_INFO, filename: '∑µ' },
-        limited: false,
-        truncated: false,
-        err: undefined,
-      },
-    ],
+    expected: [{ ...COMMON_FILE, name: 'upload_file_0', data: Buffer.from('.'), filename: '∑µ' }],
   },
   {
     name: 'Field with multibyte characters',
@@ -480,7 +386,7 @@ const tests: TestDef[] = [
       ],
     ],
     boundary: COMMON_BOUNDARY,
-    expected: [{ type: 'field', name: 'f', val: '\u2026', info: COMMON_FIELD_INFO }],
+    expected: [{ ...COMMON_FIELD, name: 'f', value: '\u2026' }],
   },
   {
     name: 'Invalid part header',
@@ -545,14 +451,7 @@ const tests: TestDef[] = [
       ],
     ],
     boundary: '----WebKitFormBoundaryTB2MiQ36fnSJlrhY',
-    expected: [
-      {
-        type: 'field',
-        name: 'cont',
-        val: '{}',
-        info: { ...COMMON_FIELD_INFO, mimeType: 'application/json' },
-      },
-    ],
+    expected: [{ ...COMMON_FIELD, name: 'cont', value: '{}', mimeType: 'application/json' }],
   },
   {
     name: 'empty form',
@@ -575,12 +474,11 @@ const tests: TestDef[] = [
     boundary: COMMON_BOUNDARY,
     expected: [
       {
-        type: 'file',
+        ...COMMON_FILE,
         name: 'upload_file_0',
         data: Buffer.alloc(0),
-        info: { ...COMMON_FILE_INFO, filename: '1k_a.dat', encoding: 'binary' },
-        limited: false,
-        truncated: false,
+        filename: '1k_a.dat',
+        encoding: 'binary',
         err: 'unexpected end of form',
       },
       { error: 'unexpected end of form' },
@@ -600,12 +498,10 @@ const tests: TestDef[] = [
     boundary: COMMON_BOUNDARY,
     expected: [
       {
-        type: 'file',
+        ...COMMON_FILE,
         name: 'upload_file_0',
         data: Buffer.from('a'),
-        info: { ...COMMON_FILE_INFO, filename: '1k_a.dat' },
-        limited: false,
-        truncated: false,
+        filename: '1k_a.dat',
         err: 'unexpected end of form',
       },
       { error: 'unexpected end of form' },
@@ -626,13 +522,11 @@ const tests: TestDef[] = [
     boundary: COMMON_BOUNDARY,
     expected: [
       {
-        type: 'file',
+        ...COMMON_FILE,
         name: 'upload_file_0',
         data: Buffer.from('a'),
-        info: { ...COMMON_FILE_INFO, filename: 'notes.txt', mimeType: 'text/plain' },
-        limited: false,
-        truncated: false,
-        err: undefined,
+        filename: 'notes.txt',
+        mimeType: 'text/plain',
       },
     ],
   },
@@ -652,13 +546,11 @@ const tests: TestDef[] = [
     boundary: COMMON_BOUNDARY,
     expected: [
       {
-        type: 'file',
+        ...COMMON_FILE,
         name: 'upload_file_0',
         data: Buffer.from('a'),
-        info: { ...COMMON_FILE_INFO, filename: 'notes.txt', mimeType: 'text/other' },
-        limited: false,
-        truncated: false,
-        err: undefined,
+        filename: 'notes.txt',
+        mimeType: 'text/other',
       },
     ],
   },
@@ -675,38 +567,6 @@ const tests: TestDef[] = [
     ],
     boundary: COMMON_BOUNDARY,
     expected: [],
-  },
-  {
-    name: 'Skip field parts if no listener',
-    source: [
-      [
-        `--${COMMON_BOUNDARY}`,
-        'Content-Disposition: form-data; name="file_name_0"',
-        '',
-        'a'.repeat(64 * 1024),
-        `--${COMMON_BOUNDARY}`,
-        'Content-Disposition: form-data; name="upload_file_0"; filename="notes.txt"',
-        'Content-Type: ',
-        ' text/plain; charset=utf8',
-        '',
-        'bc',
-        `--${COMMON_BOUNDARY}--`,
-      ],
-    ],
-    boundary: COMMON_BOUNDARY,
-    options: { limits: { fieldSize: Number.POSITIVE_INFINITY } },
-    omit: ['field'],
-    expected: [
-      {
-        type: 'file',
-        name: 'upload_file_0',
-        data: Buffer.from('bc'),
-        info: { ...COMMON_FILE_INFO, filename: 'notes.txt', mimeType: 'text/plain' },
-        limited: false,
-        truncated: false,
-        err: undefined,
-      },
-    ],
   },
   {
     name: 'Zero parts limit',
@@ -743,7 +603,7 @@ const tests: TestDef[] = [
     ],
     boundary: COMMON_BOUNDARY,
     options: { limits: { parts: 1 } },
-    expected: [{ type: 'field', name: 'file_name_0', val: 'a', info: COMMON_FIELD_INFO }],
+    expected: [{ ...COMMON_FIELD, name: 'file_name_0', value: 'a' }],
   },
   {
     name: 'Parts limit exceeded',
@@ -764,10 +624,7 @@ const tests: TestDef[] = [
     ],
     boundary: COMMON_BOUNDARY,
     options: { limits: { parts: 1 } },
-    expected: [
-      { type: 'field', name: 'file_name_0', val: 'a', info: COMMON_FIELD_INFO },
-      'partsLimit',
-    ],
+    expected: [{ ...COMMON_FIELD, name: 'file_name_0', value: 'a' }, 'partsLimit'],
   },
   {
     name: 'Zero fields limit',
@@ -804,7 +661,7 @@ const tests: TestDef[] = [
     ],
     boundary: COMMON_BOUNDARY,
     options: { limits: { fields: 1 } },
-    expected: [{ type: 'field', name: 'file_name_0', val: 'a', info: COMMON_FIELD_INFO }],
+    expected: [{ ...COMMON_FIELD, name: 'file_name_0', value: 'a' }],
   },
   {
     name: 'Fields limit exceeded',
@@ -823,10 +680,7 @@ const tests: TestDef[] = [
     ],
     boundary: COMMON_BOUNDARY,
     options: { limits: { fields: 1 } },
-    expected: [
-      { type: 'field', name: 'file_name_0', val: 'a', info: COMMON_FIELD_INFO },
-      'fieldsLimit',
-    ],
+    expected: [{ ...COMMON_FIELD, name: 'file_name_0', value: 'a' }, 'fieldsLimit'],
   },
   {
     name: 'Zero files limit',
@@ -867,13 +721,11 @@ const tests: TestDef[] = [
     options: { limits: { files: 1 } },
     expected: [
       {
-        type: 'file',
+        ...COMMON_FILE,
         name: 'upload_file_0',
         data: Buffer.from('ab'),
-        info: { ...COMMON_FILE_INFO, filename: 'notes.txt', mimeType: 'text/plain' },
-        limited: false,
-        truncated: false,
-        err: undefined,
+        filename: 'notes.txt',
+        mimeType: 'text/plain',
       },
     ],
   },
@@ -898,13 +750,11 @@ const tests: TestDef[] = [
     options: { limits: { files: 1 } },
     expected: [
       {
-        type: 'file',
+        ...COMMON_FILE,
         name: 'upload_file_0',
         data: Buffer.from('ab'),
-        info: { ...COMMON_FILE_INFO, filename: 'notes.txt', mimeType: 'text/plain' },
-        limited: false,
-        truncated: false,
-        err: undefined,
+        filename: 'notes.txt',
+        mimeType: 'text/plain',
       },
       'filesLimit',
     ],
@@ -931,13 +781,11 @@ const tests: TestDef[] = [
     expected: [
       { error: 'malformed part header' },
       {
-        type: 'file',
+        ...COMMON_FILE,
         name: 'upload_file_1',
         data: Buffer.from('cd'),
-        info: { ...COMMON_FILE_INFO, filename: 'notes2.txt', mimeType: 'text/plain' },
-        limited: false,
-        truncated: false,
-        err: undefined,
+        filename: 'notes2.txt',
+        mimeType: 'text/plain',
       },
     ],
   },
@@ -954,14 +802,7 @@ const tests: TestDef[] = [
     ],
     boundary: COMMON_BOUNDARY,
     options: { limits: { fieldNameSize: 4 } },
-    expected: [
-      {
-        type: 'field',
-        name: 'long',
-        val: 'a',
-        info: { ...COMMON_FIELD_INFO, nameTruncated: true },
-      },
-    ],
+    expected: [{ ...COMMON_FIELD, name: 'long', value: 'a', _nameTruncated: true }],
   },
   {
     name: 'Field name limit (file)',
@@ -979,13 +820,11 @@ const tests: TestDef[] = [
     options: { limits: { fieldNameSize: 4 } },
     expected: [
       {
-        type: 'file',
+        ...COMMON_FILE,
         name: 'long',
         data: Buffer.from('a'),
-        info: { ...COMMON_FILE_INFO, filename: 'foo.txt', nameTruncated: true },
-        limited: false,
-        truncated: false,
-        err: undefined,
+        filename: 'foo.txt',
+        _nameTruncated: true,
       },
     ],
   },
@@ -1006,13 +845,11 @@ const tests: TestDef[] = [
     options: { fileHwm: 32 },
     expected: [
       {
-        type: 'file',
+        ...COMMON_FILE,
         name: 'upload_file_0',
         data: Buffer.from('a'.repeat(31) + '\r' + 'b'.repeat(40)),
-        info: { ...COMMON_FILE_INFO, filename: 'notes.txt', mimeType: 'text/plain' },
-        limited: false,
-        truncated: false,
-        err: undefined,
+        filename: 'notes.txt',
+        mimeType: 'text/plain',
       },
     ],
   },
@@ -1040,8 +877,8 @@ const tests: TestDef[] = [
     ],
     boundary: COMMON_BOUNDARY,
     expected: [
-      { type: 'field', name: 'f1', val: 'a', info: COMMON_FIELD_INFO },
-      { type: 'field', name: 'f4', val: 'd', info: COMMON_FIELD_INFO },
+      { ...COMMON_FIELD, name: 'f1', value: 'a' },
+      { ...COMMON_FIELD, name: 'f4', value: 'd' },
     ],
   },
   {
@@ -1058,17 +895,7 @@ const tests: TestDef[] = [
       ],
     ],
     boundary: COMMON_BOUNDARY,
-    expected: [
-      {
-        type: 'file',
-        name: 'f1',
-        data: Buffer.from('ab'),
-        info: { ...COMMON_FILE_INFO, filename: 'f.txt' },
-        limited: false,
-        truncated: false,
-        err: undefined,
-      },
-    ],
+    expected: [{ ...COMMON_FILE, name: 'f1', data: Buffer.from('ab'), filename: 'f.txt' }],
   },
   {
     name: 'Duplicate content-type header is ignored',
@@ -1086,13 +913,11 @@ const tests: TestDef[] = [
     boundary: COMMON_BOUNDARY,
     expected: [
       {
-        type: 'file',
+        ...COMMON_FILE,
         name: 'f1',
         data: Buffer.from('ab'),
-        info: { ...COMMON_FILE_INFO, mimeType: 'text/plain', filename: 'f.txt' },
-        limited: false,
-        truncated: false,
-        err: undefined,
+        mimeType: 'text/plain',
+        filename: 'f.txt',
       },
     ],
   },
@@ -1110,17 +935,7 @@ const tests: TestDef[] = [
       ],
     ],
     boundary: COMMON_BOUNDARY,
-    expected: [
-      {
-        type: 'file',
-        name: 'f1',
-        data: Buffer.from('ab'),
-        info: { ...COMMON_FILE_INFO, filename: 'f.txt' },
-        limited: false,
-        truncated: false,
-        err: undefined,
-      },
-    ],
+    expected: [{ ...COMMON_FILE, name: 'f1', data: Buffer.from('ab'), filename: 'f.txt' }],
   },
   {
     name: 'Duplicate content-transfer-encoding header is merged',
@@ -1138,15 +953,7 @@ const tests: TestDef[] = [
     ],
     boundary: COMMON_BOUNDARY,
     expected: [
-      {
-        type: 'file',
-        name: 'f1',
-        data: Buffer.from('ab'),
-        info: { ...COMMON_FILE_INFO, filename: 'f.txt', encoding: 'a,b' },
-        limited: false,
-        truncated: false,
-        err: undefined,
-      },
+      { ...COMMON_FILE, name: 'f1', data: Buffer.from('ab'), filename: 'f.txt', encoding: 'a,b' },
     ],
   },
   {
@@ -1177,43 +984,25 @@ const tests: TestDef[] = [
     boundary: COMMON_BOUNDARY,
     expected: [
       {
-        type: 'file',
+        ...COMMON_FILE,
         name: 'upload_file_0',
         data: Buffer.from('ab'),
-        info: {
-          ...COMMON_FILE_INFO,
-          filename: `${'a'.repeat(8 * 1024)}.txt`,
-          mimeType: 'text/plain',
-        },
-        limited: false,
-        truncated: false,
-        err: undefined,
+        filename: `${'a'.repeat(8 * 1024)}.txt`,
+        mimeType: 'text/plain',
       },
       {
-        type: 'file',
+        ...COMMON_FILE,
         name: 'upload_file_1',
         data: Buffer.from('cd'),
-        info: {
-          ...COMMON_FILE_INFO,
-          filename: `${'b'.repeat(8 * 1024)}.txt`,
-          mimeType: 'text/plain',
-        },
-        limited: false,
-        truncated: false,
-        err: undefined,
+        filename: `${'b'.repeat(8 * 1024)}.txt`,
+        mimeType: 'text/plain',
       },
       {
-        type: 'file',
+        ...COMMON_FILE,
         name: 'upload_file_2',
         data: Buffer.from('ef'),
-        info: {
-          ...COMMON_FILE_INFO,
-          filename: `${'c'.repeat(8 * 1024)}.txt`,
-          mimeType: 'text/plain',
-        },
-        limited: false,
-        truncated: false,
-        err: undefined,
+        filename: `${'c'.repeat(8 * 1024)}.txt`,
+        mimeType: 'text/plain',
       },
     ],
   },
@@ -1233,13 +1022,11 @@ const tests: TestDef[] = [
     boundary: 'd1bf46b3-aa33-4061-b28d-6c5ced8b08ee',
     expected: [
       {
-        type: 'file',
+        ...COMMON_FILE,
         name: 'batch-1',
         data: Buffer.alloc(0),
-        info: { ...COMMON_FILE_INFO, filename: 'batch-1', mimeType: 'application/gzip' },
-        limited: false,
-        truncated: false,
-        err: undefined,
+        filename: 'batch-1',
+        mimeType: 'application/gzip',
       },
     ],
   },
@@ -1249,9 +1036,9 @@ describe('Multipart', () => {
   it(
     'reads multipart/form-data content',
     { parameters: tests },
-    async ({ boundary, omit, source, expected, options }: any) => {
+    async ({ boundary, source, expected, options }: any) => {
       const bb = busboy({ 'content-type': `multipart/form-data; boundary=${boundary}` }, options);
-      const closed = captureEvents(bb, omit);
+      const closed = captureEvents(bb);
       for (const src of source) {
         bb.write(src instanceof Buffer ? src : Buffer.from(src.join('\r\n'), 'utf-8'));
       }
@@ -1264,9 +1051,9 @@ describe('Multipart', () => {
   it(
     'works when given one byte at a time',
     { parameters: tests },
-    async ({ boundary, omit, source, expected, options }: any) => {
+    async ({ boundary, source, expected, options }: any) => {
       const bb = busboy({ 'content-type': `multipart/form-data; boundary=${boundary}` }, options);
-      const closed = captureEvents(bb, omit);
+      const closed = captureEvents(bb);
       for (const src of source) {
         const buf = src instanceof Buffer ? src : Buffer.from(src.join('\r\n'), 'utf-8');
         for (let i = 0; i < buf.byteLength; ++i) {
@@ -1318,12 +1105,16 @@ describe('Multipart', () => {
     const bb = busboy({ 'content-type': `multipart/form-data; boundary=${BOUNDARY}` });
 
     const results: unknown[] = [];
-    bb.on('field', (name, val, info) => results.push({ type: 'field', name, val, info }));
-    bb.on('file', (name, stream, info) => {
-      results.push({ type: 'file', name, info });
-      // Simulate a pipe where the destination is pausing
-      // (perhaps due to waiting for file system write to finish)
-      setTimeout(() => stream.resume(), 10);
+    bb.on('field', (data) => {
+      if (data.type === 'string') {
+        results.push(data);
+      } else {
+        const { value, ...rest } = data;
+        results.push({ ...rest, limited: false, truncated: false, err: undefined });
+        // Simulate a pipe where the destination is pausing
+        // (perhaps due to waiting for file system write to finish)
+        setTimeout(() => value.resume(), 10);
+      }
     });
 
     await new Promise<void>((resolve) => {
@@ -1335,54 +1126,50 @@ describe('Multipart', () => {
     });
 
     expect(results).equals([
-      { type: 'file', name: 'file', info: { ...COMMON_FILE_INFO, filename: 'file.bin' } },
-      { type: 'field', name: 'foo', val: 'foo value', info: COMMON_FIELD_INFO },
-      { type: 'field', name: 'bar', val: 'bar value', info: COMMON_FIELD_INFO },
+      { ...COMMON_FILE, name: 'file', filename: 'file.bin' },
+      { ...COMMON_FIELD, name: 'foo', value: 'foo value' },
+      { ...COMMON_FIELD, name: 'bar', value: 'bar value' },
     ]);
   });
 });
 
-function captureEvents(bb: BusboyInstance, omit: string[] = []): Promise<unknown[]> {
+function captureEvents(bb: BusboyInstance): Promise<unknown[]> {
   const results: unknown[] = [];
 
-  if (!omit.includes('field')) {
-    bb.on('field', (name, val, info) => results.push({ type: 'field', name, val, info }));
-  }
-  if (!omit.includes('file')) {
-    bb.on('file', (name, stream, info) => {
-      const data: Buffer[] = [];
-      let nb = 0;
+  bb.on('field', (data) => {
+    if (data.type === 'string') {
+      results.push(data);
+    } else {
+      const { value, ...rest } = data;
+      const parts: Buffer[] = [];
+      let totalBytes = 0;
       const file = {
-        type: 'file',
-        name,
+        ...rest,
         data: null as Buffer | null,
-        info,
         limited: false,
         truncated: false,
         err: undefined as unknown,
       };
       results.push(file);
-      stream.on('data', (d) => {
-        data.push(d);
-        nb += d.length;
+      value.on('data', (d) => {
+        parts.push(d);
+        totalBytes += d.length;
       });
-      stream.on('limit', () => {
+      value.on('limit', () => {
         file.limited = true;
       });
-      stream.on('close', () => {
-        file.data = Buffer.concat(data, nb);
-        file.truncated = stream.truncated;
+      value.on('close', () => {
+        file.data = Buffer.concat(parts, totalBytes);
+        file.truncated = value.truncated;
       });
-      stream.on('error', (error) => {
+      value.on('error', (error) => {
         file.err = error.message;
       });
-    });
-  }
+    }
+  });
 
   bb.on('error', (error) => results.push({ error: error.message }));
-  bb.on('partsLimit', () => results.push('partsLimit'));
-  bb.on('filesLimit', () => results.push('filesLimit'));
-  bb.on('fieldsLimit', () => results.push('fieldsLimit'));
+  bb.on('limit', (type) => results.push(type + 'Limit'));
 
   return new Promise((resolve) => bb.on('close', () => resolve(results)));
 }

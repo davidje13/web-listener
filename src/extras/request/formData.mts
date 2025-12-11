@@ -39,41 +39,25 @@ export function getFormFields(
     }
   };
 
-  bus.on('field', (name, val, { nameTruncated, valueTruncated, encoding, mimeType }) => {
-    if (!name) {
+  bus.on('field', ({ _nameTruncated, _valueTruncated, ...data }) => {
+    if (!data.name) {
       return fail(400, { body: 'missing field name' });
     }
-    if (nameTruncated) {
+    if (_nameTruncated) {
       return fail(400, {
-        body: `field name ${JSON.stringify(name)}... too long`,
+        body: `field name ${JSON.stringify(data.name)}... too long`,
       });
     }
-    if (valueTruncated) {
-      return fail(400, { body: `value for ${JSON.stringify(name)} too long` });
+    if (data.type === 'file') {
+      data.value.once('limit', () =>
+        fail(400, {
+          body: `uploaded file for ${JSON.stringify(data.name)}: ${JSON.stringify(data.filename)} too large`,
+        }),
+      );
+    } else if (_valueTruncated) {
+      return fail(400, { body: `value for ${JSON.stringify(data.name)} too long` });
     }
-    output.push({ name, encoding, mimeType, type: 'string', value: val });
-  });
-
-  bus.on('file', (name, stream, { nameTruncated, filename, encoding, mimeType }) => {
-    if (!name) {
-      return fail(400, { body: 'missing field name' });
-    }
-    if (nameTruncated) {
-      return fail(400, {
-        body: `field name ${JSON.stringify(name)}... too long`,
-      });
-    }
-    if (!filename) {
-      // if a file field is submitted without any files, it will send an empty entry: ignore it
-      stream.resume();
-      return;
-    }
-    stream.once('limit', () =>
-      fail(400, {
-        body: `uploaded file for ${JSON.stringify(name)}: ${JSON.stringify(filename)} too large`,
-      }),
-    );
-    output.push({ name, encoding, mimeType, type: 'file', value: stream, filename });
+    output.push(data);
   });
 
   req.once('error', (error) => {
@@ -84,9 +68,7 @@ export function getFormFields(
     }
   });
   bus.once('error', (error) => fail(400, { body: 'error parsing form data', cause: error }));
-  bus.once('partsLimit', () => fail(400, { body: 'too many parts' }));
-  bus.once('filesLimit', () => fail(400, { body: 'too many files' }));
-  bus.once('fieldsLimit', () => fail(400, { body: 'too many fields' }));
+  bus.once('limit', (type) => fail(400, { body: `too many ${type}` }));
 
   const stop = () => output.close('complete');
   bus.once('close', stop);
@@ -204,10 +186,24 @@ export interface PostCheckFileInfo {
   actualBytes: number;
 }
 
-export type FormField = { name: string; mimeType: string; encoding: string } & (
-  | { type: 'string'; value: string }
-  | { type: 'file'; value: Readable; filename: string }
-);
+interface CommonFieldData {
+  name: string;
+  mimeType: string;
+  encoding: string;
+}
+
+interface FileFieldData extends CommonFieldData {
+  type: 'file';
+  value: Readable & { readonly truncated: boolean };
+  filename: string;
+}
+
+interface StringFieldData extends CommonFieldData {
+  type: 'string';
+  value: string;
+}
+
+export type FormField = StringFieldData | FileFieldData;
 
 export interface AugmentedFormData extends FormData {
   getTempFilePath(file: Blob): string;

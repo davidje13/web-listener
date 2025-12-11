@@ -102,16 +102,24 @@ export class Multipart extends Writable {
       if (partType === 'application/octet-stream' || filename !== undefined) {
         // File
         if (files++ === filesLimit) {
-          this.emit('filesLimit');
+          this.emit('limit', 'files');
         }
-        if (files > filesLimit || this.listenerCount('file') === 0) {
+        if (files > filesLimit) {
+          partSizeRemaining = -1;
+          return;
+        }
+        if (!filename) {
+          // if a file field is submitted without any files, it will send an empty entry: ignore it
           partSizeRemaining = -1;
           return;
         }
         this._fileStream = new FileStream(fileOpts, this);
         ++this._fileEndsLeft;
-        this.emit('file', partName, this._fileStream, {
-          nameTruncated,
+        this.emit('field', {
+          name: partName,
+          _nameTruncated: nameTruncated,
+          type: 'file',
+          value: this._fileStream,
           filename,
           encoding: partEncoding,
           mimeType: partType,
@@ -120,9 +128,9 @@ export class Multipart extends Writable {
       } else {
         // Non-file
         if (fields++ === fieldsLimit) {
-          this.emit('fieldsLimit');
+          this.emit('limit', 'fields');
         }
-        if (fields > fieldsLimit || this.listenerCount('field') === 0) {
+        if (fields > fieldsLimit) {
           partSizeRemaining = -1;
           return;
         }
@@ -160,7 +168,7 @@ export class Multipart extends Writable {
               return; // We saw something other than LF, so this section is invalid and will be ignored
             }
             if (parts++ === partsLimit) {
-              this.emit('partsLimit');
+              this.emit('limit', 'parts');
             }
             if (parts > partsLimit) {
               return;
@@ -230,9 +238,12 @@ export class Multipart extends Writable {
             this._fileStream.push(null);
             this._fileStream = undefined;
           } else if (field !== undefined) {
-            this.emit('field', partName, partDecoder.decode(Buffer.from(field, 'latin1')), {
-              nameTruncated,
-              valueTruncated: partSizeRemaining < 0,
+            this.emit('field', {
+              name: partName,
+              _nameTruncated: nameTruncated,
+              type: 'string',
+              value: partDecoder.decode(Buffer.from(field, 'latin1')),
+              _valueTruncated: partSizeRemaining < 0,
               encoding: partEncoding,
               mimeType: partType,
             });
