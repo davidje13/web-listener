@@ -1,9 +1,7 @@
 import type { IncomingMessage } from 'node:http';
-import type { Readable } from 'node:stream';
 import { openAsBlob } from 'node:fs';
 import { busboy } from '../../forks/busboy/busboy.mts';
-import type { BusboyOptions } from '../../forks/busboy/types.mts';
-import { HTTPError } from '../../core/HTTPError.mts';
+import type { BusboyOptions, FormField } from '../../forks/busboy/types.mts';
 import { addTeardown } from '../../core/close.mts';
 import { STOP } from '../../core/RoutingInstruction.mts';
 import type { MaybePromise } from '../../util/MaybePromise.mts';
@@ -28,15 +26,8 @@ export function getFormFields(
   //output.on('hwm', () => req.pause());
   //output.on('lwm', () => req.resume());
 
-  let failed = false;
   const fail = (err: Error) => {
-    if (failed) {
-      return;
-    }
-    failed = true;
     output.fail(req.readableAborted ? STOP : err);
-
-    req.removeAllListeners('data');
     req.resume();
 
     // if the client continues sending a lot of data after an error, kill the socket to stop them
@@ -46,33 +37,7 @@ export function getFormFields(
     }
   };
 
-  bus(req, (field) => {
-    if (failed) {
-      return;
-    }
-
-    const { _nameTruncated, _valueTruncated, ...data } = field;
-    if (!data.name) {
-      throw new HTTPError(400, { body: 'missing field name' });
-    }
-    if (_nameTruncated) {
-      throw new HTTPError(400, {
-        body: `field name ${JSON.stringify(data.name)}... too long`,
-      });
-    }
-    if (data.type === 'file') {
-      data.value.once('limit', () =>
-        fail(
-          new HTTPError(400, {
-            body: `uploaded file for ${JSON.stringify(data.name)}: ${JSON.stringify(data.filename)} too large`,
-          }),
-        ),
-      );
-    } else if (_valueTruncated) {
-      throw new HTTPError(400, { body: `value for ${JSON.stringify(data.name)} too long` });
-    }
-    output.push(data);
-  }).then(() => output.close('complete'), fail);
+  bus(req, (field) => output.push(field)).then(() => output.close('complete'), fail);
 
   return output;
 }
@@ -185,24 +150,7 @@ export interface PostCheckFileInfo {
   actualBytes: number;
 }
 
-interface CommonFieldData {
-  name: string;
-  mimeType: string;
-  encoding: string;
-}
-
-interface FileFieldData extends CommonFieldData {
-  type: 'file';
-  value: Readable;
-  filename: string;
-}
-
-interface StringFieldData extends CommonFieldData {
-  type: 'string';
-  value: string;
-}
-
-export type FormField = StringFieldData | FileFieldData;
+export type { FormField };
 
 export interface AugmentedFormData extends FormData {
   getTempFilePath(file: Blob): string;

@@ -58,12 +58,12 @@ export function getMultipartFormFields(
       let fileStream: FileStream | undefined;
       let finalcb: (() => void) | undefined;
 
-      let field: string | undefined;
+      let filename: string | undefined;
+      let content: string | undefined;
       let partDecoder: Decoder;
       let partEncoding: string;
       let partType: string;
       let partName: string | undefined;
-      let nameTruncated = false;
 
       const hparser = new HeaderParser((header) => {
         const disposition = header[CONTENT_DISPOSITION];
@@ -80,11 +80,14 @@ export function getMultipartFormFields(
         if (partName === undefined) {
           return handleError(new HTTPError(400, { body: 'missing field name' }));
         }
-        nameTruncated = partName.length > fieldNameSizeLimit;
-        if (nameTruncated) {
-          partName = partName.substring(0, fieldNameSizeLimit);
+        if (partName.length > fieldNameSizeLimit) {
+          return handleError(
+            new HTTPError(400, {
+              body: `field name ${JSON.stringify(partName.substring(0, fieldNameSizeLimit))}... too long`,
+            }),
+          );
         }
-        let filename = disp.params.get('filename*') ?? disp.params.get('filename');
+        filename = disp.params.get('filename*') ?? disp.params.get('filename');
         if (filename !== undefined && !preservePath) {
           filename = osIndependentBasename(filename);
         }
@@ -104,20 +107,7 @@ export function getMultipartFormFields(
             return;
           }
           const fs = new FileStream(fileOpts);
-          try {
-            callback({
-              name: partName,
-              _nameTruncated: nameTruncated,
-              type: 'file',
-              value: fs,
-              filename,
-              encoding: partEncoding,
-              mimeType: partType,
-            });
-          } catch (err: unknown) {
-            fs.push(null);
-            return handleError(err);
-          }
+          fs.once('error', () => {}); // do not explode if error is not captured by user - it is reported on the main stream anyway
           fs.once('close', () => {
             // We need to make sure that we call any outstanding _writecb() that is
             // associated with this file so that processing of the rest of the form
@@ -132,6 +122,14 @@ export function getMultipartFormFields(
           });
           fileStream = fs;
           ++activeFileStreams;
+          callback({
+            name: partName,
+            type: 'file',
+            value: fs,
+            filename,
+            encoding: partEncoding,
+            mimeType: partType,
+          });
           state = STATE_CONTENT;
           partSizeRemaining = fileSizeLimit;
         } else {
@@ -139,7 +137,7 @@ export function getMultipartFormFields(
           if (!fieldsRemaining--) {
             return handleError(new HTTPError(400, { body: 'too many fields' }));
           }
-          field = '';
+          content = '';
           state = STATE_CONTENT;
           partSizeRemaining = fieldSizeLimit;
         }
@@ -217,11 +215,14 @@ export function getMultipartFormFields(
                 }
               }
               if (partSizeRemaining < 0) {
-                fileStream.emit('limit');
-                awaitingFileDrain = false;
+                return handleError(
+                  new HTTPError(400, {
+                    body: `uploaded file for ${JSON.stringify(partName)}: ${JSON.stringify(filename)} too large`,
+                  }),
+                );
               }
-            } else if (field !== undefined) {
-              field += data.latin1Slice(start, stop);
+            } else if (content !== undefined) {
+              content += data.latin1Slice(start, stop);
             }
           }
         },
@@ -237,21 +238,20 @@ export function getMultipartFormFields(
             fileStream.push(null);
             fileStream = undefined;
             awaitingFileDrain = false;
-          } else if (field !== undefined) {
-            try {
-              callback({
-                name: partName!,
-                _nameTruncated: nameTruncated,
-                type: 'string',
-                value: partDecoder.decode(Buffer.from(field, 'latin1')),
-                _valueTruncated: partSizeRemaining < 0,
-                encoding: partEncoding,
-                mimeType: partType,
-              });
-            } catch (err: unknown) {
-              return handleError(err);
+          } else if (content !== undefined) {
+            if (partSizeRemaining < 0) {
+              return handleError(
+                new HTTPError(400, { body: `value for ${JSON.stringify(partName)} too long` }),
+              );
             }
-            field = undefined;
+            callback({
+              name: partName!,
+              type: 'string',
+              value: partDecoder.decode(Buffer.from(content, 'latin1')),
+              encoding: partEncoding,
+              mimeType: partType,
+            });
+            content = undefined;
           }
           state = STATE_POST_BOUNDARY;
         },

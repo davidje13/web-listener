@@ -2693,14 +2693,13 @@ return formdata.getAll(name).filter((v) => typeof v !== 'string');
     uploads are implicitly blocked). **Default:** `false`.
   - `limits` [`<Object>`]
   - `preservePath` [`<boolean>`] **Default:** `false`.
-  - `highWaterMark` [`<number>`] **Default:** `65536`.
   - `fileHwm` [`<number>`] **Default:** `65536`.
   - `defParamCharset` [`<string>`] **Default:** `'utf-8'`.
   - `defCharset` [`<string>`] **Default:** `'utf-8'`.
 - Returns: [`<AsyncIterable>`][`<AsyncIterator>`] of [`<Object>`]
 
-This uses a bundled fork of [busboy](https://www.npmjs.com/package/busboy) (with slightly altered
-behaviour and improved performance) to process the request body.
+This uses a bundled fork of [busboy](https://www.npmjs.com/package/busboy) (with altered behaviour
+and improved performance) to process the request body.
 
 Fields are emitted to the returned async iterator as they are parsed. Each field has these
 properties:

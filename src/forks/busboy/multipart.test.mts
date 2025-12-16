@@ -1,23 +1,19 @@
 import { randomFillSync } from 'node:crypto';
 import { Readable } from 'node:stream';
 import { byteChunks, chunks } from '../../test-helpers/chunks.mts';
-import type { BusboyOptions, FieldData } from './types.mts';
+import type { BusboyOptions, FormField } from './types.mts';
 import { busboy } from './busboy.mts';
 import 'lean-test';
 
 const COMMON_FILE = {
-  _nameTruncated: false,
   type: 'file',
   encoding: '7bit',
   mimeType: 'application/octet-stream',
-  limited: false,
   err: undefined,
 };
 
-const COMMON_FIELD: Partial<FieldData> = {
-  _nameTruncated: false,
+const COMMON_FIELD: Partial<FormField> = {
   type: 'string',
-  _valueTruncated: false,
   encoding: '7bit',
   mimeType: 'text/plain',
 };
@@ -137,13 +133,24 @@ const tests: TestDef[] = [
     expected: [{ error: 'missing field name' }],
   },
   {
-    name: 'Fields and files (limits)',
+    name: 'fieldSize limit',
     source: [
       [
         `--${COMMON_BOUNDARY}`,
         'Content-Disposition: form-data; name="file_name_0"',
         '',
         'super alpha file',
+        `--${COMMON_BOUNDARY}--`,
+      ].join('\r\n'),
+    ],
+    boundary: COMMON_BOUNDARY,
+    options: { limits: { fileSize: 13, fieldSize: 5 } },
+    expected: [{ error: 'value for "file_name_0" too long' }],
+  },
+  {
+    name: 'fileSize limit',
+    source: [
+      [
         `--${COMMON_BOUNDARY}`,
         'Content-Disposition: form-data; name="upload_file_0"; filename="1k_a.dat"',
         'Content-Type: application/octet-stream',
@@ -155,14 +162,14 @@ const tests: TestDef[] = [
     boundary: COMMON_BOUNDARY,
     options: { limits: { fileSize: 13, fieldSize: 5 } },
     expected: [
-      { ...COMMON_FIELD, name: 'file_name_0', value: 'super', _valueTruncated: true },
       {
         ...COMMON_FILE,
         name: 'upload_file_0',
         data: Buffer.from('ABCDEFGHIJKLM'),
         filename: '1k_a.dat',
-        limited: true,
+        err: 'uploaded file for "upload_file_0": "1k_a.dat" too large',
       },
+      { error: 'uploaded file for "upload_file_0": "1k_a.dat" too large' },
     ],
   },
   {
@@ -796,7 +803,7 @@ const tests: TestDef[] = [
     ],
     boundary: COMMON_BOUNDARY,
     options: { limits: { fieldNameSize: 4 } },
-    expected: [{ ...COMMON_FIELD, name: 'long', value: 'a', _nameTruncated: true }],
+    expected: [{ error: 'field name "long"... too long' }],
   },
   {
     name: 'Field name limit (file)',
@@ -812,15 +819,7 @@ const tests: TestDef[] = [
     ],
     boundary: COMMON_BOUNDARY,
     options: { limits: { fieldNameSize: 4 } },
-    expected: [
-      {
-        ...COMMON_FILE,
-        name: 'long',
-        data: Buffer.from('a'),
-        filename: 'foo.txt',
-        _nameTruncated: true,
-      },
-    ],
+    expected: [{ error: 'field name "long"... too long' }],
   },
   {
     name: 'Lookbehind data should not stall file streams',
@@ -1102,7 +1101,7 @@ describe('Multipart', () => {
           results.push(field);
         } else {
           const { value, ...rest } = field;
-          results.push({ ...rest, limited: false, err: undefined });
+          results.push({ ...rest, err: undefined });
           value.on('error', (error) => results.push({ error: error.message }));
           value.on('close', () => results.push('filestream-close'));
           value.on('end', () => results.push('filestream-end'));
@@ -1130,26 +1129,18 @@ describe('Multipart', () => {
 });
 
 function captureField(results: unknown[]) {
-  return (field: FieldData) => {
+  return (field: FormField) => {
     if (field.type === 'string') {
       results.push(field);
     } else {
       const { value, ...rest } = field;
       const parts: Buffer[] = [];
       let totalBytes = 0;
-      const file = {
-        ...rest,
-        data: null as Buffer | null,
-        limited: false,
-        err: undefined as unknown,
-      };
+      const file = { ...rest, data: null as Buffer | null, err: undefined as unknown };
       results.push(file);
       value.on('data', (d) => {
         parts.push(d);
         totalBytes += d.length;
-      });
-      value.on('limit', () => {
-        file.limited = true;
       });
       value.on('close', () => {
         file.data = Buffer.concat(parts, totalBytes);

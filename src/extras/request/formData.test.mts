@@ -98,20 +98,12 @@ describe('getFormFields', () => {
 
     it('returns HTTP 400 if any data is invalid', { timeout: 3000 }, () =>
       withServer(consumeFormFields({}), async (url, { expectError }) => {
-        const res1 = await fetch(url, {
-          method: 'POST',
-          headers: { 'content-type': 'application/x-www-form-urlencoded' },
-          body: '=missing-name',
-        });
-        expect(res1.status).equals(400);
-        expectError('handling request /: HTTPError(400 Bad Request): missing field name');
-
-        const res2 = await fetch(url, {
+        const res = await fetch(url, {
           method: 'POST',
           headers: { 'content-type': 'application/x-www-form-urlencoded' },
           body: 'foo=%invalid',
         });
-        expect(res2.status).equals(400);
+        expect(res.status).equals(400);
         expectError('handling request /: HTTPError(400 Bad Request): malformed urlencoded form');
       }),
     );

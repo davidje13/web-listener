@@ -1,13 +1,11 @@
 import { Readable } from 'node:stream';
 import { byteChunks, chunks } from '../../test-helpers/chunks.mts';
-import type { BusboyOptions, FieldData } from './types.mts';
+import type { BusboyOptions, FormField } from './types.mts';
 import { busboy } from './busboy.mts';
 import 'lean-test';
 
-const COMMON: Partial<FieldData> = {
-  _nameTruncated: false,
+const COMMON: Partial<FormField> = {
   type: 'string',
-  _valueTruncated: false,
   encoding: 'utf-8',
   mimeType: 'text/plain',
 };
@@ -172,69 +170,82 @@ const tests: TestDef[] = [
   },
   {
     name: 'fieldSize limit',
-    source: 'a&b=&c=ab&d=abc&e=abcd&long=ab&percent=%25%25%25%25&plus=++++',
+    source: 'a&b=&c=ab&long=a&d=abc&e=abcd',
     options: { limits: { fieldSize: 2 } },
     expected: [
       { ...COMMON, name: 'a', value: '' },
       { ...COMMON, name: 'b', value: '' },
       { ...COMMON, name: 'c', value: 'ab' },
-      { ...COMMON, name: 'd', value: 'ab', _valueTruncated: true },
-      { ...COMMON, name: 'e', value: 'ab', _valueTruncated: true },
-      { ...COMMON, name: 'long', value: 'ab' },
-      { ...COMMON, name: 'percent', value: '%%', _valueTruncated: true },
-      { ...COMMON, name: 'plus', value: '  ', _valueTruncated: true },
+      { ...COMMON, name: 'long', value: 'a' },
+      { error: 'value for "d" too long' },
     ],
   },
   {
+    name: 'fieldSize limit (percent encoding)',
+    source: 'p1=%25%25&percent=%25%25%25%25',
+    options: { limits: { fieldSize: 2 } },
+    expected: [{ ...COMMON, name: 'p1', value: '%%' }, { error: 'value for "percent" too long' }],
+  },
+  {
+    name: 'fieldSize limit (plus)',
+    source: 'p1=++&plus=++++',
+    options: { limits: { fieldSize: 2 } },
+    expected: [{ ...COMMON, name: 'p1', value: '  ' }, { error: 'value for "plus" too long' }],
+  },
+  {
     name: 'fieldNameSize limit',
-    source: '=baz&ab=baz&abc=baz&abcd=baz&also&cd=bazar&%25%25%25%25&++++',
+    source: '=baz&ab=baz&abc=baz&abcd=baz',
     options: { limits: { fieldNameSize: 2 } },
     expected: [
       { ...COMMON, name: '', value: 'baz' },
       { ...COMMON, name: 'ab', value: 'baz' },
-      { ...COMMON, name: 'ab', value: 'baz', _nameTruncated: true },
-      { ...COMMON, name: 'ab', value: 'baz', _nameTruncated: true },
-      { ...COMMON, name: 'al', value: '', _nameTruncated: true },
-      { ...COMMON, name: 'cd', value: 'bazar' },
-      { ...COMMON, name: '%%', value: '', _nameTruncated: true },
-      { ...COMMON, name: '  ', value: '', _nameTruncated: true },
+      { error: 'field name "ab"... too long' },
     ],
   },
   {
+    name: 'fieldNameSize limit (no value)',
+    source: 'long',
+    options: { limits: { fieldNameSize: 2 } },
+    expected: [{ error: 'field name "lo"... too long' }],
+  },
+  {
+    name: 'fieldNameSize limit (percent encoding)',
+    source: '%25%25=fine&%25%25%25%25',
+    options: { limits: { fieldNameSize: 2 } },
+    expected: [{ ...COMMON, name: '%%', value: 'fine' }, { error: 'field name "%%"... too long' }],
+  },
+  {
+    name: 'fieldNameSize limit (plus)',
+    source: '++=fine&++++',
+    options: { limits: { fieldNameSize: 2 } },
+    expected: [{ ...COMMON, name: '  ', value: 'fine' }, { error: 'field name "  "... too long' }],
+  },
+  {
     name: 'fieldSize=0',
-    source: 'a=foo&b&c=&=bar&=',
+    source: '=&a&b=&c=.',
     options: { limits: { fieldSize: 0 } },
     expected: [
-      { ...COMMON, name: 'a', value: '', _valueTruncated: true },
-      { ...COMMON, name: 'b', value: '' },
-      { ...COMMON, name: 'c', value: '' },
-      { ...COMMON, name: '', value: '', _valueTruncated: true },
       { ...COMMON, name: '', value: '' },
+      { ...COMMON, name: 'a', value: '' },
+      { ...COMMON, name: 'b', value: '' },
+      { error: 'value for "c" too long' },
     ],
   },
   {
     name: 'fieldNameSize=0',
-    source: 'a=foo&b&c=&=bar&=',
+    source: '=&=bar&a&b=.',
     options: { limits: { fieldNameSize: 0 } },
     expected: [
-      { ...COMMON, name: '', value: 'foo', _nameTruncated: true },
-      { ...COMMON, name: '', value: '', _nameTruncated: true },
-      { ...COMMON, name: '', value: '', _nameTruncated: true },
-      { ...COMMON, name: '', value: 'bar' },
       { ...COMMON, name: '', value: '' },
+      { ...COMMON, name: '', value: 'bar' },
+      { error: 'field name ""... too long' },
     ],
   },
   {
     name: 'fieldSize=0, fieldNameSize=0',
-    source: 'a=foo&b&c=&=bar&=',
+    source: '=&a=b',
     options: { limits: { fieldNameSize: 0, fieldSize: 0 } },
-    expected: [
-      { ...COMMON, name: '', value: '', _nameTruncated: true, _valueTruncated: true },
-      { ...COMMON, name: '', value: '', _nameTruncated: true },
-      { ...COMMON, name: '', value: '', _nameTruncated: true },
-      { ...COMMON, name: '', value: '', _valueTruncated: true },
-      { ...COMMON, name: '', value: '' },
-    ],
+    expected: [{ ...COMMON, name: '', value: '' }, { error: 'field name ""... too long' }],
   },
 ];
 

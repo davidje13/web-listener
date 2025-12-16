@@ -35,19 +35,28 @@ export interface BusboyOptions {
   defCharset?: string;
 }
 
-export type FieldData = {
+interface CommonFormField {
   name: string;
-  _nameTruncated: boolean;
   mimeType: string;
   encoding: string;
-} & (
-  | { type: 'string'; value: string; _valueTruncated: boolean }
-  | { type: 'file'; value: Readable; _valueTruncated?: never; filename: string }
-);
+}
+
+interface FileFormField extends CommonFormField {
+  type: 'file';
+  value: Readable;
+  filename: string;
+}
+
+interface StringFormField extends CommonFormField {
+  type: 'string';
+  value: string;
+}
+
+export type FormField = StringFormField | FileFormField;
 
 export type StreamConsumer = (
   source: Readable,
-  callback: (field: FieldData) => void,
+  callback: (field: FormField) => void,
 ) => Promise<void>;
 
 export interface Limits {

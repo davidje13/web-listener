@@ -10,7 +10,6 @@ export function getURLEncodedFormFields(
   // officially charset is not a supported parameter for application/x-www-form-urlencoded, but if it's present we will respect it
   const charset = conTypeParams.get('charset') ?? defCharset;
   const fieldSizeLimit = limits.fieldSize ?? 1 * 1024 * 1024;
-  const fieldsLimit = limits.fields ?? Number.POSITIVE_INFINITY;
   const fieldNameSizeLimit = limits.fieldNameSize ?? 100;
 
   const fastDecode = /^utf-?8$/i.test(charset)
@@ -22,54 +21,55 @@ export function getURLEncodedFormFields(
 
   return (source, callback) =>
     new Promise((resolve, reject) => {
-      let fields = 0;
+      let fieldsRemaining = limits.fields ?? Number.POSITIVE_INFINITY;
       let inKey = true;
       let current = '';
       let currentLimit = fieldNameSizeLimit;
       let currentHighNibble = 0;
       let key = '';
-      let keyTrunc = false;
       let percentEncodedState = -2;
 
       const send = () => {
-        try {
-          const currentDecoded =
-            !fastDecode || (fastDecode === 1 && currentHighNibble & 8)
-              ? decoder.decode(Buffer.from(current, 'latin1'))
-              : current;
-          if (!inKey) {
-            callback({
-              name: key,
-              _nameTruncated: keyTrunc,
-              type: 'string',
-              value: currentDecoded,
-              _valueTruncated: currentLimit < 0,
-              encoding: charset,
-              mimeType: 'text/plain',
-            });
-          } else if (currentDecoded || currentLimit < 0) {
-            callback({
-              name: currentDecoded,
-              _nameTruncated: currentLimit < 0,
-              type: 'string',
-              value: '',
-              _valueTruncated: false,
-              encoding: charset,
-              mimeType: 'text/plain',
-            });
+        const currentDecoded =
+          !fastDecode || (fastDecode === 1 && currentHighNibble & 8)
+            ? decoder.decode(Buffer.from(current, 'latin1'))
+            : current;
+        if (!inKey) {
+          if (currentLimit < 0) {
+            handleError(new HTTPError(400, { body: `value for ${JSON.stringify(key)} too long` }));
+            return false;
           }
-          return true;
-        } catch (err: unknown) {
-          handleError(err);
+          callback({
+            name: key,
+            type: 'string',
+            value: currentDecoded,
+            encoding: charset,
+            mimeType: 'text/plain',
+          });
+        } else if (currentLimit < 0) {
+          handleError(
+            new HTTPError(400, {
+              body: `field name ${JSON.stringify(currentDecoded)}... too long`,
+            }),
+          );
           return false;
+        } else if (currentDecoded) {
+          callback({
+            name: currentDecoded,
+            type: 'string',
+            value: '',
+            encoding: charset,
+            mimeType: 'text/plain',
+          });
         }
+        return true;
       };
 
       const handleData = (chunk: Buffer) => {
         if (!chunk.byteLength) {
           return;
         }
-        if (fields >= fieldsLimit) {
+        if (!fieldsRemaining) {
           return handleError(new HTTPError(400, { body: 'too many fields' }));
         }
 
@@ -170,7 +170,6 @@ export function getURLEncodedFormFields(
                 return;
               }
               key = '';
-              keyTrunc = false;
               inKey = true;
               // reset all specials (another task may have clobbered them during the yield)
               SPECIALS[EQ] = 1;
@@ -179,7 +178,7 @@ export function getURLEncodedFormFields(
               current = '';
               currentLimit = fieldNameSizeLimit;
               currentHighNibble = 0;
-              if (++fields === fieldsLimit) {
+              if (!--fieldsRemaining) {
                 return handleError(new HTTPError(400, { body: 'too many fields' }));
               }
               break;
@@ -196,7 +195,11 @@ export function getURLEncodedFormFields(
                 !fastDecode || (fastDecode === 1 && currentHighNibble & 8)
                   ? decoder.decode(Buffer.from(current, 'latin1'))
                   : current;
-              keyTrunc = currentLimit < 0;
+              if (currentLimit < 0) {
+                return handleError(
+                  new HTTPError(400, { body: `field name ${JSON.stringify(key)}... too long` }),
+                );
+              }
               inKey = false;
               SPECIALS[EQ] = 0;
               SPECIALS[PCT] = 1;
@@ -218,11 +221,9 @@ export function getURLEncodedFormFields(
           return handleError(new HTTPError(400, { body: 'malformed urlencoded form' }));
         }
 
-        // Emit final field if we haven't already reached the limit
-        if (fields < fieldsLimit) {
-          if (!send()) {
-            return;
-          }
+        // Emit final field
+        if (!send()) {
+          return;
         }
         source.off('data', handleData);
         source.off('end', handleEnd);
