@@ -4,13 +4,16 @@ import {
   TransformStream,
   DecompressionStream,
   type ReadableStream,
-  type TextDecoderOptions,
   type CompressionFormat,
 } from 'node:stream/web';
 import zlib from 'node:zlib';
 import { HTTPError } from '../../core/HTTPError.mts';
 import { ByteLimitStream } from '../../util/ByteLimitStream.mts';
-import { internalDecodeUnicode, getTextDecoderStream } from '../registries/charset.mts';
+import {
+  internalDecodeUnicode,
+  getTextDecoderStream,
+  type TextDecoderOptions,
+} from '../registries/charset.mts';
 import { getCharset, readHTTPInteger, readHTTPUnquotedCommaSeparated } from './headers.mts';
 import { acceptBody } from './continue.mts';
 

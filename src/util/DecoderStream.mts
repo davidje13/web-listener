@@ -1,6 +1,11 @@
 import { TransformStream } from 'node:stream/web';
 import { VOID_BUFFER } from './voidBuffer.mts';
 
+export interface TextDecoderOptions {
+  fatal?: boolean;
+  ignoreBOM?: boolean;
+}
+
 export interface Decoder {
   decode(input: Uint8Array, options?: { stream?: boolean | undefined }): string;
 }

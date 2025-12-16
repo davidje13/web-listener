@@ -1,11 +1,14 @@
-import { ReadableStream, TextDecoderStream, type TextDecoderOptions } from 'node:stream/web';
+import { ReadableStream, TextDecoderStream } from 'node:stream/web';
 import { UTF32Decoder } from '../../util/UTF32Decoder.mts';
 import { HTTPError } from '../../core/HTTPError.mts';
 import {
   type Decoder,
   type DecoderStream,
+  type TextDecoderOptions,
   WrappedDecoderStream,
 } from '../../util/DecoderStream.mts';
+
+export type { TextDecoderOptions };
 
 interface Charset {
   decoder: (options: TextDecoderOptions) => Decoder;

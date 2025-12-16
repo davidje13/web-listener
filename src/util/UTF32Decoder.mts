@@ -1,5 +1,5 @@
 import { throwCodedError } from './throwCodedError.mts';
-import type { Decoder } from './DecoderStream.mts';
+import type { Decoder, TextDecoderOptions } from './DecoderStream.mts';
 
 export class UTF32Decoder implements Decoder {
   /** @internal */ declare private readonly _le: boolean;
