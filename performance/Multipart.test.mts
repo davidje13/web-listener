@@ -10,15 +10,14 @@ const implementations: ImplementationDef[] = [
     name: 'this project',
     run: (chunks, boundary) => async () => {
       const r: unknown[] = [];
-      const o = busboy({ 'content-type': `multipart/form-data; boundary=${boundary}` });
-      o.on('field', (field) => {
+      const bus = busboy({ 'content-type': `multipart/form-data; boundary=${boundary}` });
+      await bus(Readable.from(chunks), (field) => {
         if (field.type === 'string') {
           r.push({ name: field.name, value: field.value });
         } else {
           consume(field.value, (data) => r.push({ name: field.name, data }));
         }
       });
-      await pipeline(Readable.from(chunks), o);
       return r;
     },
   },

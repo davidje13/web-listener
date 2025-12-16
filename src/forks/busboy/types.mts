@@ -1,4 +1,4 @@
-import type { Readable, Writable } from 'node:stream';
+import type { Readable } from 'node:stream';
 
 export interface BusboyOptions {
   /**
@@ -14,12 +14,6 @@ export interface BusboyOptions {
    * @default false
    */
   preservePath?: boolean;
-
-  /**
-   * High water mark to set on the underlying stream.
-   * @default 65536
-   */
-  highWaterMark?: number;
 
   /**
    * High water mark to set on file streams.
@@ -48,27 +42,13 @@ export type FieldData = {
   encoding: string;
 } & (
   | { type: 'string'; value: string; _valueTruncated: boolean }
-  | {
-      type: 'file';
-      value: Readable & { readonly truncated: boolean };
-      _valueTruncated?: never;
-      filename: string;
-    }
+  | { type: 'file'; value: Readable; _valueTruncated?: never; filename: string }
 );
 
-export type BusboyInstance = Omit<Writable, keyof NodeJS.EventEmitter> &
-  NodeJS.EventEmitter<{
-    close: [];
-    drain: [];
-    error: [error: Error];
-    warn: [warning: Error];
-    finish: [];
-    pipe: [src: Readable];
-    unpipe: [src: Readable];
-
-    limit: [type: string];
-    field: [data: FieldData];
-  }>;
+export type StreamConsumer = (
+  source: Readable,
+  callback: (field: FieldData) => void,
+) => Promise<void>;
 
 export interface Limits {
   /**

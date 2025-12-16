@@ -112,7 +112,7 @@ describe('getFormFields', () => {
           body: 'foo=%invalid',
         });
         expect(res2.status).equals(400);
-        expectError('handling request /: HTTPError(400 Bad Request): error parsing form data');
+        expectError('handling request /: HTTPError(400 Bad Request): malformed urlencoded form');
       }),
     );
 

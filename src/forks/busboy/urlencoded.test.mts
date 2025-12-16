@@ -1,3 +1,5 @@
+import { Readable } from 'node:stream';
+import { byteChunks, chunks } from '../../test-helpers/chunks.mts';
 import type { BusboyOptions, FieldData } from './types.mts';
 import { busboy } from './busboy.mts';
 import 'lean-test';
@@ -129,7 +131,7 @@ const tests: TestDef[] = [
     name: 'fields=0 exceeded',
     source: 'foo',
     options: { limits: { fields: 0 } },
-    expected: ['fieldsLimit'],
+    expected: [{ error: 'too many fields' }],
   },
   {
     name: 'fields=1 reached',
@@ -141,7 +143,7 @@ const tests: TestDef[] = [
     name: 'fields=1 exceeded',
     source: 'foo=bar&baz=bla',
     options: { limits: { fields: 1 } },
-    expected: [{ ...COMMON, name: 'foo', value: 'bar' }, 'fieldsLimit'],
+    expected: [{ ...COMMON, name: 'foo', value: 'bar' }, { error: 'too many fields' }],
   },
   {
     name: 'fields=2 reached',
@@ -159,14 +161,14 @@ const tests: TestDef[] = [
     expected: [
       { ...COMMON, name: 'foo', value: 'bar' },
       { ...COMMON, name: 'baz', value: 'bla' },
-      'fieldsLimit',
+      { error: 'too many fields' },
     ],
   },
   {
     name: 'subsequent chunks are ignored after reaching the field limit',
     source: 'foo=bar&baz=bla|bla&x=y',
     options: { limits: { fields: 1 } },
-    expected: [{ ...COMMON, name: 'foo', value: 'bar' }, 'fieldsLimit'],
+    expected: [{ ...COMMON, name: 'foo', value: 'bar' }, { error: 'too many fields' }],
   },
   {
     name: 'fieldSize limit',
@@ -249,23 +251,17 @@ describe('urlencoded', () => {
     'reads URL encoded content',
     { parameters: tests },
     async ({ name, source = name, expected, options, charset = 'utf-8' }: any) => {
-      const results = await new Promise<unknown[]>((resolve) => {
-        const results: unknown[] = [];
-        const bb = busboy(
-          { 'content-type': `application/x-www-form-urlencoded; charset=${charset}` },
-          options,
-        );
+      const bb = busboy(
+        { 'content-type': `application/x-www-form-urlencoded; charset=${charset}` },
+        options,
+      );
 
-        bb.on('field', (data) => results.push(data));
-        bb.on('error', (error) => results.push({ error: error.message }));
-        bb.on('limit', (type) => results.push(type + 'Limit'));
-        bb.on('close', () => resolve(results));
-
-        for (const src of source.split('|')) {
-          bb.write(typeof src === 'string' ? Buffer.from(src, 'utf-8') : src);
-        }
-        bb.end();
-      });
+      const results: unknown[] = [];
+      try {
+        await bb(Readable.from(chunks(source)), (field) => results.push(field));
+      } catch (error) {
+        results.push({ error: error instanceof Error ? error.message : `raw error: ${error}` });
+      }
       expect(results).equals(expected);
     },
   );
@@ -274,26 +270,17 @@ describe('urlencoded', () => {
     'works when given one byte at a time',
     { parameters: tests },
     async ({ name, source = name, expected, options, charset = 'utf-8' }: any) => {
-      const results = await new Promise<unknown[]>((resolve) => {
-        const results: unknown[] = [];
-        const bb = busboy(
-          { 'content-type': `application/x-www-form-urlencoded; charset=${charset}` },
-          options,
-        );
+      const bb = busboy(
+        { 'content-type': `application/x-www-form-urlencoded; charset=${charset}` },
+        options,
+      );
 
-        bb.on('field', (data) => results.push(data));
-        bb.on('error', (error) => results.push({ error: error.message }));
-        bb.on('limit', (type) => results.push(type + 'Limit'));
-        bb.on('close', () => resolve(results));
-
-        for (const src of source.split('|')) {
-          const buf = typeof src === 'string' ? Buffer.from(src, 'utf-8') : src;
-          for (let i = 0; i < buf.length; ++i) {
-            bb.write(buf.subarray(i, i + 1));
-          }
-        }
-        bb.end();
-      });
+      const results: unknown[] = [];
+      try {
+        await bb(Readable.from(byteChunks(source.split('|'))), (field) => results.push(field));
+      } catch (error) {
+        results.push({ error: error instanceof Error ? error.message : `raw error: ${error}` });
+      }
       expect(results).equals(expected);
     },
   );

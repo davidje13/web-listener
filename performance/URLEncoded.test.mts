@@ -10,9 +10,8 @@ const implementations: ImplementationDef[] = [
     name: 'this project',
     run: (chunks) => async () => {
       const r: unknown[] = [];
-      const o = busboy({ 'content-type': 'application/x-www-form-urlencoded' });
-      o.on('field', ({ name, value }) => r.push({ name, value }));
-      await pipeline(Readable.from(chunks), o);
+      const bus = busboy({ 'content-type': 'application/x-www-form-urlencoded' });
+      await bus(Readable.from(chunks), ({ name, value }) => r.push({ name, value }));
       return r;
     },
   },

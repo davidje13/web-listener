@@ -3,10 +3,10 @@ import type { Readable } from 'node:stream';
 import { openAsBlob } from 'node:fs';
 import { busboy } from '../../forks/busboy/busboy.mts';
 import type { BusboyOptions } from '../../forks/busboy/types.mts';
-import { HTTPError, type HTTPErrorOptions } from '../../core/HTTPError.mts';
+import { HTTPError } from '../../core/HTTPError.mts';
 import { addTeardown } from '../../core/close.mts';
-import type { MaybePromise } from '../../util/MaybePromise.mts';
 import { STOP } from '../../core/RoutingInstruction.mts';
+import type { MaybePromise } from '../../util/MaybePromise.mts';
 import { BlockingQueue } from '../../util/BlockingQueue.mts';
 import { guardTimeout } from '../../util/guardTimeout.mts';
 import { makeTempFileStorage } from '../filesystem/tempFileStorage.mts';
@@ -23,13 +23,20 @@ export function getFormFields(
 
   acceptBody(req);
 
-  const output = new BlockingQueue<FormField>();
+  const output = new BlockingQueue<FormField>(); //{ hwm: 2, lwm: 1 });
+  // backpressure
+  //output.on('hwm', () => req.pause());
+  //output.on('lwm', () => req.resume());
 
-  const fail = (status: number, options: HTTPErrorOptions) => {
-    output.fail(new HTTPError(status, options));
-    // busboy continues to read the input (and produce events) after an error, so disconnect it
-    bus.removeAllListeners();
-    req.unpipe(bus);
+  let failed = false;
+  const fail = (err: Error) => {
+    if (failed) {
+      return;
+    }
+    failed = true;
+    output.fail(req.readableAborted ? STOP : err);
+
+    req.removeAllListeners('data');
     req.resume();
 
     // if the client continues sending a lot of data after an error, kill the socket to stop them
@@ -39,42 +46,33 @@ export function getFormFields(
     }
   };
 
-  bus.on('field', ({ _nameTruncated, _valueTruncated, ...data }) => {
+  bus(req, (field) => {
+    if (failed) {
+      return;
+    }
+
+    const { _nameTruncated, _valueTruncated, ...data } = field;
     if (!data.name) {
-      return fail(400, { body: 'missing field name' });
+      throw new HTTPError(400, { body: 'missing field name' });
     }
     if (_nameTruncated) {
-      return fail(400, {
+      throw new HTTPError(400, {
         body: `field name ${JSON.stringify(data.name)}... too long`,
       });
     }
     if (data.type === 'file') {
       data.value.once('limit', () =>
-        fail(400, {
-          body: `uploaded file for ${JSON.stringify(data.name)}: ${JSON.stringify(data.filename)} too large`,
-        }),
+        fail(
+          new HTTPError(400, {
+            body: `uploaded file for ${JSON.stringify(data.name)}: ${JSON.stringify(data.filename)} too large`,
+          }),
+        ),
       );
     } else if (_valueTruncated) {
-      return fail(400, { body: `value for ${JSON.stringify(data.name)} too long` });
+      throw new HTTPError(400, { body: `value for ${JSON.stringify(data.name)} too long` });
     }
     output.push(data);
-  });
-
-  req.once('error', (error) => {
-    if (req.readableAborted) {
-      output.fail(STOP);
-    } else {
-      fail(500, { body: 'request error', headers: { connection: 'close' }, cause: error });
-    }
-  });
-  bus.once('error', (error) => fail(400, { body: 'error parsing form data', cause: error }));
-  bus.once('warn', (error) => fail(400, { body: 'error parsing form data', cause: error }));
-  bus.once('limit', (type) => fail(400, { body: `too many ${type}` }));
-
-  const stop = () => output.close('complete');
-  bus.once('close', stop);
-  addTeardown(req, stop);
-  req.pipe(bus);
+  }).then(() => output.close('complete'), fail);
 
   return output;
 }
@@ -195,7 +193,7 @@ interface CommonFieldData {
 
 interface FileFieldData extends CommonFieldData {
   type: 'file';
-  value: Readable & { readonly truncated: boolean };
+  value: Readable;
   filename: string;
 }
 

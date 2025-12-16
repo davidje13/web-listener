@@ -6,11 +6,11 @@
 import type { IncomingHttpHeaders } from 'node:http';
 import { HTTPError } from '../../core/HTTPError.mts';
 import { parseContentType } from './utils.mts';
-import type { BusboyInstance, BusboyOptions } from './types.mts';
-import { Multipart } from './multipart.mts';
-import { URLEncoded } from './urlencoded.mts';
+import type { BusboyOptions, StreamConsumer } from './types.mts';
+import { getMultipartFormFields } from './multipart.mts';
+import { getURLEncodedFormFields } from './urlencoded.mts';
 
-export function busboy(headers: IncomingHttpHeaders, cfg: BusboyOptions = {}): BusboyInstance {
+export function busboy(headers: IncomingHttpHeaders, cfg: BusboyOptions = {}): StreamConsumer {
   const contentType = headers['content-type'];
   if (!contentType) {
     throw new HTTPError(400, { body: 'missing content-type' });
@@ -21,16 +21,13 @@ export function busboy(headers: IncomingHttpHeaders, cfg: BusboyOptions = {}): B
     throw new HTTPError(400, { body: 'malformed content-type' });
   }
 
-  const type =
-    conType.mime === 'application/x-www-form-urlencoded'
-      ? URLEncoded
-      : conType.mime === 'multipart/form-data' && !cfg.blockMultipart
-        ? Multipart
-        : null;
-
-  if (!type) {
-    throw new HTTPError(415);
+  if (conType.mime === 'application/x-www-form-urlencoded') {
+    return getURLEncodedFormFields(cfg, conType.params);
   }
 
-  return new type(cfg, conType.params) as unknown as BusboyInstance;
+  if (conType.mime === 'multipart/form-data' && !cfg.blockMultipart) {
+    return getMultipartFormFields(cfg, conType.params);
+  }
+
+  throw new HTTPError(415);
 }

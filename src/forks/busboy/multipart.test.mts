@@ -1,7 +1,7 @@
 import { randomFillSync } from 'node:crypto';
 import { Readable } from 'node:stream';
-import { pipeline } from 'node:stream/promises';
-import type { BusboyInstance, BusboyOptions, FieldData } from './types.mts';
+import { byteChunks, chunks } from '../../test-helpers/chunks.mts';
+import type { BusboyOptions, FieldData } from './types.mts';
 import { busboy } from './busboy.mts';
 import 'lean-test';
 
@@ -11,7 +11,6 @@ const COMMON_FILE = {
   encoding: '7bit',
   mimeType: 'application/octet-stream',
   limited: false,
-  truncated: false,
   err: undefined,
 };
 
@@ -25,7 +24,7 @@ const COMMON_FIELD: Partial<FieldData> = {
 
 interface TestDef {
   name: string;
-  source: (string[] | Buffer)[];
+  source: (string | Buffer)[];
   boundary: string;
   options?: BusboyOptions;
   expected: unknown[];
@@ -57,7 +56,7 @@ const tests: TestDef[] = [
         '',
         'B'.repeat(1023),
         `--${COMMON_BOUNDARY}--`,
-      ],
+      ].join('\r\n'),
     ],
     boundary: COMMON_BOUNDARY,
     expected: [
@@ -94,7 +93,7 @@ const tests: TestDef[] = [
         '',
         '2',
         '------WebKitFormBoundaryTB2MiQ36fnSJlrhY--',
-      ],
+      ].join('\r\n'),
     ],
     boundary: '----WebKitFormBoundaryTB2MiQ36fnSJlrhY',
     expected: [
@@ -105,7 +104,7 @@ const tests: TestDef[] = [
   },
   {
     name: 'No fields and no files',
-    source: [[]],
+    source: [''],
     boundary: '----WebKitFormBoundaryTB2MiQ36fnSJlrhY',
     expected: [{ error: 'unexpected end of form' }],
   },
@@ -118,7 +117,7 @@ const tests: TestDef[] = [
         '',
         'content',
         `--${COMMON_BOUNDARY}--`,
-      ],
+      ].join('\r\n'),
     ],
     boundary: COMMON_BOUNDARY,
     expected: [{ ...COMMON_FIELD, name: '', value: 'content' }],
@@ -132,10 +131,10 @@ const tests: TestDef[] = [
         '',
         'content',
         `--${COMMON_BOUNDARY}--`,
-      ],
+      ].join('\r\n'),
     ],
     boundary: COMMON_BOUNDARY,
-    expected: [{ warn: 'missing field name' }],
+    expected: [{ error: 'missing field name' }],
   },
   {
     name: 'Fields and files (limits)',
@@ -151,7 +150,7 @@ const tests: TestDef[] = [
         '',
         'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
         `--${COMMON_BOUNDARY}--`,
-      ],
+      ].join('\r\n'),
     ],
     boundary: COMMON_BOUNDARY,
     options: { limits: { fileSize: 13, fieldSize: 5 } },
@@ -163,7 +162,6 @@ const tests: TestDef[] = [
         data: Buffer.from('ABCDEFGHIJKLM'),
         filename: '1k_a.dat',
         limited: true,
-        truncated: true,
       },
     ],
   },
@@ -181,7 +179,7 @@ const tests: TestDef[] = [
         '',
         'ABCDEFGHIJKLM',
         `--${COMMON_BOUNDARY}--`,
-      ],
+      ].join('\r\n'),
     ],
     boundary: COMMON_BOUNDARY,
     options: { limits: { fileSize: 13, fieldSize: 5 } },
@@ -209,11 +207,14 @@ const tests: TestDef[] = [
         '',
         'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
         `--${COMMON_BOUNDARY}--`,
-      ],
+      ].join('\r\n'),
     ],
     boundary: COMMON_BOUNDARY,
     options: { limits: { files: 0 } },
-    expected: [{ ...COMMON_FIELD, name: 'file_name_0', value: 'super alpha file' }, 'filesLimit'],
+    expected: [
+      { ...COMMON_FIELD, name: 'file_name_0', value: 'super alpha file' },
+      { error: 'too many files' },
+    ],
   },
   {
     name: 'Files with filenames containing paths',
@@ -235,7 +236,7 @@ const tests: TestDef[] = [
         '',
         'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
         `--${COMMON_BOUNDARY}--`,
-      ],
+      ].join('\r\n'),
     ],
     boundary: COMMON_BOUNDARY,
     expected: [
@@ -280,7 +281,7 @@ const tests: TestDef[] = [
         '',
         'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
         `--${COMMON_BOUNDARY}--`,
-      ],
+      ].join('\r\n'),
     ],
     boundary: COMMON_BOUNDARY,
     options: { preservePath: true },
@@ -319,7 +320,7 @@ const tests: TestDef[] = [
         '',
         'some random pass',
         '------WebKitFormBoundaryTB2MiQ36fnSJlrhY--',
-      ],
+      ].join('\r\n'),
     ],
     boundary: '----WebKitFormBoundaryTB2MiQ36fnSJlrhY',
     expected: [{ ...COMMON_FIELD, name: 'cont', value: 'some random content' }],
@@ -334,7 +335,7 @@ const tests: TestDef[] = [
         '',
         'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
         `--${COMMON_BOUNDARY}--`,
-      ],
+      ].join('\r\n'),
     ],
     boundary: COMMON_BOUNDARY,
     expected: [
@@ -358,7 +359,7 @@ const tests: TestDef[] = [
         '',
         '.',
         `--${COMMON_BOUNDARY}--`,
-      ],
+      ].join('\r\n'),
     ],
     boundary: COMMON_BOUNDARY,
     expected: [{ ...COMMON_FILE, name: 'file', data: Buffer.from('.'), filename: 'テスト.dat' }],
@@ -368,9 +369,9 @@ const tests: TestDef[] = [
     // submitting a form on a page with a particular charset set
     name: 'Filename configurable default encoding',
     source: [
-      [`--${COMMON_BOUNDARY}`, 'Content-Disposition: form-data; name="upload_file_0"; filename="'],
+      `--${COMMON_BOUNDARY}\r\nContent-Disposition: form-data; name="upload_file_0"; filename="`,
       Buffer.from([0xb7, 0xb5]),
-      ['"', 'Content-Type: application/octet-stream', '', '.', `--${COMMON_BOUNDARY}--`],
+      `"\r\nContent-Type: application/octet-stream\r\n\r\n.\r\n--${COMMON_BOUNDARY}--`,
     ],
     boundary: COMMON_BOUNDARY,
     options: { defParamCharset: 'macintosh' },
@@ -385,16 +386,16 @@ const tests: TestDef[] = [
         '',
         '\u2026',
         `--${COMMON_BOUNDARY}--`,
-      ],
+      ].join('\r\n'),
     ],
     boundary: COMMON_BOUNDARY,
     expected: [{ ...COMMON_FIELD, name: 'f', value: '\u2026' }],
   },
   {
     name: 'Invalid part header',
-    source: [[`--${COMMON_BOUNDARY}`, ': oops', '', '', `--${COMMON_BOUNDARY}--`]],
+    source: [[`--${COMMON_BOUNDARY}`, ': oops', '', '', `--${COMMON_BOUNDARY}--`].join('\r\n')],
     boundary: COMMON_BOUNDARY,
-    expected: [{ warn: 'malformed part header' }],
+    expected: [{ error: 'malformed part header' }],
   },
   {
     name: 'Stopped during a broken header',
@@ -404,10 +405,10 @@ const tests: TestDef[] = [
         'Content-Type: text/plain',
         'Content-Disposition: form-data; name="foo"',
         `:--${COMMON_BOUNDARY}--`,
-      ],
+      ].join('\r\n'),
     ],
     boundary: COMMON_BOUNDARY,
-    expected: [{ warn: 'malformed part header' }, { error: 'unexpected end of form' }],
+    expected: [{ error: 'malformed part header' }],
   },
   {
     name: 'Stopped before end of last headers',
@@ -417,10 +418,10 @@ const tests: TestDef[] = [
         'Content-Type: text/plain',
         'Content-Disposition: form-data; name="foo"',
         `--${COMMON_BOUNDARY}--`,
-      ],
+      ].join('\r\n'),
     ],
     boundary: COMMON_BOUNDARY,
-    expected: [{ warn: 'unexpected end of headers' }],
+    expected: [{ error: 'unexpected end of headers' }],
   },
   {
     name: 'Stopped before end of headers',
@@ -435,10 +436,10 @@ const tests: TestDef[] = [
         '',
         '',
         `--${COMMON_BOUNDARY}--`,
-      ],
+      ].join('\r\n'),
     ],
     boundary: COMMON_BOUNDARY,
-    expected: [{ warn: 'unexpected end of headers' }],
+    expected: [{ error: 'unexpected end of headers' }],
   },
   {
     name: 'content-type for fields',
@@ -450,14 +451,14 @@ const tests: TestDef[] = [
         '',
         '{}',
         '------WebKitFormBoundaryTB2MiQ36fnSJlrhY--',
-      ],
+      ].join('\r\n'),
     ],
     boundary: '----WebKitFormBoundaryTB2MiQ36fnSJlrhY',
     expected: [{ ...COMMON_FIELD, name: 'cont', value: '{}', mimeType: 'application/json' }],
   },
   {
     name: 'empty form',
-    source: [['------WebKitFormBoundaryTB2MiQ36fnSJlrhY--']],
+    source: ['------WebKitFormBoundaryTB2MiQ36fnSJlrhY--'],
     boundary: '----WebKitFormBoundaryTB2MiQ36fnSJlrhY',
     expected: [],
   },
@@ -471,7 +472,7 @@ const tests: TestDef[] = [
         'Content-Transfer-Encoding: binary',
         '',
         '',
-      ],
+      ].join('\r\n'),
     ],
     boundary: COMMON_BOUNDARY,
     expected: [
@@ -495,7 +496,7 @@ const tests: TestDef[] = [
         'Content-Type: application/octet-stream',
         '',
         'a',
-      ],
+      ].join('\r\n'),
     ],
     boundary: COMMON_BOUNDARY,
     expected: [
@@ -519,7 +520,7 @@ const tests: TestDef[] = [
         '',
         'a',
         `--${COMMON_BOUNDARY}--`,
-      ],
+      ].join('\r\n'),
     ],
     boundary: COMMON_BOUNDARY,
     expected: [
@@ -543,7 +544,7 @@ const tests: TestDef[] = [
         '',
         'a',
         `--${COMMON_BOUNDARY}--`,
-      ],
+      ].join('\r\n'),
     ],
     boundary: COMMON_BOUNDARY,
     expected: [
@@ -565,14 +566,14 @@ const tests: TestDef[] = [
         '',
         'a',
         `--${COMMON_BOUNDARY}--`,
-      ],
+      ].join('\r\n'),
     ],
     boundary: COMMON_BOUNDARY,
     expected: [],
   },
   {
     name: 'Zero parts limit',
-    source: [[`--${COMMON_BOUNDARY}--`]],
+    source: [`--${COMMON_BOUNDARY}--`],
     boundary: COMMON_BOUNDARY,
     options: { limits: { parts: 0 } },
     expected: [],
@@ -586,11 +587,11 @@ const tests: TestDef[] = [
         '',
         'a',
         `--${COMMON_BOUNDARY}--`,
-      ],
+      ].join('\r\n'),
     ],
     boundary: COMMON_BOUNDARY,
     options: { limits: { parts: 0 } },
-    expected: ['partsLimit'],
+    expected: [{ error: 'too many parts' }],
   },
   {
     name: 'Parts limit reached',
@@ -601,7 +602,7 @@ const tests: TestDef[] = [
         '',
         'a',
         `--${COMMON_BOUNDARY}--`,
-      ],
+      ].join('\r\n'),
     ],
     boundary: COMMON_BOUNDARY,
     options: { limits: { parts: 1 } },
@@ -622,15 +623,15 @@ const tests: TestDef[] = [
         '',
         'bc',
         `--${COMMON_BOUNDARY}--`,
-      ],
+      ].join('\r\n'),
     ],
     boundary: COMMON_BOUNDARY,
     options: { limits: { parts: 1 } },
-    expected: [{ ...COMMON_FIELD, name: 'file_name_0', value: 'a' }, 'partsLimit'],
+    expected: [{ ...COMMON_FIELD, name: 'file_name_0', value: 'a' }, { error: 'too many parts' }],
   },
   {
     name: 'Zero fields limit',
-    source: [[`--${COMMON_BOUNDARY}--`]],
+    source: [`--${COMMON_BOUNDARY}--`],
     boundary: COMMON_BOUNDARY,
     options: { limits: { fields: 0 } },
     expected: [],
@@ -644,11 +645,11 @@ const tests: TestDef[] = [
         '',
         'a',
         `--${COMMON_BOUNDARY}--`,
-      ],
+      ].join('\r\n'),
     ],
     boundary: COMMON_BOUNDARY,
     options: { limits: { fields: 0 } },
-    expected: ['fieldsLimit'],
+    expected: [{ error: 'too many fields' }],
   },
   {
     name: 'Fields limit reached',
@@ -659,7 +660,7 @@ const tests: TestDef[] = [
         '',
         'a',
         `--${COMMON_BOUNDARY}--`,
-      ],
+      ].join('\r\n'),
     ],
     boundary: COMMON_BOUNDARY,
     options: { limits: { fields: 1 } },
@@ -678,15 +679,15 @@ const tests: TestDef[] = [
         '',
         'b',
         `--${COMMON_BOUNDARY}--`,
-      ],
+      ].join('\r\n'),
     ],
     boundary: COMMON_BOUNDARY,
     options: { limits: { fields: 1 } },
-    expected: [{ ...COMMON_FIELD, name: 'file_name_0', value: 'a' }, 'fieldsLimit'],
+    expected: [{ ...COMMON_FIELD, name: 'file_name_0', value: 'a' }, { error: 'too many fields' }],
   },
   {
     name: 'Zero files limit',
-    source: [[`--${COMMON_BOUNDARY}--`]],
+    source: [`--${COMMON_BOUNDARY}--`],
     boundary: COMMON_BOUNDARY,
     options: { limits: { files: 0 } },
     expected: [],
@@ -701,11 +702,11 @@ const tests: TestDef[] = [
         '',
         'ab',
         `--${COMMON_BOUNDARY}--`,
-      ],
+      ].join('\r\n'),
     ],
     boundary: COMMON_BOUNDARY,
     options: { limits: { files: 0 } },
-    expected: ['filesLimit'],
+    expected: [{ error: 'too many files' }],
   },
   {
     name: 'Files limit reached',
@@ -717,7 +718,7 @@ const tests: TestDef[] = [
         '',
         'ab',
         `--${COMMON_BOUNDARY}--`,
-      ],
+      ].join('\r\n'),
     ],
     boundary: COMMON_BOUNDARY,
     options: { limits: { files: 1 } },
@@ -746,7 +747,7 @@ const tests: TestDef[] = [
         '',
         'cd',
         `--${COMMON_BOUNDARY}--`,
-      ],
+      ].join('\r\n'),
     ],
     boundary: COMMON_BOUNDARY,
     options: { limits: { files: 1 } },
@@ -758,7 +759,7 @@ const tests: TestDef[] = [
         filename: 'notes.txt',
         mimeType: 'text/plain',
       },
-      'filesLimit',
+      { error: 'too many files' },
     ],
   },
   {
@@ -777,19 +778,10 @@ const tests: TestDef[] = [
         '',
         'cd',
         `--${COMMON_BOUNDARY}--`,
-      ],
+      ].join('\r\n'),
     ],
     boundary: COMMON_BOUNDARY,
-    expected: [
-      { warn: 'malformed part header' },
-      {
-        ...COMMON_FILE,
-        name: 'upload_file_1',
-        data: Buffer.from('cd'),
-        filename: 'notes2.txt',
-        mimeType: 'text/plain',
-      },
-    ],
+    expected: [{ error: 'malformed part header' }],
   },
   {
     name: 'Field name limit (field)',
@@ -800,7 +792,7 @@ const tests: TestDef[] = [
         '',
         'a',
         `--${COMMON_BOUNDARY}--`,
-      ],
+      ].join('\r\n'),
     ],
     boundary: COMMON_BOUNDARY,
     options: { limits: { fieldNameSize: 4 } },
@@ -816,7 +808,7 @@ const tests: TestDef[] = [
         '',
         'a',
         `--${COMMON_BOUNDARY}--`,
-      ],
+      ].join('\r\n'),
     ],
     boundary: COMMON_BOUNDARY,
     options: { limits: { fieldNameSize: 4 } },
@@ -839,9 +831,9 @@ const tests: TestDef[] = [
         'Content-Type: text/plain; charset=utf8',
         '',
         'a'.repeat(31) + '\r',
-      ],
-      ['b'.repeat(40)],
-      [`\r\n--${COMMON_BOUNDARY}--`],
+      ].join('\r\n'),
+      'b'.repeat(40),
+      `\r\n--${COMMON_BOUNDARY}--`,
     ],
     boundary: COMMON_BOUNDARY,
     options: { fileHwm: 32 },
@@ -875,7 +867,7 @@ const tests: TestDef[] = [
         '',
         'd',
         `--${COMMON_BOUNDARY}--`,
-      ],
+      ].join('\r\n'),
     ],
     boundary: COMMON_BOUNDARY,
     expected: [
@@ -894,7 +886,7 @@ const tests: TestDef[] = [
         '',
         'ab',
         `--${COMMON_BOUNDARY}--`,
-      ],
+      ].join('\r\n'),
     ],
     boundary: COMMON_BOUNDARY,
     expected: [{ ...COMMON_FILE, name: 'f1', data: Buffer.from('ab'), filename: 'f.txt' }],
@@ -910,7 +902,7 @@ const tests: TestDef[] = [
         '',
         'ab',
         `--${COMMON_BOUNDARY}--`,
-      ],
+      ].join('\r\n'),
     ],
     boundary: COMMON_BOUNDARY,
     expected: [
@@ -934,7 +926,7 @@ const tests: TestDef[] = [
         '',
         'ab',
         `--${COMMON_BOUNDARY}--`,
-      ],
+      ].join('\r\n'),
     ],
     boundary: COMMON_BOUNDARY,
     expected: [{ ...COMMON_FILE, name: 'f1', data: Buffer.from('ab'), filename: 'f.txt' }],
@@ -951,7 +943,7 @@ const tests: TestDef[] = [
         '',
         'ab',
         `--${COMMON_BOUNDARY}--`,
-      ],
+      ].join('\r\n'),
     ],
     boundary: COMMON_BOUNDARY,
     expected: [
@@ -981,7 +973,7 @@ const tests: TestDef[] = [
         '',
         'ef',
         `--${COMMON_BOUNDARY}--`,
-      ],
+      ].join('\r\n'),
     ],
     boundary: COMMON_BOUNDARY,
     expected: [
@@ -1011,15 +1003,15 @@ const tests: TestDef[] = [
   {
     name: 'Empty part',
     source: [
-      ['\r\n--d1bf46b3-aa33-4061-b28d-6c5ced8b08ee\r\n'],
+      '\r\n--d1bf46b3-aa33-4061-b28d-6c5ced8b08ee\r\n',
       [
         'Content-Type: application/gzip',
         'Content-Encoding: gzip',
         'Content-Disposition: form-data; name=batch-1; filename=batch-1',
         '',
         '',
-      ],
-      ['\r\n--d1bf46b3-aa33-4061-b28d-6c5ced8b08ee--'],
+      ].join('\r\n'),
+      '\r\n--d1bf46b3-aa33-4061-b28d-6c5ced8b08ee--',
     ],
     boundary: 'd1bf46b3-aa33-4061-b28d-6c5ced8b08ee',
     expected: [
@@ -1039,13 +1031,13 @@ describe('Multipart', () => {
     'reads multipart/form-data content',
     { parameters: tests, timeout: 3000 },
     async ({ boundary, source, expected, options }: any) => {
-      const bb = busboy({ 'content-type': `multipart/form-data; boundary=${boundary}` }, options);
-      const closed = captureEvents(bb);
-      for (const src of source) {
-        bb.write(src instanceof Buffer ? src : Buffer.from(src.join('\r\n'), 'utf-8'));
+      const bus = busboy({ 'content-type': `multipart/form-data; boundary=${boundary}` }, options);
+      const results: unknown[] = [];
+      try {
+        await bus(Readable.from(chunks(source)), captureField(results));
+      } catch (error) {
+        results.push({ error: error instanceof Error ? error.message : `raw error: ${error}` });
       }
-      bb.end();
-      const results = await closed;
       expect(results).equals(expected);
     },
   );
@@ -1054,32 +1046,13 @@ describe('Multipart', () => {
     'works when given one byte at a time',
     { parameters: tests, timeout: 3000 },
     async ({ boundary, source, expected, options }: any) => {
-      const bb = busboy({ 'content-type': `multipart/form-data; boundary=${boundary}` }, options);
-      const closed = captureEvents(bb);
-      for (const src of source) {
-        const buf = src instanceof Buffer ? src : Buffer.from(src.join('\r\n'), 'utf-8');
-        for (let i = 0; i < buf.byteLength; ++i) {
-          bb.write(buf.subarray(i, i + 1));
-        }
+      const bus = busboy({ 'content-type': `multipart/form-data; boundary=${boundary}` }, options);
+      const results: unknown[] = [];
+      try {
+        await bus(Readable.from(byteChunks(source)), captureField(results));
+      } catch (error) {
+        results.push({ error: error instanceof Error ? error.message : `raw error: ${error}` });
       }
-      bb.end();
-      const results = await closed;
-      expect(results).equals(expected);
-    },
-  );
-
-  it(
-    'works when fed data via a pipe',
-    { parameters: tests, timeout: 3000 },
-    async ({ boundary, source, expected, options }: any) => {
-      const bb = busboy({ 'content-type': `multipart/form-data; boundary=${boundary}` }, options);
-      const closed = captureEvents(bb);
-      const parts: Buffer[] = [];
-      for (const src of source) {
-        parts.push(src instanceof Buffer ? src : Buffer.from(src.join('\r\n'), 'utf-8'));
-      }
-      Readable.from(parts).pipe(bb);
-      const results = await closed;
       expect(results).equals(expected);
     },
   );
@@ -1120,30 +1093,29 @@ describe('Multipart', () => {
       formDataSection('bar', 'bar value'),
       Buffer.from(`\r\n--${BOUNDARY}--\r\n`),
     ];
-    const bb = busboy({ 'content-type': `multipart/form-data; boundary=${BOUNDARY}` });
+    const bus = busboy({ 'content-type': `multipart/form-data; boundary=${BOUNDARY}` });
 
     const results: unknown[] = [];
-    bb.on('field', (data) => {
-      if (data.type === 'string') {
-        results.push(data);
-      } else {
-        const { value, ...rest } = data;
-        results.push({ ...rest, limited: false, truncated: false, err: undefined });
-        value.on('error', (error) => results.push({ error: error.message }));
-        value.on('close', () => results.push('filestream-close'));
-        value.on('end', () => results.push('filestream-end'));
-        setTimeout(() => value.resume(), 10);
-        // Simulate a pipe where the destination is pausing
-        // (perhaps due to waiting for file system write to finish)
-        value.on('data', () => results.push('data'));
-      }
-    });
-    bb.on('error', (error) => results.push({ error: error.message }));
-    bb.on('warn', (error) => results.push({ warn: error.message }));
-    bb.on('close', () => results.push('bb-close'));
-    bb.on('finish', () => results.push('bb-finish'));
-
-    await pipeline(Readable.from(reqChunks), bb);
+    try {
+      await bus(Readable.from(reqChunks), (field) => {
+        if (field.type === 'string') {
+          results.push(field);
+        } else {
+          const { value, ...rest } = field;
+          results.push({ ...rest, limited: false, err: undefined });
+          value.on('error', (error) => results.push({ error: error.message }));
+          value.on('close', () => results.push('filestream-close'));
+          value.on('end', () => results.push('filestream-end'));
+          setTimeout(() => value.resume(), 10);
+          // Simulate a pipe where the destination is pausing
+          // (perhaps due to waiting for file system write to finish)
+          value.on('data', () => results.push('data'));
+        }
+      });
+    } catch (error) {
+      results.push({ error: error instanceof Error ? error.message : `raw error: ${error}` });
+    }
+    results.push('done');
 
     expect(results).equals([
       { ...COMMON_FILE, name: 'file', filename: 'file.bin' },
@@ -1152,27 +1124,23 @@ describe('Multipart', () => {
       'data',
       'filestream-end',
       'filestream-close',
-      'bb-finish',
-      'bb-close',
+      'done',
     ]);
   });
 });
 
-function captureEvents(bb: BusboyInstance): Promise<unknown[]> {
-  const results: unknown[] = [];
-
-  bb.on('field', async (data) => {
-    if (data.type === 'string') {
-      results.push(data);
+function captureField(results: unknown[]) {
+  return (field: FieldData) => {
+    if (field.type === 'string') {
+      results.push(field);
     } else {
-      const { value, ...rest } = data;
+      const { value, ...rest } = field;
       const parts: Buffer[] = [];
       let totalBytes = 0;
       const file = {
         ...rest,
         data: null as Buffer | null,
         limited: false,
-        truncated: false,
         err: undefined as unknown,
       };
       results.push(file);
@@ -1185,17 +1153,10 @@ function captureEvents(bb: BusboyInstance): Promise<unknown[]> {
       });
       value.on('close', () => {
         file.data = Buffer.concat(parts, totalBytes);
-        file.truncated = value.truncated;
       });
       value.on('error', (error) => {
         file.err = error.message;
       });
     }
-  });
-
-  bb.on('error', (error) => results.push({ error: error.message }));
-  bb.on('warn', (error) => results.push({ warn: error.message }));
-  bb.on('limit', (type) => results.push(type + 'Limit'));
-
-  return new Promise((resolve) => bb.on('close', () => resolve(results)));
+  };
 }

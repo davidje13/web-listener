@@ -1,323 +1,315 @@
-import { Readable, Writable, type ReadableOptions, type WritableOptions } from 'node:stream';
+import { Readable, type ReadableOptions } from 'node:stream';
 import type { Decoder } from '../../util/DecoderStream.mts';
 import { HTTPError } from '../../core/HTTPError.mts';
 import { getTextDecoder } from '../../extras/registries/charset.mts';
 import { StreamSearch } from '../streamsearch/sbmh.mts';
 import { parseContentType, parseDisposition, TOKEN, type ContentTypeParams } from './utils.mts';
-import type { BusboyOptions } from './types.mts';
+import type { BusboyOptions, StreamConsumer } from './types.mts';
 
-export class Multipart extends Writable {
-  /** @internal */ declare _bparser: Pick<StreamSearch, 'push' | 'destroy'>;
-  /** @internal */ declare _awaitingFileDrain: boolean;
-  /** @internal */ declare _fileStream: FileStream | undefined;
-  /** @internal */ declare _complete: boolean;
-  /** @internal */ declare _hparser: HeaderParser | undefined;
-  /** @internal */ declare _activeFileStreams: number;
-  /** @internal */ declare _finalcb: (() => void) | undefined;
+const STATE_POST_BOUNDARY = 0;
+const STATE_POST_BOUNDARY_CR = 1;
+const STATE_POST_BOUNDARY_DASH = 2;
+const STATE_HEADER = 3;
+const STATE_CONTENT = 4;
+const STATE_SKIP = 5;
+const STATE_COMPLETE = 6;
+const STATE_ERROR = 7;
 
-  constructor(
-    {
-      limits = {},
-      preservePath,
-      highWaterMark,
-      fileHwm,
-      defParamCharset = 'utf-8',
-      defCharset = 'utf-8',
-    }: BusboyOptions,
-    conTypeParams: ContentTypeParams,
-  ) {
-    super({
-      autoDestroy: true,
-      emitClose: true,
-      highWaterMark,
-      // use constructor form of registering internal methods to avoid issues with names being mangled due to starting with _
-      write,
-      destroy,
-      final,
-    } as WritableOptions<Writable>);
+export function getMultipartFormFields(
+  {
+    limits = {},
+    preservePath,
+    fileHwm,
+    defParamCharset = 'utf-8',
+    defCharset = 'utf-8',
+  }: BusboyOptions,
+  conTypeParams: ContentTypeParams,
+): StreamConsumer {
+  const boundary = conTypeParams.get('boundary');
+  if (!boundary) {
+    throw new HTTPError(400, { body: 'multipart boundary not found' });
+  }
+  if (boundary.length > 70) {
+    throw new HTTPError(400, { body: 'multipart boundary too long' });
+  }
+  const paramDecoder = getTextDecoder(defParamCharset);
+  const fileOpts = {
+    autoDestroy: true,
+    emitClose: true,
+    highWaterMark: fileHwm,
+    read,
+  } as ReadableOptions;
 
-    const boundary = conTypeParams.get('boundary');
-    if (!boundary) {
-      throw new HTTPError(400, { body: 'multipart boundary not found' });
-    }
-    if (boundary.length > 70) {
-      throw new HTTPError(400, { body: 'multipart boundary too long' });
-    }
-    const paramDecoder = getTextDecoder(defParamCharset);
-    const fileOpts = {
-      autoDestroy: true,
-      emitClose: true,
-      highWaterMark: fileHwm,
-      read,
-    } as ReadableOptions;
+  const fieldSizeLimit = limits.fieldSize ?? 1 * 1024 * 1024;
+  const fileSizeLimit = limits.fileSize ?? Number.POSITIVE_INFINITY;
+  const fieldNameSizeLimit = limits.fieldNameSize ?? 100;
 
-    const fieldSizeLimit = limits.fieldSize ?? 1 * 1024 * 1024;
-    const fileSizeLimit = limits.fileSize ?? Number.POSITIVE_INFINITY;
-    const fieldNameSizeLimit = limits.fieldNameSize ?? 100;
-    const filesLimit = limits.files ?? Number.POSITIVE_INFINITY;
-    const fieldsLimit = limits.fields ?? Number.POSITIVE_INFINITY;
-    const partsLimit = limits.parts ?? Number.POSITIVE_INFINITY;
+  return (source, callback) =>
+    new Promise((resolve, reject) => {
+      let state = STATE_SKIP;
 
-    let parts = 0;
-    let fields = 0;
-    let files = 0;
-    let partSizeRemaining = -1;
+      let partsRemaining = limits.parts ?? Number.POSITIVE_INFINITY;
+      let fieldsRemaining = limits.fields ?? Number.POSITIVE_INFINITY;
+      let filesRemaining = limits.files ?? Number.POSITIVE_INFINITY;
+      let partSizeRemaining = 0;
 
-    this._awaitingFileDrain = false;
-    this._activeFileStreams = 0;
-    this._complete = false;
+      let awaitingFileDrain = false;
+      let activeFileStreams = 0;
+      let fileStream: FileStream | undefined;
+      let finalcb: (() => void) | undefined;
 
-    let field: string | undefined;
-    let partDecoder: Decoder;
-    let partEncoding: string;
-    let partType: string;
-    let partName: string | undefined;
-    let nameTruncated = false;
+      let field: string | undefined;
+      let partDecoder: Decoder;
+      let partEncoding: string;
+      let partType: string;
+      let partName: string | undefined;
+      let nameTruncated = false;
 
-    const hparser = new HeaderParser((header) => {
-      this._hparser = undefined;
-      const disposition = header[CONTENT_DISPOSITION];
-      if (!disposition) {
-        partSizeRemaining = -1;
-        return;
-      }
-      const disp = parseDisposition(Buffer.from(disposition, 'latin1'), paramDecoder);
-      if (disp?.type !== 'form-data') {
-        partSizeRemaining = -1;
-        return;
-      }
-      partName = disp.params.get('name');
-      if (partName === undefined) {
-        this.emit('warn', new HTTPError(400, { body: 'missing field name' }));
-        partSizeRemaining = -1;
-        return;
-      }
-      nameTruncated = partName.length > fieldNameSizeLimit;
-      if (nameTruncated) {
-        partName = partName.substring(0, fieldNameSizeLimit);
-      }
-      let filename = disp.params.get('filename*') ?? disp.params.get('filename');
-      if (filename !== undefined && !preservePath) {
-        filename = osIndependentBasename(filename);
-      }
-      const conType = parseContentType(header[CONTENT_TYPE]);
-      partType = conType?.mime ?? 'text/plain';
-      const partCharset = conType?.params.get('charset')?.toLowerCase() ?? defCharset;
-      partDecoder = getTextDecoder(partCharset);
-      partEncoding = header[CONTENT_TRANSFER_ENCODING]?.toLowerCase() ?? '7bit';
-      if (partType === 'application/octet-stream' || filename !== undefined) {
-        // File
-        if (files++ === filesLimit) {
-          this.emit('limit', 'files');
-        }
-        if (files > filesLimit) {
-          partSizeRemaining = -1;
+      const hparser = new HeaderParser((header) => {
+        const disposition = header[CONTENT_DISPOSITION];
+        if (!disposition) {
+          state = STATE_SKIP;
           return;
         }
-        if (!filename) {
-          // if a file field is submitted without any files, it will send an empty entry: ignore it
-          partSizeRemaining = -1;
+        const disp = parseDisposition(Buffer.from(disposition, 'latin1'), paramDecoder);
+        if (disp?.type !== 'form-data') {
+          state = STATE_SKIP;
           return;
         }
-        this._fileStream = new FileStream(fileOpts, this);
-        ++this._activeFileStreams;
-        this.emit('field', {
-          name: partName,
-          _nameTruncated: nameTruncated,
-          type: 'file',
-          value: this._fileStream,
-          filename,
-          encoding: partEncoding,
-          mimeType: partType,
-        });
-        partSizeRemaining = fileSizeLimit;
-      } else {
-        // Non-file
-        if (fields++ === fieldsLimit) {
-          this.emit('limit', 'fields');
+        partName = disp.params.get('name');
+        if (partName === undefined) {
+          return handleError(new HTTPError(400, { body: 'missing field name' }));
         }
-        if (fields > fieldsLimit) {
-          partSizeRemaining = -1;
-          return;
+        nameTruncated = partName.length > fieldNameSizeLimit;
+        if (nameTruncated) {
+          partName = partName.substring(0, fieldNameSizeLimit);
         }
-        field = '';
-        partSizeRemaining = fieldSizeLimit;
-      }
-    });
-
-    let matchPostBoundary = 0;
-    const needle = Buffer.from(`\r\n--${boundary}`, 'latin1');
-    this._bparser = new StreamSearch(needle, (isMatch, data, start, end, isDataSafe) => {
-      try {
-        if (start === end) {
-          return;
+        let filename = disp.params.get('filename*') ?? disp.params.get('filename');
+        if (filename !== undefined && !preservePath) {
+          filename = osIndependentBasename(filename);
         }
-        if (matchPostBoundary) {
-          if (matchPostBoundary === 1) {
-            if (data[start] === 13) {
-              matchPostBoundary = 2; // Try matching CR LF before header
-            } else if (data[start] === 45) {
-              matchPostBoundary = 3; // Try matching '--' after boundary
-            } else {
-              matchPostBoundary = 0; // invalid section (skip)
-              return;
-            }
-            if (++start === end) {
-              return;
-            }
+        const conType = parseContentType(header[CONTENT_TYPE]);
+        partType = conType?.mime ?? 'text/plain';
+        const partCharset = conType?.params.get('charset')?.toLowerCase() ?? defCharset;
+        partDecoder = getTextDecoder(partCharset);
+        partEncoding = header[CONTENT_TRANSFER_ENCODING]?.toLowerCase() ?? '7bit';
+        if (partType === 'application/octet-stream' || filename !== undefined) {
+          // File
+          if (!filesRemaining--) {
+            return handleError(new HTTPError(400, { body: 'too many files' }));
           }
-          if (matchPostBoundary === 2) {
-            matchPostBoundary = 0;
-            if (data[start++] !== 10 /* '\n' */) {
-              return; // We saw something other than LF, so this section is invalid and will be ignored
-            }
-            if (parts++ === partsLimit) {
-              this.emit('limit', 'parts');
-            }
-            if (parts > partsLimit) {
-              return;
-            }
-            // Prepare the header parser
-            this._hparser = hparser;
-            // Process the remaining data as a header
-            if (start === end) {
-              return;
-            }
-          } else {
-            matchPostBoundary = 0;
-            if (data[start] !== 45 /* '-' */) {
-              return; // We saw something other than '-', so this section is invalid and will be ignored
-            }
-            // End of multipart data
-            this._complete = true;
-            this._bparser = IGNORE_DATA;
+          if (!filename) {
+            // if a file field is submitted without any files, it will send an empty entry: ignore it
+            state = STATE_SKIP;
             return;
           }
-        }
-        if (this._hparser) {
-          const ret = this._hparser.push(data, start, end);
-          if (ret === -1) {
-            this._hparser = undefined;
-            hparser.reset();
-            this.emit('warn', new HTTPError(400, { body: 'malformed part header' }));
-            return;
-          }
-          if (ret === end) {
-            return;
-          }
-          start = ret;
-        }
-        if (partSizeRemaining >= 0) {
-          const stop = Math.min(end, start + partSizeRemaining);
-          partSizeRemaining -= end - start;
-          if (this._fileStream) {
-            if (stop > start) {
-              let safeData: Buffer;
-              if (isDataSafe) {
-                safeData = data.subarray(start, stop);
-              } else {
-                safeData = Buffer.allocUnsafe(stop - start);
-                data.copy(safeData, 0, start, stop);
-              }
-              if (!this._fileStream.push(safeData)) {
-                this._awaitingFileDrain = true;
-              }
-            }
-            if (partSizeRemaining < 0) {
-              this._fileStream.emit('limit');
-              this._fileStream.truncated = true;
-              this._awaitingFileDrain = false;
-            }
-          } else if (field !== undefined) {
-            field += data.latin1Slice(start, stop);
-          }
-        }
-      } finally {
-        if (isMatch) {
-          if (this._hparser) {
-            this.emit('warn', new HTTPError(400, { body: 'unexpected end of headers' }));
-            this._hparser = undefined;
-          } else if (this._fileStream) {
-            // End the active file stream if the previous part was a file
-            this._fileStream.push(null);
-            this._fileStream = undefined;
-            this._awaitingFileDrain = false;
-          } else if (field !== undefined) {
-            this.emit('field', {
+          const fs = new FileStream(fileOpts);
+          try {
+            callback({
               name: partName,
               _nameTruncated: nameTruncated,
-              type: 'string',
-              value: partDecoder.decode(Buffer.from(field, 'latin1')),
-              _valueTruncated: partSizeRemaining < 0,
+              type: 'file',
+              value: fs,
+              filename,
               encoding: partEncoding,
               mimeType: partType,
             });
-            field = undefined;
+          } catch (err: unknown) {
+            fs.push(null);
+            return handleError(err);
           }
-          matchPostBoundary = 1;
-          partSizeRemaining = -1;
+          fs.once('close', () => {
+            // We need to make sure that we call any outstanding _writecb() that is
+            // associated with this file so that processing of the rest of the form
+            // can continue. This may not happen if the file stream ends right after
+            // backpressure kicks in, so we force it here.
+            read.call(fs);
+            if (!--activeFileStreams && finalcb) {
+              // Make sure other 'end' event handlers get a chance to be executed
+              // before busboy's 'finish' event is emitted
+              process.nextTick(finalcb);
+            }
+          });
+          fileStream = fs;
+          ++activeFileStreams;
+          state = STATE_CONTENT;
+          partSizeRemaining = fileSizeLimit;
+        } else {
+          // Non-file
+          if (!fieldsRemaining--) {
+            return handleError(new HTTPError(400, { body: 'too many fields' }));
+          }
+          field = '';
+          state = STATE_CONTENT;
+          partSizeRemaining = fieldSizeLimit;
         }
-      }
+      });
+
+      const needle = Buffer.from(`\r\n--${boundary}`, 'latin1');
+      const chunkSplitter = new StreamSearch(needle, (isMatch, data, start, end, isDataSafe) => {
+        if (state >= STATE_COMPLETE) {
+          return;
+        }
+        try {
+          if (start === end) {
+            return;
+          }
+          if (state <= STATE_POST_BOUNDARY_DASH) {
+            if (state === STATE_POST_BOUNDARY) {
+              if (data[start] === 13) {
+                state = STATE_POST_BOUNDARY_CR; // Try matching CR LF before header
+              } else if (data[start] === 45) {
+                state = STATE_POST_BOUNDARY_DASH; // Try matching '--' after boundary
+              } else {
+                state = STATE_SKIP; // invalid section (skip)
+                return;
+              }
+              if (++start === end) {
+                return;
+              }
+            }
+            if (state === STATE_POST_BOUNDARY_CR) {
+              if (data[start++] !== 10 /* '\n' */) {
+                state = STATE_SKIP; // invalid section (skip)
+                return;
+              }
+              if (!partsRemaining--) {
+                return handleError(new HTTPError(400, { body: 'too many parts' }));
+              }
+              state = STATE_HEADER;
+              if (start === end) {
+                return;
+              }
+            } else {
+              if (data[start] !== 45 /* '-' */) {
+                state = STATE_SKIP; // invalid section (skip)
+                return;
+              }
+              // End of multipart data
+              state = STATE_COMPLETE;
+              source.off('data', handleData);
+              source.resume();
+              return;
+            }
+          }
+          if (state === STATE_HEADER) {
+            const ret = hparser.push(data, start, end);
+            if (ret === -1) {
+              return handleError(new HTTPError(400, { body: 'malformed part header' }));
+            }
+            if (ret === end) {
+              return;
+            }
+            start = ret;
+          }
+          if (state === STATE_CONTENT && partSizeRemaining >= 0) {
+            const stop = Math.min(end, start + partSizeRemaining);
+            partSizeRemaining -= end - start;
+            if (fileStream) {
+              if (stop > start) {
+                let safeData: Buffer;
+                if (isDataSafe) {
+                  safeData = data.subarray(start, stop);
+                } else {
+                  safeData = Buffer.allocUnsafe(stop - start);
+                  data.copy(safeData, 0, start, stop);
+                }
+                if (!fileStream.push(safeData)) {
+                  awaitingFileDrain = true;
+                }
+              }
+              if (partSizeRemaining < 0) {
+                fileStream.emit('limit');
+                awaitingFileDrain = false;
+              }
+            } else if (field !== undefined) {
+              field += data.latin1Slice(start, stop);
+            }
+          }
+        } finally {
+          if (isMatch) {
+            if (state >= STATE_COMPLETE) {
+              return;
+            }
+            if (state === STATE_HEADER) {
+              return handleError(new HTTPError(400, { body: 'unexpected end of headers' }));
+            }
+            if (fileStream) {
+              // End the active file stream if the previous part was a file
+              fileStream.push(null);
+              fileStream = undefined;
+              awaitingFileDrain = false;
+            } else if (field !== undefined) {
+              try {
+                callback({
+                  name: partName!,
+                  _nameTruncated: nameTruncated,
+                  type: 'string',
+                  value: partDecoder.decode(Buffer.from(field, 'latin1')),
+                  _valueTruncated: partSizeRemaining < 0,
+                  encoding: partEncoding,
+                  mimeType: partType,
+                });
+              } catch (err: unknown) {
+                return handleError(err);
+              }
+              field = undefined;
+            }
+            state = STATE_POST_BOUNDARY;
+          }
+        }
+      });
+
+      chunkSplitter.push(BUF_CRLF); // allow matching boundary immediately at start of content
+
+      const handleData = (chunk: Buffer) => {
+        awaitingFileDrain = false;
+        chunkSplitter.push(chunk);
+        if (fileStream && awaitingFileDrain) {
+          source.pause();
+          fileStream._readcb = () => source.resume();
+        }
+      };
+
+      const handleEnd = () => {
+        if (state === STATE_ERROR) {
+          return;
+        }
+        if (state !== STATE_COMPLETE) {
+          chunkSplitter.destroy();
+          if (state !== STATE_COMPLETE) {
+            return handleError(new HTTPError(400, { body: 'unexpected end of form' }));
+          }
+        }
+        source.off('data', handleData);
+        source.off('end', handleEnd);
+        finalcb = () => {
+          source.off('error', handleError);
+          resolve();
+        };
+        if (!activeFileStreams) {
+          finalcb();
+        }
+      };
+
+      const handleError = (err: unknown) => {
+        if (state === STATE_ERROR) {
+          return;
+        }
+        state = STATE_ERROR;
+        source.off('data', handleData);
+        source.off('end', handleEnd);
+        source.off('error', handleError);
+        if (fileStream) {
+          fileStream.destroy(err instanceof Error ? err : new Error(String(err)));
+        }
+        reject(err);
+      };
+
+      source.on('data', handleData);
+      source.once('end', handleEnd);
+      source.once('error', handleError);
     });
-
-    // Just in case there is no preamble
-    this.write(BUF_CRLF);
-  }
-
-  /** @internal */
-  _checkEndState() {
-    if (this._hparser) {
-      return new HTTPError(400, { body: 'malformed part header' });
-    }
-    const fileStream = this._fileStream;
-    if (fileStream) {
-      this._fileStream = undefined;
-      fileStream.destroy(new HTTPError(400, { body: 'unexpected end of file' }));
-    }
-    if (!this._complete) {
-      return new HTTPError(400, { body: 'unexpected end of form' });
-    }
-    return null;
-  }
-}
-
-function write(
-  this: Multipart,
-  chunk: Buffer,
-  _: BufferEncoding,
-  cb: (error?: Error | null) => void,
-) {
-  this._awaitingFileDrain = false;
-  this._bparser.push(chunk);
-  if (this._fileStream && this._awaitingFileDrain) {
-    this._fileStream._readcb = cb;
-  } else {
-    cb();
-  }
-}
-
-function destroy(this: Multipart, error: Error | null, cb: (error?: Error | null) => void) {
-  this._hparser = undefined;
-  this._bparser = IGNORE_DATA;
-  error ??= this._checkEndState();
-  const fileStream = this._fileStream;
-  if (fileStream) {
-    this._fileStream = undefined;
-    fileStream.destroy(error ?? undefined);
-  }
-  cb(error);
-}
-
-function final(this: Multipart, cb: (error?: Error | null) => void) {
-  this._bparser.destroy();
-  if (!this._complete) {
-    return cb(new HTTPError(400, { body: 'unexpected end of form' }));
-  }
-  if (this._activeFileStreams) {
-    this._finalcb = () => cb(this._checkEndState());
-  } else {
-    cb(this._checkEndState());
-  }
 }
 
 const MAX_HEADER_SIZE = 16 * 1024; // From node (its default value)
@@ -476,26 +468,6 @@ const PART_HEADERS = new Map<string, HeaderInfo>([
 
 class FileStream extends Readable {
   /** @internal */ declare _readcb: (() => void) | undefined;
-  declare truncated: boolean;
-
-  constructor(opts: ReadableOptions, owner: Multipart) {
-    super(opts);
-    this.truncated = false;
-    this.once('close', () => {
-      // We need to make sure that we call any outstanding _writecb() that is
-      // associated with this file so that processing of the rest of the form
-      // can continue. This may not happen if the file stream ends right after
-      // backpressure kicks in, so we force it here.
-      read.call(this);
-      if (!--owner._activeFileStreams && owner._finalcb) {
-        const cb = owner._finalcb;
-        owner._finalcb = undefined;
-        // Make sure other 'end' event handlers get a chance to be executed
-        // before busboy's 'finish' event is emitted
-        process.nextTick(cb);
-      }
-    });
-  }
 }
 
 function read(this: FileStream, _?: number) {
@@ -505,8 +477,6 @@ function read(this: FileStream, _?: number) {
     cb();
   }
 }
-
-const IGNORE_DATA = { push: () => {}, destroy: () => {} };
 
 function osIndependentBasename(path: string) {
   for (let i = path.length; i-- > 0; ) {
