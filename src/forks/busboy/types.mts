@@ -61,6 +61,7 @@ export type BusboyInstance = Omit<Writable, keyof NodeJS.EventEmitter> &
     close: [];
     drain: [];
     error: [error: Error];
+    warn: [warning: Error];
     finish: [];
     pipe: [src: Readable];
     unpipe: [src: Readable];

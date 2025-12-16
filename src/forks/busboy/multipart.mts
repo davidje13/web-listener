@@ -8,11 +8,11 @@ import type { BusboyOptions } from './types.mts';
 
 export class Multipart extends Writable {
   /** @internal */ declare _bparser: Pick<StreamSearch, 'push' | 'destroy'>;
-  /** @internal */ declare _writecb: (() => void) | undefined;
+  /** @internal */ declare _awaitingFileDrain: boolean;
   /** @internal */ declare _fileStream: FileStream | undefined;
   /** @internal */ declare _complete: boolean;
   /** @internal */ declare _hparser: HeaderParser | undefined;
-  /** @internal */ declare _fileEndsLeft: number;
+  /** @internal */ declare _activeFileStreams: number;
   /** @internal */ declare _finalcb: (() => void) | undefined;
 
   constructor(
@@ -44,7 +44,12 @@ export class Multipart extends Writable {
       throw new HTTPError(400, { body: 'multipart boundary too long' });
     }
     const paramDecoder = getTextDecoder(defParamCharset);
-    const fileOpts = { autoDestroy: true, emitClose: true, highWaterMark: fileHwm };
+    const fileOpts = {
+      autoDestroy: true,
+      emitClose: true,
+      highWaterMark: fileHwm,
+      read,
+    } as ReadableOptions;
 
     const fieldSizeLimit = limits.fieldSize ?? 1 * 1024 * 1024;
     const fileSizeLimit = limits.fileSize ?? Number.POSITIVE_INFINITY;
@@ -58,7 +63,8 @@ export class Multipart extends Writable {
     let files = 0;
     let partSizeRemaining = -1;
 
-    this._fileEndsLeft = 0;
+    this._awaitingFileDrain = false;
+    this._activeFileStreams = 0;
     this._complete = false;
 
     let field: string | undefined;
@@ -82,7 +88,7 @@ export class Multipart extends Writable {
       }
       partName = disp.params.get('name');
       if (partName === undefined) {
-        this.emit('error', new HTTPError(400, { body: 'missing field name' }));
+        this.emit('warn', new HTTPError(400, { body: 'missing field name' }));
         partSizeRemaining = -1;
         return;
       }
@@ -114,7 +120,7 @@ export class Multipart extends Writable {
           return;
         }
         this._fileStream = new FileStream(fileOpts, this);
-        ++this._fileEndsLeft;
+        ++this._activeFileStreams;
         this.emit('field', {
           name: partName,
           _nameTruncated: nameTruncated,
@@ -149,13 +155,11 @@ export class Multipart extends Writable {
         if (matchPostBoundary) {
           if (matchPostBoundary === 1) {
             if (data[start] === 13) {
-              // Try matching CR LF before header
-              matchPostBoundary = 2;
+              matchPostBoundary = 2; // Try matching CR LF before header
             } else if (data[start] === 45) {
-              // Try matching '--' after boundary
-              matchPostBoundary = 3;
+              matchPostBoundary = 3; // Try matching '--' after boundary
             } else {
-              matchPostBoundary = 0;
+              matchPostBoundary = 0; // invalid section (skip)
               return;
             }
             if (++start === end) {
@@ -195,7 +199,7 @@ export class Multipart extends Writable {
           if (ret === -1) {
             this._hparser = undefined;
             hparser.reset();
-            this.emit('error', new HTTPError(400, { body: 'malformed part header' }));
+            this.emit('warn', new HTTPError(400, { body: 'malformed part header' }));
             return;
           }
           if (ret === end) {
@@ -216,13 +220,13 @@ export class Multipart extends Writable {
                 data.copy(safeData, 0, start, stop);
               }
               if (!this._fileStream.push(safeData)) {
-                this._fileStream._readcb ??= this._writecb;
-                this._writecb = undefined;
+                this._awaitingFileDrain = true;
               }
             }
             if (partSizeRemaining < 0) {
               this._fileStream.emit('limit');
               this._fileStream.truncated = true;
+              this._awaitingFileDrain = false;
             }
           } else if (field !== undefined) {
             field += data.latin1Slice(start, stop);
@@ -231,12 +235,13 @@ export class Multipart extends Writable {
       } finally {
         if (isMatch) {
           if (this._hparser) {
-            this.emit('error', new HTTPError(400, { body: 'unexpected end of headers' }));
+            this.emit('warn', new HTTPError(400, { body: 'unexpected end of headers' }));
             this._hparser = undefined;
           } else if (this._fileStream) {
             // End the active file stream if the previous part was a file
             this._fileStream.push(null);
             this._fileStream = undefined;
+            this._awaitingFileDrain = false;
           } else if (field !== undefined) {
             this.emit('field', {
               name: partName,
@@ -282,12 +287,12 @@ function write(
   _: BufferEncoding,
   cb: (error?: Error | null) => void,
 ) {
-  this._writecb = cb;
+  this._awaitingFileDrain = false;
   this._bparser.push(chunk);
-  const cbDone = this._writecb;
-  if (cbDone) {
-    this._writecb = undefined;
-    cbDone();
+  if (this._fileStream && this._awaitingFileDrain) {
+    this._fileStream._readcb = cb;
+  } else {
+    cb();
   }
 }
 
@@ -308,7 +313,7 @@ function final(this: Multipart, cb: (error?: Error | null) => void) {
   if (!this._complete) {
     return cb(new HTTPError(400, { body: 'unexpected end of form' }));
   }
-  if (this._fileEndsLeft) {
+  if (this._activeFileStreams) {
     this._finalcb = () => cb(this._checkEndState());
   } else {
     cb(this._checkEndState());
@@ -474,15 +479,15 @@ class FileStream extends Readable {
   declare truncated: boolean;
 
   constructor(opts: ReadableOptions, owner: Multipart) {
-    super({ ...opts, read } as ReadableOptions);
+    super(opts);
     this.truncated = false;
-    this.once('end', () => {
+    this.once('close', () => {
       // We need to make sure that we call any outstanding _writecb() that is
       // associated with this file so that processing of the rest of the form
       // can continue. This may not happen if the file stream ends right after
       // backpressure kicks in, so we force it here.
       read.call(this);
-      if (--owner._fileEndsLeft === 0 && owner._finalcb) {
+      if (!--owner._activeFileStreams && owner._finalcb) {
         const cb = owner._finalcb;
         owner._finalcb = undefined;
         // Make sure other 'end' event handlers get a chance to be executed

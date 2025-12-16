@@ -68,6 +68,7 @@ export function getFormFields(
     }
   });
   bus.once('error', (error) => fail(400, { body: 'error parsing form data', cause: error }));
+  bus.once('warn', (error) => fail(400, { body: 'error parsing form data', cause: error }));
   bus.once('limit', (type) => fail(400, { body: `too many ${type}` }));
 
   const stop = () => output.close('complete');

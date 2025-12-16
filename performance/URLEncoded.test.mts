@@ -1,4 +1,6 @@
 #!/usr/bin/env -S node --disable-proto=throw --disallow-code-generation-from-strings --force-node-api-uncaught-exceptions-policy --no-addons --pending-deprecation --throw-deprecation --frozen-intrinsics --no-warnings=ExperimentalWarning
+import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 import OriginalBusboy from 'busboy';
 import { busboy } from '../src/forks/busboy/busboy.mts';
 import { drawTable, makeList, profile, splitChunks, type ProfilerResult } from './util.mts';
@@ -6,30 +8,24 @@ import { drawTable, makeList, profile, splitChunks, type ProfilerResult } from '
 const implementations: ImplementationDef[] = [
   {
     name: 'this project',
-    run: (chunks) => () => {
+    run: (chunks) => async () => {
       const r: unknown[] = [];
       const o = busboy({ 'content-type': 'application/x-www-form-urlencoded' });
       o.on('field', ({ name, value }) => r.push({ name, value }));
-      for (const chunk of chunks) {
-        o.write(chunk);
-      }
-      o.end();
+      await pipeline(Readable.from(chunks), o);
       return r;
     },
   },
   {
     name: 'busboy@1.6.0',
-    run: (chunks) => () => {
+    run: (chunks) => async () => {
       const r: unknown[] = [];
       const o = OriginalBusboy({
         headers: { 'content-type': 'application/x-www-form-urlencoded' },
         defCharset: 'utf-8',
       });
       o.on('field', (name, value) => r.push({ name, value }));
-      for (const chunk of chunks) {
-        o.write(chunk);
-      }
-      o.end();
+      await pipeline(Readable.from(chunks), o);
       return r;
     },
   },
@@ -75,7 +71,7 @@ const chunkSizes = [100000, 2000, 100];
 
 interface ImplementationDef {
   name: string;
-  run: (chunks: Buffer[]) => () => unknown[];
+  run: (chunks: Buffer[]) => () => Promise<unknown[]>;
 }
 
 interface InputDef {

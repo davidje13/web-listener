@@ -1,4 +1,6 @@
 import { randomFillSync } from 'node:crypto';
+import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 import type { BusboyInstance, BusboyOptions, FieldData } from './types.mts';
 import { busboy } from './busboy.mts';
 import 'lean-test';
@@ -133,7 +135,7 @@ const tests: TestDef[] = [
       ],
     ],
     boundary: COMMON_BOUNDARY,
-    expected: [{ error: 'missing field name' }],
+    expected: [{ warn: 'missing field name' }],
   },
   {
     name: 'Fields and files (limits)',
@@ -392,7 +394,7 @@ const tests: TestDef[] = [
     name: 'Invalid part header',
     source: [[`--${COMMON_BOUNDARY}`, ': oops', '', '', `--${COMMON_BOUNDARY}--`]],
     boundary: COMMON_BOUNDARY,
-    expected: [{ error: 'malformed part header' }],
+    expected: [{ warn: 'malformed part header' }],
   },
   {
     name: 'Stopped during a broken header',
@@ -405,7 +407,7 @@ const tests: TestDef[] = [
       ],
     ],
     boundary: COMMON_BOUNDARY,
-    expected: [{ error: 'malformed part header' }, { error: 'unexpected end of form' }],
+    expected: [{ warn: 'malformed part header' }, { error: 'unexpected end of form' }],
   },
   {
     name: 'Stopped before end of last headers',
@@ -418,7 +420,7 @@ const tests: TestDef[] = [
       ],
     ],
     boundary: COMMON_BOUNDARY,
-    expected: [{ error: 'unexpected end of headers' }],
+    expected: [{ warn: 'unexpected end of headers' }],
   },
   {
     name: 'Stopped before end of headers',
@@ -436,7 +438,7 @@ const tests: TestDef[] = [
       ],
     ],
     boundary: COMMON_BOUNDARY,
-    expected: [{ error: 'unexpected end of headers' }],
+    expected: [{ warn: 'unexpected end of headers' }],
   },
   {
     name: 'content-type for fields',
@@ -779,7 +781,7 @@ const tests: TestDef[] = [
     ],
     boundary: COMMON_BOUNDARY,
     expected: [
-      { error: 'malformed part header' },
+      { warn: 'malformed part header' },
       {
         ...COMMON_FILE,
         name: 'upload_file_1',
@@ -1035,7 +1037,7 @@ const tests: TestDef[] = [
 describe('Multipart', () => {
   it(
     'reads multipart/form-data content',
-    { parameters: tests },
+    { parameters: tests, timeout: 3000 },
     async ({ boundary, source, expected, options }: any) => {
       const bb = busboy({ 'content-type': `multipart/form-data; boundary=${boundary}` }, options);
       const closed = captureEvents(bb);
@@ -1050,7 +1052,7 @@ describe('Multipart', () => {
 
   it(
     'works when given one byte at a time',
-    { parameters: tests },
+    { parameters: tests, timeout: 3000 },
     async ({ boundary, source, expected, options }: any) => {
       const bb = busboy({ 'content-type': `multipart/form-data; boundary=${boundary}` }, options);
       const closed = captureEvents(bb);
@@ -1066,13 +1068,29 @@ describe('Multipart', () => {
     },
   );
 
+  it(
+    'works when fed data via a pipe',
+    { parameters: tests, timeout: 3000 },
+    async ({ boundary, source, expected, options }: any) => {
+      const bb = busboy({ 'content-type': `multipart/form-data; boundary=${boundary}` }, options);
+      const closed = captureEvents(bb);
+      const parts: Buffer[] = [];
+      for (const src of source) {
+        parts.push(src instanceof Buffer ? src : Buffer.from(src.join('\r\n'), 'utf-8'));
+      }
+      Readable.from(parts).pipe(bb);
+      const results = await closed;
+      expect(results).equals(expected);
+    },
+  );
+
   it('rejects an empty boundary', () => {
     expect(() => busboy({ 'content-type': 'multipart/form-data; boundary=""' })).throws(
       'multipart boundary not found',
     );
   });
 
-  it('waits for file streams to be consumed before continuing', async () => {
+  it('waits for file streams to be consumed before continuing', { timeout: 3000 }, async () => {
     const BOUNDARY = 'u2KxIV5yF1y+xUspOQCCZopaVgeV6Jxihv35XQJmuTx8X3sh';
 
     function formDataSection(key: string, value: string) {
@@ -1111,24 +1129,31 @@ describe('Multipart', () => {
       } else {
         const { value, ...rest } = data;
         results.push({ ...rest, limited: false, truncated: false, err: undefined });
+        value.on('error', (error) => results.push({ error: error.message }));
+        value.on('close', () => results.push('filestream-close'));
+        value.on('end', () => results.push('filestream-end'));
+        setTimeout(() => value.resume(), 10);
         // Simulate a pipe where the destination is pausing
         // (perhaps due to waiting for file system write to finish)
-        setTimeout(() => value.resume(), 10);
+        value.on('data', () => results.push('data'));
       }
     });
+    bb.on('error', (error) => results.push({ error: error.message }));
+    bb.on('warn', (error) => results.push({ warn: error.message }));
+    bb.on('close', () => results.push('bb-close'));
+    bb.on('finish', () => results.push('bb-finish'));
 
-    await new Promise<void>((resolve) => {
-      bb.on('close', resolve);
-      for (const chunk of reqChunks) {
-        bb.write(chunk);
-      }
-      bb.end();
-    });
+    await pipeline(Readable.from(reqChunks), bb);
 
     expect(results).equals([
       { ...COMMON_FILE, name: 'file', filename: 'file.bin' },
       { ...COMMON_FIELD, name: 'foo', value: 'foo value' },
       { ...COMMON_FIELD, name: 'bar', value: 'bar value' },
+      'data',
+      'filestream-end',
+      'filestream-close',
+      'bb-finish',
+      'bb-close',
     ]);
   });
 });
@@ -1136,7 +1161,7 @@ describe('Multipart', () => {
 function captureEvents(bb: BusboyInstance): Promise<unknown[]> {
   const results: unknown[] = [];
 
-  bb.on('field', (data) => {
+  bb.on('field', async (data) => {
     if (data.type === 'string') {
       results.push(data);
     } else {
@@ -1169,6 +1194,7 @@ function captureEvents(bb: BusboyInstance): Promise<unknown[]> {
   });
 
   bb.on('error', (error) => results.push({ error: error.message }));
+  bb.on('warn', (error) => results.push({ warn: error.message }));
   bb.on('limit', (type) => results.push(type + 'Limit'));
 
   return new Promise((resolve) => bb.on('close', () => resolve(results)));

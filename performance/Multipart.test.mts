@@ -1,63 +1,40 @@
 #!/usr/bin/env -S node --disable-proto=throw --disallow-code-generation-from-strings --force-node-api-uncaught-exceptions-policy --no-addons --pending-deprecation --throw-deprecation --frozen-intrinsics --no-warnings=ExperimentalWarning
+import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 import OriginalBusboy from 'busboy';
 import { busboy } from '../src/forks/busboy/busboy.mts';
 import { drawTable, makeList, profile, splitChunks, type ProfilerResult } from './util.mts';
-import { buffer } from 'node:stream/consumers';
 
 const implementations: ImplementationDef[] = [
   {
     name: 'this project',
-    run: (chunks, boundary) => () =>
-      new Promise((resolve) => {
-        let n = 0;
-        const r: unknown[] = [];
-        const o = busboy({ 'content-type': `multipart/form-data; boundary=${boundary}` });
-        o.on('field', async (data) => {
-          if (data.type === 'string') {
-            r.push({ name: data.name, value: data.value });
-          } else {
-            ++n;
-            r.push({ name: data.name, data: await buffer(data.value) });
-            if (!--n) {
-              resolve(r);
-            }
-          }
-        });
-        for (const chunk of chunks) {
-          o.write(chunk);
+    run: (chunks, boundary) => async () => {
+      const r: unknown[] = [];
+      const o = busboy({ 'content-type': `multipart/form-data; boundary=${boundary}` });
+      o.on('field', (field) => {
+        if (field.type === 'string') {
+          r.push({ name: field.name, value: field.value });
+        } else {
+          consume(field.value, (data) => r.push({ name: field.name, data }));
         }
-        o.end();
-        if (!n) {
-          resolve(r);
-        }
-      }),
+      });
+      await pipeline(Readable.from(chunks), o);
+      return r;
+    },
   },
   {
     name: 'busboy@1.6.0',
-    run: (chunks, boundary) => () =>
-      new Promise((resolve) => {
-        let n = 0;
-        const r: unknown[] = [];
-        const o = OriginalBusboy({
-          headers: { 'content-type': `multipart/form-data; boundary=${boundary}` },
-          defCharset: 'utf-8',
-        });
-        o.on('field', (name, value) => r.push({ name, value }));
-        o.on('file', async (name, stream) => {
-          ++n;
-          r.push({ name, data: await buffer(stream) });
-          if (!--n) {
-            resolve(r);
-          }
-        });
-        for (const chunk of chunks) {
-          o.write(chunk);
-        }
-        o.end();
-        if (!n) {
-          resolve(r);
-        }
-      }),
+    run: (chunks, boundary) => async () => {
+      const r: unknown[] = [];
+      const o = OriginalBusboy({
+        headers: { 'content-type': `multipart/form-data; boundary=${boundary}` },
+        defCharset: 'utf-8',
+      });
+      o.on('field', (name, value) => r.push({ name, value }));
+      o.on('file', (name, stream) => consume(stream, (data) => r.push({ name, data })));
+      await pipeline(Readable.from(chunks), o);
+      return r;
+    },
   },
 ];
 
@@ -165,4 +142,16 @@ function makeInput(fields: [string, string][], boundary: string) {
     ),
     answer: fields.map(([name, value]) => ({ name, value })),
   };
+}
+
+function consume(v: Readable, callback: (buffer: Buffer) => void) {
+  let totalBytes = 0;
+  const chunks: Buffer[] = [];
+  v.on('data', (chunk) => {
+    chunks.push(chunk);
+    totalBytes += chunk.byteLength;
+  });
+  v.once('end', () => {
+    callback(Buffer.concat(chunks, totalBytes));
+  });
 }
