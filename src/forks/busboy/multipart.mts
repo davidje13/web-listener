@@ -146,11 +146,9 @@ export function getMultipartFormFields(
       });
 
       const needle = Buffer.from(`\r\n--${boundary}`, 'latin1');
-      const chunkSplitter = new StreamSearch(needle, (isMatch, data, start, end, isDataSafe) => {
-        if (state >= STATE_COMPLETE) {
-          return;
-        }
-        try {
+      const chunkSplitter = new StreamSearch(
+        needle,
+        (data, start, end, isDataSafe) => {
           if (start === end) {
             return;
           }
@@ -226,39 +224,38 @@ export function getMultipartFormFields(
               field += data.latin1Slice(start, stop);
             }
           }
-        } finally {
-          if (isMatch) {
-            if (state >= STATE_COMPLETE) {
-              return;
-            }
-            if (state === STATE_HEADER) {
-              return handleError(new HTTPError(400, { body: 'unexpected end of headers' }));
-            }
-            if (fileStream) {
-              // End the active file stream if the previous part was a file
-              fileStream.push(null);
-              fileStream = undefined;
-              awaitingFileDrain = false;
-            } else if (field !== undefined) {
-              try {
-                callback({
-                  name: partName!,
-                  _nameTruncated: nameTruncated,
-                  type: 'string',
-                  value: partDecoder.decode(Buffer.from(field, 'latin1')),
-                  _valueTruncated: partSizeRemaining < 0,
-                  encoding: partEncoding,
-                  mimeType: partType,
-                });
-              } catch (err: unknown) {
-                return handleError(err);
-              }
-              field = undefined;
-            }
-            state = STATE_POST_BOUNDARY;
+        },
+        () => {
+          if (state >= STATE_COMPLETE) {
+            return;
           }
-        }
-      });
+          if (state === STATE_HEADER) {
+            return handleError(new HTTPError(400, { body: 'unexpected end of headers' }));
+          }
+          if (fileStream) {
+            // End the active file stream if the previous part was a file
+            fileStream.push(null);
+            fileStream = undefined;
+            awaitingFileDrain = false;
+          } else if (field !== undefined) {
+            try {
+              callback({
+                name: partName!,
+                _nameTruncated: nameTruncated,
+                type: 'string',
+                value: partDecoder.decode(Buffer.from(field, 'latin1')),
+                _valueTruncated: partSizeRemaining < 0,
+                encoding: partEncoding,
+                mimeType: partType,
+              });
+            } catch (err: unknown) {
+              return handleError(err);
+            }
+            field = undefined;
+          }
+          state = STATE_POST_BOUNDARY;
+        },
+      );
 
       chunkSplitter.push(BUF_CRLF); // allow matching boundary immediately at start of content
 

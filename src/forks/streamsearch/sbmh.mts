@@ -10,7 +10,6 @@
 import { VOID_BUFFER } from '../../util/voidBuffer.mts';
 
 export type StreamSearchCallback = (
-  isMatch: boolean,
   data: Buffer,
   start: number,
   end: number,
@@ -20,17 +19,19 @@ export type StreamSearchCallback = (
 export class StreamSearch {
   /** @internal */ declare private readonly _needle: Buffer;
   /** @internal */ declare private readonly _cb: StreamSearchCallback;
+  /** @internal */ declare private readonly _needleCb: () => void;
   /** @internal */ declare private _lookbehind: Buffer | null;
   /** @internal */ declare private _lookbehindSize: number;
   /** @internal */ declare private _occ: Uint16Array | null;
 
-  constructor(needle: Buffer, callback: StreamSearchCallback) {
+  constructor(needle: Buffer, contentCallback: StreamSearchCallback, needleCallback: () => void) {
     const needleLen = needle.byteLength;
     if (!needleLen || needleLen > 65535) {
       throw new RangeError('invalid needle');
     }
     this._needle = needle;
-    this._cb = callback;
+    this._cb = contentCallback;
+    this._needleCb = needleCallback;
     this._lookbehind = null;
     this._lookbehindSize = 0;
     this._occ = null;
@@ -68,7 +69,8 @@ export class StreamSearch {
           ch === lastNeedleChar &&
           !data.compare(needle, -pos, needleLenM1, 0, pos + needleLenM1)
         ) {
-          this._cb(true, VOID_BUFFER, 0, 0, true);
+          this._cb(VOID_BUFFER, 0, 0, true);
+          this._needleCb();
           this._lookbehindSize = 0;
           begin = pos += needleLenM1 + 1;
         } else {
@@ -92,7 +94,8 @@ export class StreamSearch {
           !lookbehind.compare(needle, 0, -pos, this._lookbehindSize + pos, this._lookbehindSize) &&
           !data.compare(needle, -pos, needleLenM1, 0, pos + needleLenM1)
         ) {
-          this._cb(true, lookbehind, 0, this._lookbehindSize + pos, false);
+          this._cb(lookbehind, 0, this._lookbehindSize + pos, false);
+          this._needleCb();
           this._lookbehindSize = 0;
           begin = pos += needleLenM1 + 1;
           break;
@@ -117,7 +120,7 @@ export class StreamSearch {
           ) {
             // Remove prefix from lookbehind buffer that can no-longer be part of the needle
             if (found) {
-              this._cb(false, lookbehind, 0, found, false);
+              this._cb(lookbehind, 0, found, false);
               lookbehind.copy(lookbehind, 0, found, lbStart);
             }
 
@@ -129,7 +132,7 @@ export class StreamSearch {
           pos = found + 1 - lbSize;
         }
 
-        this._cb(false, lookbehind, 0, lbSize, false);
+        this._cb(lookbehind, 0, lbSize, false);
         this._lookbehindSize = 0;
       }
     }
@@ -141,7 +144,8 @@ export class StreamSearch {
     while (pos < end) {
       const found = data.indexOf(needle, pos);
       if (found !== -1) {
-        this._cb(true, data, begin, found, true);
+        this._cb(data, begin, found, true);
+        this._needleCb();
         if (found === end + 1) {
           return;
         }
@@ -158,7 +162,7 @@ export class StreamSearch {
     while (pos < len) {
       const found = data.indexOf(firstNeedleChar, pos);
       if (found === -1) {
-        this._cb(false, data, begin, len, true);
+        this._cb(data, begin, len, true);
         return;
       }
       if (!data.compare(needle, 1, len - found, found + 1)) {
@@ -174,7 +178,7 @@ export class StreamSearch {
         data.copy(this._lookbehind, 0, found);
         this._lookbehindSize = len - found;
         if (found > begin) {
-          this._cb(false, data, begin, found, true);
+          this._cb(data, begin, found, true);
         }
         return;
       }
@@ -182,14 +186,14 @@ export class StreamSearch {
     }
 
     if (len > begin) {
-      this._cb(false, data, begin, len, true);
+      this._cb(data, begin, len, true);
     }
   }
 
   destroy() {
     const lbSize = this._lookbehindSize;
     if (lbSize && this._lookbehind) {
-      this._cb(false, this._lookbehind, 0, lbSize, false);
+      this._cb(this._lookbehind, 0, lbSize, false);
     }
     this._lookbehindSize = 0;
   }

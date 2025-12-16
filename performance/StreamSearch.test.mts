@@ -11,13 +11,16 @@ const implementations: ImplementationDef[] = [
       let n = 0;
       const needleLen = needle.byteLength;
       const r: number[] = [];
-      const ss = new StreamSearch(needle, (match, _data, start, end) => {
-        n += end - start;
-        if (match) {
+      const ss = new StreamSearch(
+        needle,
+        (_data, start, end) => {
+          n += end - start;
+        },
+        () => {
           r.push(n);
           n += needleLen;
-        }
-      });
+        },
+      );
       for (const chunk of haystack) {
         ss.push(chunk);
       }

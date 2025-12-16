@@ -1,192 +1,146 @@
 import { StreamSearch, type StreamSearchCallback } from './sbmh.mts';
 import 'lean-test';
 
-const tests = [
+const tests: TestDef[] = [
   {
     name: 'single character needle',
     needle: '\n',
     chunks: 'fo|o\n|bar|\nbaz\n|\n',
-    expected: [
-      [false, 'fo'],
-      [true, 'o'],
-      [false, 'bar'],
-      [true, ''],
-      [true, 'baz'],
-      [true, ''],
-    ],
+    expected: ['fo', 'o', null, 'bar', '', null, 'baz', null, '', null],
   },
   {
     name: 'small needle',
     needle: '\r\n',
     chunks: 'foo| bar|\r|\n|baz, hello\r|\n world.|\r\n Node.JS rules!!\r\n\r\n',
     expected: [
-      [false, 'foo'],
-      [false, ' bar'],
-      [true, ''],
-      [false, 'baz, hello'],
-      [true, ''],
-      [false, ' world.'],
-      [true, ''],
-      [true, ' Node.JS rules!!'],
-      [true, ''],
+      'foo',
+      ' bar',
+      '',
+      null,
+      'baz, hello',
+      '',
+      null,
+      ' world.',
+      '',
+      null,
+      ' Node.JS rules!!',
+      null,
+      '',
+      null,
     ],
   },
   {
     name: 'medium needle',
     needle: '---foobarbaz',
     chunks: '---foobarbaz|asdf|\r\n|---foobarba|---foobar|ba|\r\n---foobarbaz--\r\n',
-    expected: [
-      [true, ''],
-      [false, 'asdf'],
-      [false, '\r\n'],
-      [false, '---foobarba'],
-      [false, '---foobarba'],
-      [true, '\r\n'],
-      [false, '--\r\n'],
-    ],
+    expected: ['', null, 'asdf', '\r\n', '---foobarba', '---foobarba', '\r\n', null, '--\r\n'],
   },
   {
     name: 'needle immediately after partial match',
     needle: '---foobarbaz',
     chunks: 'before---foobarba---foobarbazafter',
-    expected: [
-      [true, 'before---foobarba'],
-      [false, 'after'],
-    ],
+    expected: ['before---foobarba', null, 'after'],
   },
   {
     name: 'easily skippable needle',
     needle: 'abcdefghijklmnopqrstuvwxyz',
     chunks: '------------------abcdefghijklmnopqrstuvwxyzafter',
-    expected: [
-      [true, '------------------'],
-      [false, 'after'],
-    ],
+    expected: ['------------------', null, 'after'],
   },
   {
     name: 'difficult needle',
     needle: '--------------------.',
     chunks: 'before------------------------------------------------------------.after',
-    expected: [
-      [true, 'before----------------------------------------'],
-      [false, 'after'],
-    ],
+    expected: ['before----------------------------------------', null, 'after'],
   },
   {
     name: 'end with partial needle',
     needle: 'abcd',
     chunks: 'ab',
-    expected: [[false, 'ab']],
+    expected: ['ab'],
   },
   {
     name: 'end with partial difficult needle',
     needle: '--------------------.',
     chunks: '--------------------------------------',
-    expected: [
-      [false, '------------------'],
-      [false, '--------------------'],
-    ],
+    expected: ['------------------', '--------------------'],
   },
   {
     name: 'false match followed by match in lookbehind',
     needle: 'ababba',
     chunks: 'beforeabab|abbaafter',
-    expected: [
-      [false, 'before'],
-      [true, 'ab'],
-      [false, 'after'],
-    ],
+    expected: ['before', 'ab', null, 'after'],
   },
   {
     name: 'partial false matches across boundaries',
     needle: 'ababba',
     chunks: '0|ababba1a|ababba2ab|ababba3aba|ababba4abab|ababba5ababb|xababba',
     expected: [
-      [false, '0'],
-      [true, ''],
-      [false, '1'],
-      [false, 'a'],
-      [true, ''],
-      [false, '2'],
-      [false, 'ab'],
-      [true, ''],
-      [false, '3'],
-      [false, 'aba'],
-      [true, ''],
-      [false, '4'],
-      [false, 'abab'],
-      [true, ''],
-      [false, '5'],
-      [false, 'ababb'],
-      [true, 'x'],
+      '0',
+      '',
+      null,
+      '1',
+      'a',
+      '',
+      null,
+      '2',
+      'ab',
+      '',
+      null,
+      '3',
+      'aba',
+      '',
+      null,
+      '4',
+      'abab',
+      '',
+      null,
+      '5',
+      'ababb',
+      'x',
+      null,
     ],
   },
   {
     name: 'partial subsequent matches across boundaries',
     needle: 'ababba',
     chunks: '0|ababba1a|babba2ab|abba3aba|babba4abab|abba',
-    expected: [
-      [false, '0'],
-      [true, ''],
-      [false, '1'],
-      [true, ''],
-      [false, '2'],
-      [true, ''],
-      [false, '3'],
-      [true, 'ab'],
-      [false, '4'],
-      [true, 'ab'],
-    ],
+    expected: ['0', '', null, '1', '', null, '2', '', null, '3', 'ab', null, '4', 'ab', null],
   },
   {
     name: 'false matches across multiple boundaries',
     needle: '-----.',
     chunks: '--|--|---|x--|---x|-|--|--|-|.',
-    expected: [
-      [false, '--'],
-      [false, '-----'],
-      [false, 'x'],
-      [false, '--'],
-      [false, '---x'],
-      [false, '-'],
-      [true, ''],
-    ],
+    expected: ['--', '-----', 'x', '--', '---x', '-', '', null],
   },
   {
     name: 'extended false match across multiple boundaries',
     needle: '-----.',
     chunks: '-|--|---|----|-----|----|---|--|-|--|----..........',
-    expected: [
-      [false, '-'],
-      [false, '----'],
-      [false, '-----'],
-      [false, '----'],
-      [false, '---'],
-      [false, '--'],
-      [false, '-'],
-      [false, '--'],
-      [true, '----'],
-      [false, '.........'],
-    ],
+    expected: ['-', '----', '-----', '----', '---', '--', '-', '--', '----', null, '.........'],
   },
   {
     name: 'false match just before true match across boundary (repetitive needle with suffix)',
     needle: '-----.',
     chunks: '1--|--------.2--|-------.3--|------.4--|-----.5',
     expected: [
-      [false, '1'],
-      [false, '--'],
-      [true, '---'],
-      [false, '2'],
-      [false, '--'],
-      [true, '--'],
-      [false, '3'],
-      [false, '--'],
-      [true, '-'],
-      [false, '4'],
-      [false, '--'],
-      [true, ''],
-      [false, '5'],
+      '1',
+      '--',
+      '---',
+      null,
+      '2',
+      '--',
+      '--',
+      null,
+      '3',
+      '--',
+      '-',
+      null,
+      '4',
+      '--',
+      '',
+      null,
+      '5',
     ],
   },
   {
@@ -194,21 +148,26 @@ const tests = [
     needle: '.-----',
     chunks: '1.-|---.-----2.-|--.-----3.-|-.-----4.-|.-----5..|-----6',
     expected: [
-      [false, '1'],
-      [false, '.-'],
-      [true, '---'],
-      [false, '2'],
-      [false, '.-'],
-      [true, '--'],
-      [false, '3'],
-      [false, '.-'],
-      [true, '-'],
-      [false, '4'],
-      [false, '.-'],
-      [true, ''],
-      [false, '5.'],
-      [true, ''],
-      [false, '6'],
+      '1',
+      '.-',
+      '---',
+      null,
+      '2',
+      '.-',
+      '--',
+      null,
+      '3',
+      '.-',
+      '-',
+      null,
+      '4',
+      '.-',
+      '',
+      null,
+      '5.',
+      '',
+      null,
+      '6',
     ],
   },
   {
@@ -216,51 +175,48 @@ const tests = [
     needle: 'abcdef',
     chunks: '1ab|cdeabcdef2ab|cdabcdef3ab|cabcdef4ab|abcdef5',
     expected: [
-      [false, '1'],
-      [false, 'ab'],
-      [true, 'cde'],
-      [false, '2'],
-      [false, 'ab'],
-      [true, 'cd'],
-      [false, '3'],
-      [false, 'ab'],
-      [true, 'c'],
-      [false, '4'],
-      [false, 'ab'],
-      [true, ''],
-      [false, '5'],
+      '1',
+      'ab',
+      'cde',
+      null,
+      '2',
+      'ab',
+      'cd',
+      null,
+      '3',
+      'ab',
+      'c',
+      null,
+      '4',
+      'ab',
+      '',
+      null,
+      '5',
     ],
   },
   {
     name: 'at start',
     needle: '\r\n',
     chunks: '\r\nfoo',
-    expected: [
-      [true, ''],
-      [false, 'foo'],
-    ],
+    expected: ['', null, 'foo'],
   },
   {
     name: 'empty section',
     needle: '\r\n',
     chunks: 'foo\r\n\r\nbar',
-    expected: [
-      [true, 'foo'],
-      [true, ''],
-      [false, 'bar'],
-    ],
+    expected: ['foo', null, '', null, 'bar'],
   },
   {
     name: 'at end',
     needle: '\r\n',
     chunks: 'foo\r\n',
-    expected: [[true, 'foo']],
+    expected: ['foo', null],
   },
   {
     name: 'no occurrence',
     needle: '\r\n',
     chunks: 'foo',
-    expected: [[false, 'foo']],
+    expected: ['foo'],
   },
   {
     name: 'empty input',
@@ -270,12 +226,19 @@ const tests = [
   },
 ];
 
+interface TestDef {
+  name: string;
+  needle: string;
+  chunks: string;
+  expected: (string | null)[];
+}
+
 describe('StreamSearch', () => {
   it(
     'finds all occurrences of the needle in the stream',
     ({ needle, chunks, expected }: any) => {
       const results: CapturedResults = [];
-      const ss = new StreamSearch(Buffer.from(needle, 'latin1'), collect(results));
+      const ss = new StreamSearch(Buffer.from(needle, 'latin1'), ...collect(results));
 
       for (const chunk of chunks.split('|')) {
         ss.push(Buffer.from(chunk, 'latin1'));
@@ -291,7 +254,7 @@ describe('StreamSearch', () => {
     'works when given one byte at a time',
     ({ needle, chunks, expected }: any) => {
       const results: CapturedResults = [];
-      const ss = new StreamSearch(Buffer.from(needle, 'latin1'), collect(results));
+      const ss = new StreamSearch(Buffer.from(needle, 'latin1'), ...collect(results));
 
       for (const chunk of chunks.split('|')) {
         const buf = Buffer.from(chunk, 'latin1');
@@ -307,12 +270,19 @@ describe('StreamSearch', () => {
   );
 
   it('rejects an empty needle', () => {
-    expect(() => new StreamSearch(Buffer.alloc(0), () => {})).throws('invalid needle');
+    expect(
+      () =>
+        new StreamSearch(
+          Buffer.alloc(0),
+          () => {},
+          () => {},
+        ),
+    ).throws('invalid needle');
   });
 
   it('does not access undefined data', () => {
     const results: CapturedResults = [];
-    const ss = new StreamSearch(Buffer.from('12341234'), collect(results));
+    const ss = new StreamSearch(Buffer.from('12341234'), ...collect(results));
 
     // this specifically checks that we do not search lookbehind data outside the
     // currently valid range. This can be from previous calls or uninitialised memory.
@@ -322,11 +292,7 @@ describe('StreamSearch', () => {
     ss.push(Buffer.from('4')); // fail lookbehind, ensure previous memory is not used
     ss.destroy();
 
-    expect(results).equals([
-      [false, '1234123'],
-      [false, '12'],
-      [false, '4'],
-    ]);
+    expect(results).equals(['1234123', '12', '4']);
   });
 
   it('reliably finds needles regardless of position and chunk boundaries', () => {
@@ -345,7 +311,7 @@ describe('StreamSearch', () => {
 
           for (let split = 1; split < 20; ++split) {
             const results: CapturedResults = [];
-            const ss = new StreamSearch(needle, collect(results));
+            const ss = new StreamSearch(needle, ...collect(results));
 
             for (let i = 0; i < background.byteLength; i += split) {
               ss.push(background.subarray(i, i + split));
@@ -353,9 +319,11 @@ describe('StreamSearch', () => {
             ss.destroy();
 
             const combined = mergeParts(results);
-            expect(combined).hasLength(3);
-            expect(combined[0]![1]).hasLength(pos);
-            expect(combined[1]![1]).hasLength(80 - pos - size);
+            expect(combined).hasLength(5);
+            expect(combined[0]).hasLength(pos);
+            expect(combined[1]).isNull();
+            expect(combined[2]).hasLength(80 - pos - size);
+            expect(combined[3]).isNull();
           }
         }
       }
@@ -363,30 +331,33 @@ describe('StreamSearch', () => {
   });
 });
 
-type CapturedResults = [boolean, string][];
+type CapturedResults = (string | null)[];
 
-const collect =
-  (target: CapturedResults): StreamSearchCallback =>
-  (isMatch, data, start, end) => {
+const collect = (target: CapturedResults): [StreamSearchCallback, () => void] => [
+  (data, start, end) => {
     let value: string;
     if (end < start || start < 0 || end > data.byteLength) {
       value = `INVALID RANGE (${start} - ${end} / ${data.byteLength})`;
     } else {
       value = data.toString('latin1', start, end);
     }
-    target.push([isMatch, value]);
-  };
+    target.push(value);
+  },
+  () => target.push(null),
+];
 
 function mergeParts(items: CapturedResults) {
   const result: CapturedResults = [];
   let partial: string = '';
-  for (const [match, text] of items) {
-    partial += text;
-    if (match) {
-      result.push([true, partial]);
+  for (const item of items) {
+    if (item === null) {
+      result.push(partial);
+      result.push(null);
       partial = '';
+    } else {
+      partial += item;
     }
   }
-  result.push([false, partial]);
+  result.push(partial);
   return result;
 }
