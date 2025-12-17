@@ -1,8 +1,4 @@
-This is a modified copy of streamsearch 1.1.0 to make it play nicer with ES
-modules and tree shaking. For easier compatibility with the rest of the
-project it has been translated to TypeScript and the tests have been adapted
-to run in lean-test. Some bugs have been fixed and reported back upstream.
-Performance has been improved by using native methods in various places.
+This is a heavily modified copy of streamsearch 1.1.0.
 
 Original license:
 

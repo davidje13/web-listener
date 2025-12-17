@@ -2,9 +2,6 @@
  * Adapted from streamsearch@1.1.0 by Brian White
  * https://github.com/mscdex/streamsearch/tree/2df4e8db15b379f6faf0196a4ea3868bd3046e32
  * based on https://github.com/FooBarWidget/boyer-moore-horspool by Hongli Lai
- *
- * Heavily adapted for improved performance on recent versions of Node.js
- * (the original was written before Buffer.indexOf was fast)
  */
 
 export type StreamSearchCallback = (
