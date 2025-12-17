@@ -26,18 +26,19 @@ export function getFormFields(
   //output.on('hwm', () => req.pause());
   //output.on('lwm', () => req.resume());
 
-  const fail = (err: Error) => {
-    output.fail(req.readableAborted ? STOP : err);
-    req.resume();
+  bus(req, (field) => output.push(field)).then(
+    () => output.close('complete'),
+    (err) => {
+      output.fail(req.readableAborted ? STOP : err);
+      req.resume();
 
-    // if the client continues sending a lot of data after an error, kill the socket to stop them
-    if (closeAfterErrorDelay >= 0) {
-      const forceStop = setTimeout(() => req.socket.destroy(), closeAfterErrorDelay);
-      req.once('end', () => clearTimeout(forceStop));
-    }
-  };
-
-  bus(req, (field) => output.push(field)).then(() => output.close('complete'), fail);
+      // if the client continues sending a lot of data after an error, kill the socket to stop them
+      if (closeAfterErrorDelay >= 0) {
+        const forceStop = setTimeout(() => req.socket.destroy(), closeAfterErrorDelay);
+        req.once('end', () => clearTimeout(forceStop));
+      }
+    },
+  );
 
   return output;
 }

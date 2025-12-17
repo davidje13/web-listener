@@ -33,12 +33,12 @@ export function getMultipartFormFields(
     throw new HTTPError(400, { body: 'multipart boundary too long' });
   }
   const paramDecoder = getTextDecoder(defParamCharset);
-  const fileOpts = {
+  const fileOpts: ReadableOptions = {
     autoDestroy: true,
     emitClose: true,
     highWaterMark: fileHwm,
-    read,
-  } as ReadableOptions;
+    read: internalFileStreamRead,
+  };
 
   const fieldSizeLimit = limits.fieldSize ?? 1 * 1024 * 1024;
   const fileSizeLimit = limits.fileSize ?? Number.POSITIVE_INFINITY;
@@ -58,12 +58,12 @@ export function getMultipartFormFields(
       let fileStream: FileStream | undefined;
       let finalcb: (() => void) | undefined;
 
-      let filename: string | undefined;
-      let content: string | undefined;
-      let partDecoder: Decoder;
-      let partEncoding: string;
-      let partType: string;
       let partName: string | undefined;
+      let filename: string | undefined;
+      let mimeType: string;
+      let partEncoding: string;
+      let partDecoder: Decoder;
+      let partContent = '';
 
       const hparser = new HeaderParser((header) => {
         const disposition = header[CONTENT_DISPOSITION];
@@ -88,15 +88,10 @@ export function getMultipartFormFields(
           );
         }
         filename = disp.params.get('filename*') ?? disp.params.get('filename');
-        if (filename !== undefined && !preservePath) {
-          filename = osIndependentBasename(filename);
-        }
-        const conType = parseContentType(header[CONTENT_TYPE]);
-        partType = conType?.mime ?? 'text/plain';
-        const partCharset = conType?.params.get('charset')?.toLowerCase() ?? defCharset;
-        partDecoder = getTextDecoder(partCharset);
+        const contentType = parseContentType(header[CONTENT_TYPE]);
+        mimeType = contentType?.mime ?? 'text/plain';
         partEncoding = header[CONTENT_TRANSFER_ENCODING]?.toLowerCase() ?? '7bit';
-        if (partType === 'application/octet-stream' || filename !== undefined) {
+        if (mimeType === 'application/octet-stream' || filename !== undefined) {
           // File
           if (!filesRemaining--) {
             return handleError(new HTTPError(400, { body: 'too many files' }));
@@ -106,17 +101,17 @@ export function getMultipartFormFields(
             state = STATE_SKIP;
             return;
           }
-          const fs = new FileStream(fileOpts);
-          fs.once('error', () => {}); // do not explode if error is not captured by user - it is reported on the main stream anyway
+          if (!preservePath) {
+            filename = osIndependentBasename(filename);
+          }
+          const fs: FileStream = new Readable(fileOpts);
+          fs.once('error', NOOP); // do not explode if error is not captured by user - it is reported on the main stream anyway
           fs.once('close', () => {
-            // We need to make sure that we call any outstanding _writecb() that is
-            // associated with this file so that processing of the rest of the form
-            // can continue. This may not happen if the file stream ends right after
-            // backpressure kicks in, so we force it here.
-            read.call(fs);
+            fs._readcb?.();
+            fs.off('error', NOOP);
             if (!--activeFileStreams && finalcb) {
               // Make sure other 'end' event handlers get a chance to be executed
-              // before busboy's 'finish' event is emitted
+              // before busboy resolves
               process.nextTick(finalcb);
             }
           });
@@ -128,7 +123,7 @@ export function getMultipartFormFields(
             value: fs,
             filename,
             encoding: partEncoding,
-            mimeType: partType,
+            mimeType,
           });
           state = STATE_CONTENT;
           partSizeRemaining = fileSizeLimit;
@@ -137,9 +132,10 @@ export function getMultipartFormFields(
           if (!fieldsRemaining--) {
             return handleError(new HTTPError(400, { body: 'too many fields' }));
           }
-          content = '';
           state = STATE_CONTENT;
           partSizeRemaining = fieldSizeLimit;
+          const partCharset = contentType?.params.get('charset')?.toLowerCase() ?? defCharset;
+          partDecoder = getTextDecoder(partCharset);
         }
       });
 
@@ -147,9 +143,6 @@ export function getMultipartFormFields(
       const chunkSplitter = new StreamSearch(
         needle,
         (data, start, end, isDataSafe) => {
-          if (start === end) {
-            return;
-          }
           if (state <= STATE_POST_BOUNDARY_DASH) {
             if (state === STATE_POST_BOUNDARY) {
               if (data[start] === 13) {
@@ -189,16 +182,15 @@ export function getMultipartFormFields(
             }
           }
           if (state === STATE_HEADER) {
-            const ret = hparser.push(data, start, end);
-            if (ret === -1) {
+            start = hparser.push(data, start, end);
+            if (start === -1) {
               return handleError(new HTTPError(400, { body: 'malformed part header' }));
             }
-            if (ret === end) {
+            if (start === end) {
               return;
             }
-            start = ret;
           }
-          if (state === STATE_CONTENT && partSizeRemaining >= 0) {
+          if (state === STATE_CONTENT) {
             const stop = Math.min(end, start + partSizeRemaining);
             partSizeRemaining -= end - start;
             if (fileStream) {
@@ -221,39 +213,41 @@ export function getMultipartFormFields(
                   }),
                 );
               }
-            } else if (content !== undefined) {
-              content += data.latin1Slice(start, stop);
+            } else {
+              if (partSizeRemaining < 0) {
+                return handleError(
+                  new HTTPError(400, { body: `value for ${JSON.stringify(partName)} too long` }),
+                );
+              }
+              partContent += data.latin1Slice(start, stop);
             }
           }
         },
         () => {
-          if (state >= STATE_COMPLETE) {
-            return;
-          }
           if (state === STATE_HEADER) {
             return handleError(new HTTPError(400, { body: 'unexpected end of headers' }));
           }
-          if (fileStream) {
-            // End the active file stream if the previous part was a file
-            fileStream.push(null);
-            fileStream = undefined;
-            awaitingFileDrain = false;
-          } else if (content !== undefined) {
-            if (partSizeRemaining < 0) {
-              return handleError(
-                new HTTPError(400, { body: `value for ${JSON.stringify(partName)} too long` }),
-              );
+          if (state === STATE_CONTENT) {
+            if (fileStream) {
+              // End the active file stream if the previous part was a file
+              fileStream.push(null);
+              fileStream = undefined;
+              awaitingFileDrain = false;
+            } else {
+              const contentBuffer = Buffer.from(partContent, 'latin1');
+              partContent = '';
+              callback({
+                name: partName!,
+                type: 'string',
+                value: partDecoder.decode(contentBuffer),
+                encoding: partEncoding,
+                mimeType,
+              });
             }
-            callback({
-              name: partName!,
-              type: 'string',
-              value: partDecoder.decode(Buffer.from(content, 'latin1')),
-              encoding: partEncoding,
-              mimeType: partType,
-            });
-            content = undefined;
           }
-          state = STATE_POST_BOUNDARY;
+          if (state < STATE_COMPLETE) {
+            state = STATE_POST_BOUNDARY;
+          }
         },
       );
 
@@ -289,7 +283,7 @@ export function getMultipartFormFields(
         }
       };
 
-      const handleError = (err: unknown) => {
+      const handleError = (err: Error) => {
         if (state === STATE_ERROR) {
           return;
         }
@@ -297,9 +291,8 @@ export function getMultipartFormFields(
         source.off('data', handleData);
         source.off('end', handleEnd);
         source.off('error', handleError);
-        if (fileStream) {
-          fileStream.destroy(err instanceof Error ? err : new Error(String(err)));
-        }
+        fileStream?.destroy(err);
+        fileStream = undefined;
         reject(err);
       };
 
@@ -463,11 +456,9 @@ const PART_HEADERS = new Map<string, HeaderInfo>([
   ['content-transfer-encoding', { _id: CONTENT_TRANSFER_ENCODING, _multi: true }],
 ]);
 
-class FileStream extends Readable {
-  /** @internal */ declare _readcb: (() => void) | undefined;
-}
+type FileStream = Readable & { _readcb?: (() => void) | undefined };
 
-function read(this: FileStream, _?: number) {
+function internalFileStreamRead(this: FileStream, _?: number) {
   const cb = this._readcb;
   if (cb) {
     this._readcb = undefined;
@@ -486,3 +477,4 @@ function osIndependentBasename(path: string) {
 }
 
 const BUF_CRLF = /*@__PURE__*/ Buffer.from('\r\n');
+const NOOP = () => {};

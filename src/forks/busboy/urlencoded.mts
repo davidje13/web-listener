@@ -231,7 +231,7 @@ export function getURLEncodedFormFields(
         resolve();
       };
 
-      const handleError = (err: unknown) => {
+      const handleError = (err: Error) => {
         source.off('data', handleData);
         source.off('end', handleEnd);
         source.off('error', handleError);

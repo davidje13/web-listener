@@ -7,8 +7,6 @@
  * (the original was written before Buffer.indexOf was fast)
  */
 
-import { VOID_BUFFER } from '../../util/voidBuffer.mts';
-
 export type StreamSearchCallback = (
   data: Buffer,
   start: number,
@@ -60,7 +58,7 @@ export class StreamSearch {
       const lookbehind = this._lookbehind!;
 
       const lastNeedleChar = needle[needleLenM1];
-      if (end > 0) {
+      if (pos < end) {
         // we already know the lookbehind buffer is a valid needle prefix, so
         // until we advance pos, we only need to check if data contains the
         // rest of the needle.
@@ -69,7 +67,6 @@ export class StreamSearch {
           ch === lastNeedleChar &&
           !data.compare(needle, -pos, needleLenM1, 0, pos + needleLenM1)
         ) {
-          this._cb(VOID_BUFFER, 0, 0, true);
           this._needleCb();
           this._lookbehindSize = 0;
           begin = pos += needleLenM1 + 1;
@@ -144,7 +141,9 @@ export class StreamSearch {
     while (pos < end) {
       const found = data.indexOf(needle, pos);
       if (found !== -1) {
-        this._cb(data, begin, found, true);
+        if (found > begin) {
+          this._cb(data, begin, found, true);
+        }
         this._needleCb();
         if (found === end + 1) {
           return;
