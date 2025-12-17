@@ -264,22 +264,17 @@ function parseDispositionParams(
   return true;
 }
 
-// prettier-ignore
-const COMMON = [
-  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0,
-  0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1,
-  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-];
-
 export const TOKEN = /*@__PURE__*/ (() => {
   const values = new Uint8Array(256);
   values.set(
     // prettier-ignore
     [
          1, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0,
-      ...COMMON,                          0, 1, 0, 1,
+      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0,
+      0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1,
+      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1,
     ],
     33,
   );
@@ -287,28 +282,15 @@ export const TOKEN = /*@__PURE__*/ (() => {
 })();
 
 const EXTENDED_VALUE = /*@__PURE__*/ (() => {
-  const values = new Uint8Array(256);
-  values.set(
-    // prettier-ignore
-    [
-         1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 1, 0, 1, 1, 0,
-      ...COMMON,                          0, 1, 0, 1,
-    ],
-    33,
-  );
+  const values = new Uint8Array(TOKEN);
+  values.set([0, 1, 0, 0, 0, 0], 37);
   return values;
 })();
 
 const CHARSET = /*@__PURE__*/ (() => {
-  const values = new Uint8Array(256);
-  values.set(
-    // prettier-ignore
-    [
-         1, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0,
-      ...COMMON,                          1, 0, 1, 1,
-    ],
-    33,
-  );
+  const values = new Uint8Array(TOKEN);
+  values.set([0, 0, 0, 0, 1, 0, 1, 0], 39);
+  values.set([1, 0, 1, 1], 123);
   return values;
 })();
 
