@@ -8,7 +8,7 @@ import type { MaybePromise } from '../../util/MaybePromise.mts';
 import { BlockingQueue } from '../../util/BlockingQueue.mts';
 import { guardTimeout } from '../../util/guardTimeout.mts';
 import { makeTempFileStorage } from '../filesystem/tempFileStorage.mts';
-import { acceptBody } from './continue.mts';
+import { acceptBody, willSendBody } from './continue.mts';
 
 // https://datatracker.ietf.org/doc/html/rfc7578
 
@@ -17,30 +17,42 @@ export function getFormFields(
   { closeAfterErrorDelay = 500, ...options }: GetFormFieldsOptions = {},
 ): AsyncIterable<FormField, unknown, undefined> {
   guardTimeout(closeAfterErrorDelay, 'closeAfterErrorDelay', true);
-  const bus = busboy(req.headers, options);
 
-  acceptBody(req);
+  const timeoutConnection = () => {
+    // if the client continues sending a lot of data after an error, kill the socket to stop them
+    if (closeAfterErrorDelay >= 0 && req.readable) {
+      const forceStop = setTimeout(() => req.socket.destroy(), closeAfterErrorDelay);
+      req.once('end', () => clearTimeout(forceStop));
+    }
+  };
 
-  const output = new BlockingQueue<FormField>(); //{ hwm: 2, lwm: 1 });
-  // backpressure
-  //output.on('hwm', () => req.pause());
-  //output.on('lwm', () => req.resume());
+  try {
+    const bus = busboy(req.headers, options);
+    acceptBody(req);
 
-  bus(req, (field) => output.push(field)).then(
-    () => output.close('complete'),
-    (err) => {
-      output.fail(req.readableAborted ? STOP : err);
+    const output = new BlockingQueue<FormField>(); //{ hwm: 2, lwm: 1 });
+    // backpressure
+    //output.on('hwm', () => req.pause());
+    //output.on('lwm', () => req.resume());
+
+    bus(req, (field) => output.push(field)).then(
+      () => output.close('complete'),
+      (err) => {
+        output.fail(req.readableAborted ? STOP : err);
+        req.resume();
+        timeoutConnection();
+      },
+    );
+    return output;
+  } catch (error: unknown) {
+    if (willSendBody(req)) {
+      // Allow the client to send their data even though we will ignore it.
+      // If they can send it quickly, we can still reuse this connection for future requests.
       req.resume();
-
-      // if the client continues sending a lot of data after an error, kill the socket to stop them
-      if (closeAfterErrorDelay >= 0) {
-        const forceStop = setTimeout(() => req.socket.destroy(), closeAfterErrorDelay);
-        req.once('end', () => clearTimeout(forceStop));
-      }
-    },
-  );
-
-  return output;
+      timeoutConnection();
+    }
+    throw error;
+  }
 }
 
 export async function getFormData(
@@ -58,7 +70,7 @@ export async function getFormData(
         filename: field.filename,
         encoding: field.encoding,
         mimeType: field.mimeType,
-        maxBytes: options.limits?.fileSize,
+        maxBytes: field.sizeLimit,
       });
       const runPostCheck = (actualBytes: number) => {
         if (typeof postCheck === 'function') {
@@ -142,7 +154,7 @@ export interface PreCheckFileInfo {
   filename: string;
   encoding: string;
   mimeType: string;
-  maxBytes: number | undefined;
+  maxBytes: number;
 }
 
 export type PostCheckFile = (actual: PostCheckFileInfo) => MaybePromise<void>;

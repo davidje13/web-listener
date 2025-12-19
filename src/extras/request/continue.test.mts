@@ -1,7 +1,7 @@
 import { withServer } from '../../test-helpers/withServer.mts';
 import { rawRequest } from '../../test-helpers/rawRequest.mts';
 import { requestHandler, upgradeHandler } from '../../core/handler.mts';
-import { acceptBody } from './continue.mts';
+import { acceptBody, willSendBody } from './continue.mts';
 import 'lean-test';
 
 describe('acceptBody', () => {
@@ -74,4 +74,50 @@ describe('acceptBody', () => {
       expect(response).contains('raw content');
     });
   });
+});
+
+describe('willSendBody', () => {
+  it('returns true if acceptBody has been called', { timeout: 3000 }, () => {
+    let captured: unknown = undefined;
+    const handler = requestHandler((req, res) => {
+      acceptBody(req);
+      captured = willSendBody(req);
+      res.end('handler content');
+    });
+
+    return withServer(handler, async (url) => {
+      await rawRequest(url, { method: 'POST', headers: { expect: '100-Continue' } });
+      expect(captured).equals(true);
+    });
+  });
+
+  it('returns true if Expect: 100-Continue was not sent', { timeout: 3000 }, () => {
+    let captured: unknown = undefined;
+    const handler = requestHandler((req, res) => {
+      captured = willSendBody(req);
+      res.end('handler content');
+    });
+
+    return withServer(handler, async (url) => {
+      await rawRequest(url, { method: 'POST' });
+      expect(captured).equals(true);
+    });
+  });
+
+  it(
+    'returns false if Expect: 100-Continue was sent and acceptBody has not been called',
+    { timeout: 3000 },
+    () => {
+      let captured: unknown = undefined;
+      const handler = requestHandler((req, res) => {
+        captured = willSendBody(req);
+        res.end('handler content');
+      });
+
+      return withServer(handler, async (url) => {
+        await rawRequest(url, { method: 'POST', headers: { expect: '100-Continue' } });
+        expect(captured).equals(false);
+      });
+    },
+  );
 });

@@ -5,6 +5,7 @@
 
 import type { IncomingHttpHeaders } from 'node:http';
 import { HTTPError } from '../../core/HTTPError.mts';
+import { readHTTPInteger } from '../../extras/request/headers.mts';
 import { parseContentType } from './utils.mts';
 import type { BusboyOptions, StreamConsumer } from './types.mts';
 import { getMultipartFormFields } from './multipart.mts';
@@ -19,6 +20,15 @@ export function busboy(headers: IncomingHttpHeaders, cfg: BusboyOptions = {}): S
   const conType = parseContentType(contentType);
   if (!conType) {
     throw new HTTPError(400, { body: 'malformed content-type' });
+  }
+
+  const contentLength = readHTTPInteger(headers['content-length']);
+  if (
+    contentLength !== undefined &&
+    cfg.maxNetworkBytes !== undefined &&
+    contentLength > cfg.maxNetworkBytes
+  ) {
+    throw new HTTPError(413, { body: 'content too large' });
   }
 
   if (conType.mime === 'application/x-www-form-urlencoded') {

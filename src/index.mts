@@ -119,7 +119,7 @@ export {
   getBodyText,
   getBodyJson,
 } from './extras/request/content.mts';
-export { acceptBody } from './extras/request/continue.mts';
+export { acceptBody, willSendBody } from './extras/request/continue.mts';
 export {
   getFormData,
   getFormFields,

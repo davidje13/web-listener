@@ -108,42 +108,41 @@ describe('getFormFields', () => {
       }),
     );
 
-    it('returns HTTP 400 if a field name is too long', { timeout: 3000 }, () =>
-      withServer(
-        consumeFormFields({ limits: { fieldNameSize: 5 } }),
-        async (url, { expectError }) => {
-          const res = await fetch(url, {
-            method: 'POST',
-            body: new URLSearchParams({ 'long-name': 'nope' }),
-          });
-          expect(res.status).equals(400);
-          expectError(
-            'handling request /: HTTPError(400 Bad Request): field name "long-"... too long',
-          );
-        },
-      ),
+    it('returns HTTP 413 if a field name is too long', { timeout: 3000 }, () =>
+      withServer(consumeFormFields({ maxFieldNameSize: 5 }), async (url, { expectError }) => {
+        const res = await fetch(url, {
+          method: 'POST',
+          body: new URLSearchParams({ 'long-name': 'nope' }),
+        });
+        expect(res.status).equals(413);
+        expectError(
+          'handling request /: HTTPError(413 Payload Too Large): field name "long-"... too long',
+        );
+      }),
     );
 
-    it('returns HTTP 400 if a field value is too long', { timeout: 3000 }, () =>
-      withServer(consumeFormFields({ limits: { fieldSize: 10 } }), async (url, { expectError }) => {
+    it('returns HTTP 413 if a field value is too long', { timeout: 3000 }, () =>
+      withServer(consumeFormFields({ maxFieldSize: 10 }), async (url, { expectError }) => {
         const res = await fetch(url, {
           method: 'POST',
           body: new URLSearchParams({ lv: 'too-long-value' }),
         });
-        expect(res.status).equals(400);
-        expectError('handling request /: HTTPError(400 Bad Request): value for "lv" too long');
+        expect(res.status).equals(413);
+        expectError(
+          'handling request /: HTTPError(413 Payload Too Large): value for "lv" too long',
+        );
       }),
     );
 
-    it('returns HTTP 400 if there are too many fields', { timeout: 3000 }, () =>
-      withServer(consumeFormFields({ limits: { fields: 2 } }), async (url, { expectError }) => {
+    it('returns HTTP 413 if there are too many fields', { timeout: 3000 }, () =>
+      withServer(consumeFormFields({ maxFields: 2 }), async (url, { expectError }) => {
         const res = await fetch(url, {
           method: 'POST',
           headers: { 'content-type': 'application/x-www-form-urlencoded' },
           body: new URLSearchParams({ f1: '1', f2: '2', f3: '3' }),
         });
-        expect(res.status).equals(400);
-        expectError('handling request /: HTTPError(400 Bad Request): too many fields');
+        expect(res.status).equals(413);
+        expectError('handling request /: HTTPError(413 Payload Too Large): too many fields');
       }),
     );
 
@@ -182,10 +181,7 @@ describe('getFormFields', () => {
           async (req, _, { expectFetchError }) => {
             expectFetchError();
             const nextField = stepper(
-              getFormFields(req, {
-                limits: { fieldNameSize: 5 },
-                closeAfterErrorDelay: 50,
-              }),
+              getFormFields(req, { maxFieldNameSize: 5, closeAfterErrorDelay: 50 }),
             );
             await expect(nextField).throws('field name "longn"... too long');
             await expect.poll(() => req.socket.closed, isTrue(), { timeout: 200 });
@@ -213,10 +209,7 @@ describe('getFormFields', () => {
           async (req, _, { teardown, expectFetchError }) => {
             expectFetchError();
             const nextField = stepper(
-              getFormFields(req, {
-                limits: { fieldNameSize: 5 },
-                closeAfterErrorDelay: 100,
-              }),
+              getFormFields(req, { maxFieldNameSize: 5, closeAfterErrorDelay: 100 }),
             );
             await expect(nextField).throws('field name "longn"... too long');
             writer.write('done');
@@ -229,6 +222,30 @@ describe('getFormFields', () => {
           {
             method: 'POST',
             headers: { 'content-type': 'application/x-www-form-urlencoded' },
+            body: duplex.readable,
+            duplex: 'half',
+          },
+        );
+      },
+    );
+
+    it(
+      'destroys the socket if the request fails immediately but continues sending data for too long',
+      { timeout: 3000 },
+      () => {
+        const duplex = new TransformStream();
+        const writer = duplex.writable.getWriter();
+        writer.write('chunk1');
+
+        return inRequestHandler(
+          async (req, _, { expectFetchError }) => {
+            expectFetchError();
+            expect(() => getFormFields(req, { closeAfterErrorDelay: 50 })).throws();
+            await expect.poll(() => req.socket.closed, isTrue(), { timeout: 200 });
+          },
+          {
+            method: 'POST',
+            headers: { 'content-type': 'nope' },
             body: duplex.readable,
             duplex: 'half',
           },
@@ -379,64 +396,60 @@ describe('getFormFields', () => {
       ),
     );
 
-    it('returns HTTP 400 if a text field name is too long', { timeout: 3000 }, () =>
-      withServer(
-        consumeFormFields({ limits: { fieldNameSize: 5 } }),
-        async (url, { expectError }) => {
-          const res = await fetch(url, {
-            method: 'POST',
-            body: makeFormData([['long-name', 'nope']]),
-          });
-          expect(res.status).equals(400);
-          expectError(
-            'handling request /: HTTPError(400 Bad Request): field name "long-"... too long',
-          );
-        },
-      ),
-    );
-
-    it('returns HTTP 400 if a file field name is too long', { timeout: 3000 }, () =>
-      withServer(
-        consumeFormFields({ limits: { fieldNameSize: 5 } }),
-        async (url, { expectError }) => {
-          const res = await fetch(url, {
-            method: 'POST',
-            body: makeFormData([['long-name', new File(['a'], 'file.txt')]]),
-          });
-          expect(res.status).equals(400);
-          expectError(
-            'handling request /: HTTPError(400 Bad Request): field name "long-"... too long',
-          );
-        },
-      ),
-    );
-
-    it('returns HTTP 400 if a field value is too long', { timeout: 3000 }, () =>
-      withServer(consumeFormFields({ limits: { fieldSize: 10 } }), async (url, { expectError }) => {
+    it('returns HTTP 413 if a text field name is too long', { timeout: 3000 }, () =>
+      withServer(consumeFormFields({ maxFieldNameSize: 5 }), async (url, { expectError }) => {
         const res = await fetch(url, {
           method: 'POST',
-          body: makeFormData([['lv', 'too-long-value']]),
+          body: makeFormData([['long-name', 'nope']]),
         });
-        expect(res.status).equals(400);
-        expectError('handling request /: HTTPError(400 Bad Request): value for "lv" too long');
-      }),
-    );
-
-    it('returns HTTP 400 if a file is too large', { timeout: 3000 }, () =>
-      withServer(consumeFormFields({ limits: { fileSize: 10 } }), async (url, { expectError }) => {
-        const res = await fetch(url, {
-          method: 'POST',
-          body: makeFormData([['lf', new File(['too much file content'], 'file.txt')]]),
-        });
-        expect(res.status).equals(400);
+        expect(res.status).equals(413);
         expectError(
-          'handling request /: HTTPError(400 Bad Request): uploaded file for "lf": "file.txt" too large',
+          'handling request /: HTTPError(413 Payload Too Large): field name "long-"... too long',
         );
       }),
     );
 
-    it('returns HTTP 400 if there are too many text fields', { timeout: 3000 }, () =>
-      withServer(consumeFormFields({ limits: { fields: 2 } }), async (url, { expectError }) => {
+    it('returns HTTP 413 if a file field name is too long', { timeout: 3000 }, () =>
+      withServer(consumeFormFields({ maxFieldNameSize: 5 }), async (url, { expectError }) => {
+        const res = await fetch(url, {
+          method: 'POST',
+          body: makeFormData([['long-name', new File(['a'], 'file.txt')]]),
+        });
+        expect(res.status).equals(413);
+        expectError(
+          'handling request /: HTTPError(413 Payload Too Large): field name "long-"... too long',
+        );
+      }),
+    );
+
+    it('returns HTTP 413 if a field value is too long', { timeout: 3000 }, () =>
+      withServer(consumeFormFields({ maxFieldSize: 10 }), async (url, { expectError }) => {
+        const res = await fetch(url, {
+          method: 'POST',
+          body: makeFormData([['lv', 'too-long-value']]),
+        });
+        expect(res.status).equals(413);
+        expectError(
+          'handling request /: HTTPError(413 Payload Too Large): value for "lv" too long',
+        );
+      }),
+    );
+
+    it('returns HTTP 413 if a file is too large', { timeout: 3000 }, () =>
+      withServer(consumeFormFields({ maxFileSize: 10 }), async (url, { expectError }) => {
+        const res = await fetch(url, {
+          method: 'POST',
+          body: makeFormData([['lf', new File(['too much file content'], 'file.txt')]]),
+        });
+        expect(res.status).equals(413);
+        expectError(
+          'handling request /: HTTPError(413 Payload Too Large): uploaded file for "lf": "file.txt" too large',
+        );
+      }),
+    );
+
+    it('returns HTTP 413 if there are too many text fields', { timeout: 3000 }, () =>
+      withServer(consumeFormFields({ maxFields: 2 }), async (url, { expectError }) => {
         const res = await fetch(url, {
           method: 'POST',
           body: makeFormData([
@@ -445,13 +458,13 @@ describe('getFormFields', () => {
             ['f3', '3'],
           ]),
         });
-        expect(res.status).equals(400);
-        expectError('handling request /: HTTPError(400 Bad Request): too many fields');
+        expect(res.status).equals(413);
+        expectError('handling request /: HTTPError(413 Payload Too Large): too many fields');
       }),
     );
 
-    it('returns HTTP 400 if there are too many file fields', { timeout: 3000 }, () =>
-      withServer(consumeFormFields({ limits: { files: 2 } }), async (url, { expectError }) => {
+    it('returns HTTP 413 if there are too many file fields', { timeout: 3000 }, () =>
+      withServer(consumeFormFields({ maxFiles: 2 }), async (url, { expectError }) => {
         const res = await fetch(url, {
           method: 'POST',
           body: makeFormData([
@@ -460,34 +473,29 @@ describe('getFormFields', () => {
             ['f3', new File(['c'], 'file3.txt')],
           ]),
         });
-        expect(res.status).equals(400);
-        expectError('handling request /: HTTPError(400 Bad Request): too many files');
+        expect(res.status).equals(413);
+        expectError('handling request /: HTTPError(413 Payload Too Large): too many files');
       }),
     );
 
-    it('returns HTTP 400 if there are too many fields', { timeout: 3000 }, () =>
-      withServer(
-        consumeFormFields({
-          limits: { parts: 3 },
-        }),
-        async (url, { expectError }) => {
-          const res = await fetch(url, {
-            method: 'POST',
-            body: makeFormData([
-              ['f1', 'a'],
-              ['f2', 'b'],
-              ['f3', new File(['c'], 'file.txt')],
-              ['f4', new File(['d'], 'file.txt')],
-            ]),
-          });
-          expect(res.status).equals(400);
-          expectError('handling request /: HTTPError(400 Bad Request): too many parts');
-        },
-      ),
+    it('returns HTTP 413 if there are too many fields', { timeout: 3000 }, () =>
+      withServer(consumeFormFields({ maxParts: 3 }), async (url, { expectError }) => {
+        const res = await fetch(url, {
+          method: 'POST',
+          body: makeFormData([
+            ['f1', 'a'],
+            ['f2', 'b'],
+            ['f3', new File(['c'], 'file.txt')],
+            ['f4', new File(['d'], 'file.txt')],
+          ]),
+        });
+        expect(res.status).equals(413);
+        expectError('handling request /: HTTPError(413 Payload Too Large): too many parts');
+      }),
     );
 
     it('does not break the connection due to limits being reached', { timeout: 3000 }, () =>
-      withServer(consumeFormFields({ limits: { files: 1 } }), async (url, { expectError }) => {
+      withServer(consumeFormFields({ maxFiles: 1 }), async (url, { expectError }) => {
         const largeFile = new File(['x'.repeat(100000)], 'file.txt');
         const res = await fetch(url, {
           method: 'POST',
@@ -497,8 +505,8 @@ describe('getFormFields', () => {
             ['f3', largeFile],
           ]),
         });
-        expect(res.status).equals(400);
-        expectError('handling request /: HTTPError(400 Bad Request)');
+        expect(res.status).equals(413);
+        expectError('handling request /: HTTPError(413 Payload Too Large)');
       }),
     );
 

@@ -9,6 +9,7 @@ const COMMON_FILE = {
   type: 'file',
   encoding: '7bit',
   mimeType: 'application/octet-stream',
+  sizeLimit: Number.POSITIVE_INFINITY,
   err: undefined,
 };
 
@@ -133,7 +134,7 @@ const tests: TestDef[] = [
     expected: [{ error: 'missing field name' }],
   },
   {
-    name: 'fieldSize limit',
+    name: 'maxFieldSize limit',
     source: [
       [
         `--${COMMON_BOUNDARY}`,
@@ -144,11 +145,11 @@ const tests: TestDef[] = [
       ].join('\r\n'),
     ],
     boundary: COMMON_BOUNDARY,
-    options: { limits: { fileSize: 13, fieldSize: 5 } },
+    options: { maxFileSize: 13, maxFieldSize: 5 },
     expected: [{ error: 'value for "file_name_0" too long' }],
   },
   {
-    name: 'fileSize limit',
+    name: 'maxFileSize limit',
     source: [
       [
         `--${COMMON_BOUNDARY}`,
@@ -160,13 +161,14 @@ const tests: TestDef[] = [
       ].join('\r\n'),
     ],
     boundary: COMMON_BOUNDARY,
-    options: { limits: { fileSize: 13, fieldSize: 5 } },
+    options: { maxFileSize: 13, maxFieldSize: 5 },
     expected: [
       {
         ...COMMON_FILE,
         name: 'upload_file_0',
         data: Buffer.from('ABCDEFGHIJKLM'),
         filename: '1k_a.dat',
+        sizeLimit: 13,
         err: 'uploaded file for "upload_file_0": "1k_a.dat" too large',
       },
       { error: 'uploaded file for "upload_file_0": "1k_a.dat" too large' },
@@ -189,7 +191,7 @@ const tests: TestDef[] = [
       ].join('\r\n'),
     ],
     boundary: COMMON_BOUNDARY,
-    options: { limits: { fileSize: 13, fieldSize: 5 } },
+    options: { maxFileSize: 13, maxFieldSize: 5 },
     expected: [
       { ...COMMON_FIELD, name: 'file_name_0', value: 'super' },
       {
@@ -197,6 +199,7 @@ const tests: TestDef[] = [
         name: 'upload_file_0',
         data: Buffer.from('ABCDEFGHIJKLM'),
         filename: '1k_a.dat',
+        sizeLimit: 13,
       },
     ],
   },
@@ -217,7 +220,7 @@ const tests: TestDef[] = [
       ].join('\r\n'),
     ],
     boundary: COMMON_BOUNDARY,
-    options: { limits: { files: 0 } },
+    options: { maxFiles: 0 },
     expected: [
       { ...COMMON_FIELD, name: 'file_name_0', value: 'super alpha file' },
       { error: 'too many files' },
@@ -582,7 +585,7 @@ const tests: TestDef[] = [
     name: 'Zero parts limit',
     source: [`--${COMMON_BOUNDARY}--`],
     boundary: COMMON_BOUNDARY,
-    options: { limits: { parts: 0 } },
+    options: { maxParts: 0 },
     expected: [],
   },
   {
@@ -597,7 +600,7 @@ const tests: TestDef[] = [
       ].join('\r\n'),
     ],
     boundary: COMMON_BOUNDARY,
-    options: { limits: { parts: 0 } },
+    options: { maxParts: 0 },
     expected: [{ error: 'too many parts' }],
   },
   {
@@ -612,7 +615,7 @@ const tests: TestDef[] = [
       ].join('\r\n'),
     ],
     boundary: COMMON_BOUNDARY,
-    options: { limits: { parts: 1 } },
+    options: { maxParts: 1 },
     expected: [{ ...COMMON_FIELD, name: 'file_name_0', value: 'a' }],
   },
   {
@@ -633,14 +636,14 @@ const tests: TestDef[] = [
       ].join('\r\n'),
     ],
     boundary: COMMON_BOUNDARY,
-    options: { limits: { parts: 1 } },
+    options: { maxParts: 1 },
     expected: [{ ...COMMON_FIELD, name: 'file_name_0', value: 'a' }, { error: 'too many parts' }],
   },
   {
     name: 'Zero fields limit',
     source: [`--${COMMON_BOUNDARY}--`],
     boundary: COMMON_BOUNDARY,
-    options: { limits: { fields: 0 } },
+    options: { maxFields: 0 },
     expected: [],
   },
   {
@@ -655,7 +658,7 @@ const tests: TestDef[] = [
       ].join('\r\n'),
     ],
     boundary: COMMON_BOUNDARY,
-    options: { limits: { fields: 0 } },
+    options: { maxFields: 0 },
     expected: [{ error: 'too many fields' }],
   },
   {
@@ -670,7 +673,7 @@ const tests: TestDef[] = [
       ].join('\r\n'),
     ],
     boundary: COMMON_BOUNDARY,
-    options: { limits: { fields: 1 } },
+    options: { maxFields: 1 },
     expected: [{ ...COMMON_FIELD, name: 'file_name_0', value: 'a' }],
   },
   {
@@ -689,14 +692,14 @@ const tests: TestDef[] = [
       ].join('\r\n'),
     ],
     boundary: COMMON_BOUNDARY,
-    options: { limits: { fields: 1 } },
+    options: { maxFields: 1 },
     expected: [{ ...COMMON_FIELD, name: 'file_name_0', value: 'a' }, { error: 'too many fields' }],
   },
   {
     name: 'Zero files limit',
     source: [`--${COMMON_BOUNDARY}--`],
     boundary: COMMON_BOUNDARY,
-    options: { limits: { files: 0 } },
+    options: { maxFiles: 0 },
     expected: [],
   },
   {
@@ -712,7 +715,7 @@ const tests: TestDef[] = [
       ].join('\r\n'),
     ],
     boundary: COMMON_BOUNDARY,
-    options: { limits: { files: 0 } },
+    options: { maxFiles: 0 },
     expected: [{ error: 'too many files' }],
   },
   {
@@ -728,7 +731,7 @@ const tests: TestDef[] = [
       ].join('\r\n'),
     ],
     boundary: COMMON_BOUNDARY,
-    options: { limits: { files: 1 } },
+    options: { maxFiles: 1 },
     expected: [
       {
         ...COMMON_FILE,
@@ -757,7 +760,7 @@ const tests: TestDef[] = [
       ].join('\r\n'),
     ],
     boundary: COMMON_BOUNDARY,
-    options: { limits: { files: 1 } },
+    options: { maxFiles: 1 },
     expected: [
       {
         ...COMMON_FILE,
@@ -802,7 +805,7 @@ const tests: TestDef[] = [
       ].join('\r\n'),
     ],
     boundary: COMMON_BOUNDARY,
-    options: { limits: { fieldNameSize: 4 } },
+    options: { maxFieldNameSize: 4 },
     expected: [{ error: 'field name "long"... too long' }],
   },
   {
@@ -818,7 +821,7 @@ const tests: TestDef[] = [
       ].join('\r\n'),
     ],
     boundary: COMMON_BOUNDARY,
-    options: { limits: { fieldNameSize: 4 } },
+    options: { maxFieldNameSize: 4 },
     expected: [{ error: 'field name "long"... too long' }],
   },
   {
@@ -1021,6 +1024,134 @@ const tests: TestDef[] = [
         filename: 'batch-1',
         mimeType: 'application/gzip',
       },
+    ],
+  },
+  {
+    name: 'maxNetworkBytes',
+    source: [
+      [
+        `--${COMMON_BOUNDARY}`,
+        'Content-Disposition: form-data; name="f1"',
+        '',
+        'Content',
+        `--${COMMON_BOUNDARY}--`,
+      ].join('\r\n'),
+    ],
+    boundary: COMMON_BOUNDARY,
+    options: { maxNetworkBytes: 20 },
+    expected: [{ error: 'content too large' }],
+  },
+  {
+    name: 'maxContentBytes (reached in field name)',
+    source: [
+      [
+        `--${COMMON_BOUNDARY}`,
+        'Content-Disposition: form-data; name="f1"',
+        '',
+        'Content 1',
+        `--${COMMON_BOUNDARY}`,
+        'Content-Disposition: form-data; name="f2"',
+        '',
+        'Content 2',
+        `--${COMMON_BOUNDARY}--`,
+      ].join('\r\n'),
+    ],
+    boundary: COMMON_BOUNDARY,
+    options: { maxContentBytes: 12 },
+    expected: [
+      { ...COMMON_FIELD, name: 'f1', value: 'Content 1' },
+      { error: 'field name "f"... too long' },
+    ],
+  },
+  {
+    name: 'maxContentBytes (reached in field value)',
+    source: [
+      [
+        `--${COMMON_BOUNDARY}`,
+        'Content-Disposition: form-data; name="f1"',
+        '',
+        'Content 1',
+        `--${COMMON_BOUNDARY}`,
+        'Content-Disposition: form-data; name="f2"',
+        '',
+        'Content 2',
+        `--${COMMON_BOUNDARY}--`,
+      ].join('\r\n'),
+    ],
+    boundary: COMMON_BOUNDARY,
+    options: { maxContentBytes: 20 },
+    expected: [
+      { ...COMMON_FIELD, name: 'f1', value: 'Content 1' },
+      { error: 'value for "f2" too long' },
+    ],
+  },
+  {
+    name: 'maxContentBytes (reached in file)',
+    source: [
+      [
+        `--${COMMON_BOUNDARY}`,
+        'Content-Disposition: form-data; name="f1"',
+        '',
+        'Content 1',
+        `--${COMMON_BOUNDARY}`,
+        'Content-Disposition: form-data; name="f2"; filename="my-file.txt"',
+        'Content-Type: application/octet-stream',
+        '',
+        'File Content',
+        `--${COMMON_BOUNDARY}--`,
+      ].join('\r\n'),
+    ],
+    boundary: COMMON_BOUNDARY,
+    options: { maxContentBytes: 20 },
+    expected: [
+      { ...COMMON_FIELD, name: 'f1', value: 'Content 1' },
+      {
+        ...COMMON_FILE,
+        name: 'f2',
+        filename: 'my-file.txt',
+        sizeLimit: 7,
+        data: Buffer.from('File Co'),
+        err: 'uploaded file for "f2": "my-file.txt" too large',
+      },
+      { error: 'uploaded file for "f2": "my-file.txt" too large' },
+    ],
+  },
+  {
+    name: 'maxTotalFileSize',
+    source: [
+      [
+        `--${COMMON_BOUNDARY}`,
+        'Content-Disposition: form-data; name="f1"; filename="my-file.txt"',
+        'Content-Type: application/octet-stream',
+        '',
+        'File Content 1',
+        `--${COMMON_BOUNDARY}`,
+        'Content-Disposition: form-data; name="f2"; filename="my-other-file.txt"',
+        'Content-Type: application/octet-stream',
+        '',
+        'File Content 2',
+        `--${COMMON_BOUNDARY}--`,
+      ].join('\r\n'),
+    ],
+    boundary: COMMON_BOUNDARY,
+    options: { maxTotalFileSize: 20 },
+    expected: [
+      {
+        ...COMMON_FILE,
+        name: 'f1',
+        filename: 'my-file.txt',
+        sizeLimit: 20,
+        data: Buffer.from('File Content 1'),
+      },
+      {
+        ...COMMON_FILE,
+        name: 'f2',
+        filename: 'my-other-file.txt',
+        sizeLimit: 6,
+        data: Buffer.from('File C'),
+        err: 'uploaded file for "f2": "my-other-file.txt" too large',
+      },
+      { error: 'uploaded file for "f2": "my-other-file.txt" too large' },
     ],
   },
 ];

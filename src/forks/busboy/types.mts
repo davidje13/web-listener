@@ -7,8 +7,6 @@ export interface BusboyOptions {
    */
   blockMultipart?: boolean;
 
-  limits?: Limits;
-
   /**
    * `true` to preserve path information in filenames. `false` to only include the basename (omitting everything before the last `/` or `\`)
    * @default false
@@ -33,6 +31,60 @@ export interface BusboyOptions {
    * @default 'utf-8'
    */
   defCharset?: string;
+
+  /**
+   * The maximum content length as sent (including e.g. multipart boundaries and headers)
+   * @default Infinity
+   */
+  maxNetworkBytes?: number;
+
+  /**
+   * The maximum content length, combining all field names, values, and files
+   * @default maxNetworkBytes
+   */
+  maxContentBytes?: number;
+
+  /**
+   * The maximum field name size (in bytes).
+   * @default 100
+   */
+  maxFieldNameSize?: number | undefined;
+
+  /**
+   * The maximum field value size (in bytes).
+   * @default 1048576 (1MB)
+   */
+  maxFieldSize?: number | undefined;
+
+  /**
+   * The maximum number of non-file fields.
+   * @default Infinity
+   */
+  maxFields?: number | undefined;
+
+  /**
+   * For multipart forms, the maximum file size (in bytes).
+   * @default Infinity
+   */
+  maxFileSize?: number | undefined;
+
+  /**
+   * For multipart forms, the maximum combined file size (in bytes) for all files in the request.
+   * @default Infinity
+   */
+  maxTotalFileSize?: number | undefined;
+
+  /**
+   * For multipart forms, the maximum number of files.
+   * @default Infinity
+   */
+  maxFiles?: number | undefined;
+
+  /**
+   * For multipart forms, the maximum number of parts (fields + files).
+   * @default Infinity
+   */
+  maxParts?: number | undefined;
 }
 
 interface CommonFormField {
@@ -45,6 +97,7 @@ interface FileFormField extends CommonFormField {
   type: 'file';
   value: Readable;
   filename: string;
+  sizeLimit: number;
 }
 
 interface StringFormField extends CommonFormField {
@@ -58,44 +111,6 @@ export type StreamConsumer = (
   source: Readable,
   callback: (field: FormField) => void,
 ) => Promise<void>;
-
-export interface Limits {
-  /**
-   * Max field name size (in bytes).
-   * @default 100
-   */
-  fieldNameSize?: number | undefined;
-
-  /**
-   * Max field value size (in bytes).
-   * @default 1048576 (1MB)
-   */
-  fieldSize?: number | undefined;
-
-  /**
-   * Max number of non-file fields.
-   * @default Infinity
-   */
-  fields?: number | undefined;
-
-  /**
-   * For multipart forms, the max file size (in bytes).
-   * @default Infinity
-   */
-  fileSize?: number | undefined;
-
-  /**
-   * For multipart forms, the max number of file fields.
-   * @default Infinity
-   */
-  files?: number | undefined;
-
-  /**
-   * For multipart forms, the max number of parts (fields + files).
-   * @default Infinity
-   */
-  parts?: number | undefined;
-}
 
 declare global {
   interface Buffer {

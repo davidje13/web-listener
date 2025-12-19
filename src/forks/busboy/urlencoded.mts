@@ -4,13 +4,18 @@ import { HEX_VALUES, type ContentTypeParams } from './utils.mts';
 import type { BusboyOptions, StreamConsumer } from './types.mts';
 
 export function getURLEncodedFormFields(
-  { limits = {}, defCharset = 'utf-8' }: BusboyOptions,
+  {
+    defCharset = 'utf-8',
+    maxNetworkBytes = Number.POSITIVE_INFINITY,
+    maxContentBytes = maxNetworkBytes,
+    maxFieldSize = 1 * 1024 * 1024,
+    maxFieldNameSize = 100,
+    maxFields = Number.POSITIVE_INFINITY,
+  }: BusboyOptions,
   conTypeParams: ContentTypeParams,
 ): StreamConsumer {
   // officially charset is not a supported parameter for application/x-www-form-urlencoded, but if it's present we will respect it
   const charset = conTypeParams.get('charset') ?? defCharset;
-  const fieldSizeLimit = limits.fieldSize ?? 1 * 1024 * 1024;
-  const fieldNameSizeLimit = limits.fieldNameSize ?? 100;
 
   const fastDecode = /^utf-?8$/i.test(charset)
     ? 1
@@ -21,10 +26,12 @@ export function getURLEncodedFormFields(
 
   return (source, callback) =>
     new Promise((resolve, reject) => {
-      let fieldsRemaining = limits.fields ?? Number.POSITIVE_INFINITY;
+      let networkRemaining = maxNetworkBytes;
+      let contentRemaining = maxContentBytes;
+      let fieldsRemaining = maxFields;
       let inKey = true;
       let current = '';
-      let currentLimit = fieldNameSizeLimit;
+      let currentLimit = Math.min(maxFieldNameSize, contentRemaining);
       let currentHighNibble = 0;
       let key = '';
       let percentEncodedState = -2;
@@ -36,7 +43,7 @@ export function getURLEncodedFormFields(
             : current;
         if (!inKey) {
           if (currentLimit < 0) {
-            handleError(new HTTPError(400, { body: `value for ${JSON.stringify(key)} too long` }));
+            handleError(new HTTPError(413, { body: `value for ${JSON.stringify(key)} too long` }));
             return false;
           }
           callback({
@@ -48,7 +55,7 @@ export function getURLEncodedFormFields(
           });
         } else if (currentLimit < 0) {
           handleError(
-            new HTTPError(400, {
+            new HTTPError(413, {
               body: `field name ${JSON.stringify(currentDecoded)}... too long`,
             }),
           );
@@ -69,8 +76,11 @@ export function getURLEncodedFormFields(
         if (!chunk.byteLength) {
           return;
         }
+        if ((networkRemaining -= chunk.byteLength) < 0) {
+          return handleError(new HTTPError(413, { body: 'content too large' }));
+        }
         if (!fieldsRemaining) {
-          return handleError(new HTTPError(400, { body: 'too many fields' }));
+          return handleError(new HTTPError(413, { body: 'too many fields' }));
         }
 
         const len = chunk.byteLength;
@@ -119,6 +129,7 @@ export function getURLEncodedFormFields(
             if ((currentLimit -= pos - prev) < 0) {
               current += chunk.latin1Slice(prev, pos + currentLimit);
             } else {
+              contentRemaining -= pos - prev;
               current += chunk.latin1Slice(prev, pos);
             }
           }
@@ -134,6 +145,7 @@ export function getURLEncodedFormFields(
                   SPECIALS[PLUS] = 0;
                   break;
                 }
+                --contentRemaining;
                 if (pos === len) {
                   percentEncodedState = -1;
                   break;
@@ -176,10 +188,10 @@ export function getURLEncodedFormFields(
               SPECIALS[PCT] = 1;
               SPECIALS[PLUS] = 1;
               current = '';
-              currentLimit = fieldNameSizeLimit;
+              currentLimit = Math.min(maxFieldNameSize, contentRemaining);
               currentHighNibble = 0;
               if (!--fieldsRemaining) {
-                return handleError(new HTTPError(400, { body: 'too many fields' }));
+                return handleError(new HTTPError(413, { body: 'too many fields' }));
               }
               break;
             case PLUS:
@@ -187,6 +199,7 @@ export function getURLEncodedFormFields(
                 SPECIALS[PCT] = 0;
                 SPECIALS[PLUS] = 0;
               } else {
+                --contentRemaining;
                 current += ' ';
               }
               break;
@@ -197,7 +210,7 @@ export function getURLEncodedFormFields(
                   : current;
               if (currentLimit < 0) {
                 return handleError(
-                  new HTTPError(400, { body: `field name ${JSON.stringify(key)}... too long` }),
+                  new HTTPError(413, { body: `field name ${JSON.stringify(key)}... too long` }),
                 );
               }
               inKey = false;
@@ -206,7 +219,7 @@ export function getURLEncodedFormFields(
               SPECIALS[PLUS] = 1;
               current = '';
               currentHighNibble = 0;
-              currentLimit = fieldSizeLimit;
+              currentLimit = Math.min(maxFieldSize, contentRemaining);
               break;
           }
           if (pos === len) {

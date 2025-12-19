@@ -6,6 +6,9 @@ interface ContinueProps {
   _sentContinue: boolean;
 }
 
+const requiresContinue = (req: IncomingMessage) =>
+  req.headers.expect?.trim().toLowerCase() === '100-continue';
+
 export function acceptBody(req: IncomingMessage) {
   const props = internalMustGetProps<ContinueProps>(req);
   if (!props._output) {
@@ -18,7 +21,12 @@ export function acceptBody(req: IncomingMessage) {
     return;
   }
   props._sentContinue = true;
-  if (req.headers.expect?.trim().toLowerCase() === '100-continue') {
+  if (requiresContinue(req)) {
     props._output._target.writeContinue();
   }
+}
+
+export function willSendBody(req: IncomingMessage) {
+  const props = internalMustGetProps<ContinueProps>(req);
+  return !props._ac.signal.aborted && (props._sentContinue || !requiresContinue(req));
 }

@@ -114,6 +114,7 @@ parameters from a parent, which can be typed with `Router<WithPathParameters<{ n
   - [`getFormData`]
   - [`getFormFields`]
   - [`acceptBody`]
+  - [`willSendBody`]
 - Dynamic content
   - [`sendCSVStream`]
   - [`sendJSON`]
@@ -2600,6 +2601,21 @@ This is only required if `autoContinue` was set to `false` in [`weblistener.atta
 equivalently, if a [`'checkContinue'`](https://nodejs.org/api/http.html#event-checkcontinue)
 listener was set on the [`<http.Server>`]).
 
+### `willSendBody(req)`
+
+[`willSendBody`]: #willsendbodyreq
+
+- `req` [`<http.IncomingMessage>`]
+- Returns: [`<boolean>`]
+
+Returns `true` if the request's body will be sent. If the request included
+[`Expect: 100-continue`][`Expect`] and `autoContinue` was set to `false` in [`weblistener.attach`]
+(or equivalently, if a [`'checkContinue'`](https://nodejs.org/api/http.html#event-checkcontinue)
+listener was set on the [`<http.Server>`]), this will return `false` until [`acceptBody`] is called.
+
+This can be useful in error handling: if a request with a body fails precondition checks, its
+connection can be reused _without_ needing to consume the body if `willSendBody` returns `false`.
+
 ### `getFormData(req[, options])`
 
 [`getFormData`]: #getformdatareq-options
@@ -2615,8 +2631,8 @@ listener was set on the [`<http.Server>`]).
     - `encoding` [`<string>`] the [`Content-Transfer-Encoding`] header for this file (deprecated by
       the spec)
     - `mimeType` [`<string>`] client-sent mime type for this file
-    - `maxBytes` [`<number>`] | [`<undefined>`] upper limit on the file size, based on the `limits`
-      configured
+    - `maxBytes` [`<number>`] | [`<undefined>`] upper limit on the file size, based on the
+      `maxFileSize` and `maxTotalFileSize` configured
     - Returns: [`<Function>`] | [`<undefined>`] if a function is returned, it will be called after
       the file has finished being uploaded with the final file size (in bytes).
   - additional options are passed to [`getFormFields`].
@@ -2690,12 +2706,33 @@ return formdata.getAll(name).filter((v) => typeof v !== 'string');
     forcibly closing the connection. This can help to avoid clients continuing to send large amounts
     of data which will be ignored. **Default:** `500`.
   - `blockMultipart` [`<boolean>`] only allow `application/x-www-form-urlencoded` content (file
-    uploads are implicitly blocked). **Default:** `false`.
-  - `limits` [`<Object>`]
-  - `preservePath` [`<boolean>`] **Default:** `false`.
-  - `fileHwm` [`<number>`] **Default:** `65536`.
+    uploads are implicitly blocked). Note you can also block file uploads without blocking multipart
+    encoding by setting `maxFiles` to `0`. **Default:** `false`.
+  - `preservePath` [`<boolean>`] return the `filepath` as sent by the client, including any
+    directory information it contains. When `false`, the `filepath` is clipped to only contain the
+    file name, without any directory separators. **Default:** `false`.
+  - `fileHwm` [`<number>`] the `highWaterMark` value to set on returned file streams. **Default:**
+    `65536`.
   - `defParamCharset` [`<string>`] **Default:** `'utf-8'`.
   - `defCharset` [`<string>`] **Default:** `'utf-8'`.
+  - `maxNetworkBytes` [`<number>`] the maximum content length as sent (including e.g. multipart
+    boundaries and headers). If the request includes a `content-length` header which exceeds this
+    value, the request will be rejected immediately with [`<HTTPError>`] [413 Content Too Large]
+    without parsing any fields. **Default:** `Infinity`.
+  - `maxContentBytes` [`<number>`] the maximum content length, combining all field names, values,
+    and files. **Default:** `maxNetworkBytes`.
+  - `maxFieldNameSize` [`<number>`] the maximum field name size (in bytes). **Default:** `100`.
+  - `maxFieldSize` [`<number>`] the maximum field value size (in bytes). **Default:** `1048576`
+    (1MB).
+  - `maxFields` [`<number>`] the maximum number of non-file fields. **Default:** `Infinity`.
+  - `maxFileSize` [`<number>`] for multipart forms, the maximum file size (in bytes). **Default:**
+    `Infinity`.
+  - `maxTotalFileSize` [`<number>`] for multipart forms, the maximum combined file size (in bytes)
+    for all files in the request. **Default:** `Infinity`.
+  - `maxFiles` [`<number>`] for multipart forms, the maximum number of files. **Default:**
+    `Infinity`.
+  - `maxParts` [`<number>`] for multipart forms, the maximum number of parts (fields + files).
+    **Default:** `Infinity`.
 - Returns: [`<AsyncIterable>`][`<AsyncIterator>`] of [`<Object>`]
 
 This uses a bundled fork of [busboy](https://www.npmjs.com/package/busboy) (with altered behaviour
@@ -2713,6 +2750,9 @@ properties:
 - `type` [`<string>`] `'string'` or `'file'`
 - `value` [`<string>`] if the `type` is `'string'`; [`<stream.Readable>`] if `type` is `'file'`
 - `filename` [`<string>`] if the `type` is `'file'`
+- `sizeLimit` [`<number>`] the maximum permitted size of the file (in bytes) based on `maxFileSize`
+  and `maxTotalFileSize` if the `type` is `'file'`. When streaming, if the file ends up being larger
+  than this limit, it will stop being read from the request and an error will be thrown.
 
 See [`getFormData`] for a wrapper which provides a slightly easier (and standardised) API.
 

@@ -120,42 +120,42 @@ const tests: TestDef[] = [
 
   // limits
   {
-    name: 'fields=0 reached',
+    name: 'maxFields=0 reached',
     source: '',
-    options: { limits: { fields: 0 } },
+    options: { maxFields: 0 },
     expected: [],
   },
   {
-    name: 'fields=0 exceeded',
+    name: 'maxFields=0 exceeded',
     source: 'foo',
-    options: { limits: { fields: 0 } },
+    options: { maxFields: 0 },
     expected: [{ error: 'too many fields' }],
   },
   {
-    name: 'fields=1 reached',
+    name: 'maxFields=1 reached',
     source: 'foo=bar',
-    options: { limits: { fields: 1 } },
+    options: { maxFields: 1 },
     expected: [{ ...COMMON, name: 'foo', value: 'bar' }],
   },
   {
-    name: 'fields=1 exceeded',
+    name: 'maxFields=1 exceeded',
     source: 'foo=bar&baz=bla',
-    options: { limits: { fields: 1 } },
+    options: { maxFields: 1 },
     expected: [{ ...COMMON, name: 'foo', value: 'bar' }, { error: 'too many fields' }],
   },
   {
-    name: 'fields=2 reached',
+    name: 'maxFields=2 reached',
     source: 'foo=bar&baz=bla',
-    options: { limits: { fields: 2 } },
+    options: { maxFields: 2 },
     expected: [
       { ...COMMON, name: 'foo', value: 'bar' },
       { ...COMMON, name: 'baz', value: 'bla' },
     ],
   },
   {
-    name: 'fields=2 exceeded',
+    name: 'maxFields=2 exceeded',
     source: 'foo=bar&baz=bla&more',
-    options: { limits: { fields: 2 } },
+    options: { maxFields: 2 },
     expected: [
       { ...COMMON, name: 'foo', value: 'bar' },
       { ...COMMON, name: 'baz', value: 'bla' },
@@ -165,13 +165,13 @@ const tests: TestDef[] = [
   {
     name: 'subsequent chunks are ignored after reaching the field limit',
     source: 'foo=bar&baz=bla|bla&x=y',
-    options: { limits: { fields: 1 } },
+    options: { maxFields: 1 },
     expected: [{ ...COMMON, name: 'foo', value: 'bar' }, { error: 'too many fields' }],
   },
   {
-    name: 'fieldSize limit',
+    name: 'maxFieldSize limit',
     source: 'a&b=&c=ab&long=a&d=abc&e=abcd',
-    options: { limits: { fieldSize: 2 } },
+    options: { maxFieldSize: 2 },
     expected: [
       { ...COMMON, name: 'a', value: '' },
       { ...COMMON, name: 'b', value: '' },
@@ -181,21 +181,21 @@ const tests: TestDef[] = [
     ],
   },
   {
-    name: 'fieldSize limit (percent encoding)',
+    name: 'maxFieldSize limit (percent encoding)',
     source: 'p1=%25%25&percent=%25%25%25%25',
-    options: { limits: { fieldSize: 2 } },
+    options: { maxFieldSize: 2 },
     expected: [{ ...COMMON, name: 'p1', value: '%%' }, { error: 'value for "percent" too long' }],
   },
   {
-    name: 'fieldSize limit (plus)',
+    name: 'maxFieldSize limit (plus)',
     source: 'p1=++&plus=++++',
-    options: { limits: { fieldSize: 2 } },
+    options: { maxFieldSize: 2 },
     expected: [{ ...COMMON, name: 'p1', value: '  ' }, { error: 'value for "plus" too long' }],
   },
   {
-    name: 'fieldNameSize limit',
+    name: 'maxFieldNameSize limit',
     source: '=baz&ab=baz&abc=baz&abcd=baz',
-    options: { limits: { fieldNameSize: 2 } },
+    options: { maxFieldNameSize: 2 },
     expected: [
       { ...COMMON, name: '', value: 'baz' },
       { ...COMMON, name: 'ab', value: 'baz' },
@@ -203,27 +203,27 @@ const tests: TestDef[] = [
     ],
   },
   {
-    name: 'fieldNameSize limit (no value)',
+    name: 'maxFieldNameSize limit (no value)',
     source: 'long',
-    options: { limits: { fieldNameSize: 2 } },
+    options: { maxFieldNameSize: 2 },
     expected: [{ error: 'field name "lo"... too long' }],
   },
   {
-    name: 'fieldNameSize limit (percent encoding)',
+    name: 'maxFieldNameSize limit (percent encoding)',
     source: '%25%25=fine&%25%25%25%25',
-    options: { limits: { fieldNameSize: 2 } },
+    options: { maxFieldNameSize: 2 },
     expected: [{ ...COMMON, name: '%%', value: 'fine' }, { error: 'field name "%%"... too long' }],
   },
   {
-    name: 'fieldNameSize limit (plus)',
+    name: 'maxFieldNameSize limit (plus)',
     source: '++=fine&++++',
-    options: { limits: { fieldNameSize: 2 } },
+    options: { maxFieldNameSize: 2 },
     expected: [{ ...COMMON, name: '  ', value: 'fine' }, { error: 'field name "  "... too long' }],
   },
   {
-    name: 'fieldSize=0',
+    name: 'maxFieldSize=0',
     source: '=&a&b=&c=.',
-    options: { limits: { fieldSize: 0 } },
+    options: { maxFieldSize: 0 },
     expected: [
       { ...COMMON, name: '', value: '' },
       { ...COMMON, name: 'a', value: '' },
@@ -232,9 +232,9 @@ const tests: TestDef[] = [
     ],
   },
   {
-    name: 'fieldNameSize=0',
+    name: 'maxFieldNameSize=0',
     source: '=&=bar&a&b=.',
-    options: { limits: { fieldNameSize: 0 } },
+    options: { maxFieldNameSize: 0 },
     expected: [
       { ...COMMON, name: '', value: '' },
       { ...COMMON, name: '', value: 'bar' },
@@ -242,10 +242,36 @@ const tests: TestDef[] = [
     ],
   },
   {
-    name: 'fieldSize=0, fieldNameSize=0',
+    name: 'maxFieldSize=0, maxFieldNameSize=0',
     source: '=&a=b',
-    options: { limits: { fieldNameSize: 0, fieldSize: 0 } },
+    options: { maxFieldNameSize: 0, maxFieldSize: 0 },
     expected: [{ ...COMMON, name: '', value: '' }, { error: 'field name ""... too long' }],
+  },
+
+  // content limits
+  {
+    name: 'maxContentBytes limit (reached in field name)',
+    source: 'foo=bar&zig=zag',
+    options: { maxContentBytes: 8 },
+    expected: [{ ...COMMON, name: 'foo', value: 'bar' }, { error: 'field name "zi"... too long' }],
+  },
+  {
+    name: 'maxContentBytes limit (reached in field value)',
+    source: 'foo=bar&zig=zag',
+    options: { maxContentBytes: 10 },
+    expected: [{ ...COMMON, name: 'foo', value: 'bar' }, { error: 'value for "zig" too long' }],
+  },
+  {
+    name: 'maxContentBytes limit (encoded values)',
+    source: 'foo=%20%20%20&bar',
+    options: { maxContentBytes: 8 },
+    expected: [{ ...COMMON, name: 'foo', value: '   ' }, { error: 'field name "ba"... too long' }],
+  },
+  {
+    name: 'maxNetworkBytes limit',
+    source: 'foo=bar&zig=zag',
+    options: { maxNetworkBytes: 8 },
+    expected: [{ ...COMMON, name: 'foo', value: 'bar' }, { error: 'content too large' }],
   },
 ];
 

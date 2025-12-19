@@ -17,11 +17,19 @@ const STATE_ERROR = 7;
 
 export function getMultipartFormFields(
   {
-    limits = {},
     preservePath,
     fileHwm,
     defParamCharset = 'utf-8',
     defCharset = 'utf-8',
+    maxNetworkBytes = Number.POSITIVE_INFINITY,
+    maxContentBytes = maxNetworkBytes,
+    maxFieldSize = 1 * 1024 * 1024,
+    maxFileSize = Number.POSITIVE_INFINITY,
+    maxTotalFileSize = Number.POSITIVE_INFINITY,
+    maxFieldNameSize = 100,
+    maxParts = Number.POSITIVE_INFINITY,
+    maxFields = Number.POSITIVE_INFINITY,
+    maxFiles = Number.POSITIVE_INFINITY,
   }: BusboyOptions,
   conTypeParams: ContentTypeParams,
 ): StreamConsumer {
@@ -40,17 +48,16 @@ export function getMultipartFormFields(
     read: internalFileStreamRead,
   };
 
-  const fieldSizeLimit = limits.fieldSize ?? 1 * 1024 * 1024;
-  const fileSizeLimit = limits.fileSize ?? Number.POSITIVE_INFINITY;
-  const fieldNameSizeLimit = limits.fieldNameSize ?? 100;
-
   return (source, callback) =>
     new Promise((resolve, reject) => {
       let state = STATE_SKIP;
 
-      let partsRemaining = limits.parts ?? Number.POSITIVE_INFINITY;
-      let fieldsRemaining = limits.fields ?? Number.POSITIVE_INFINITY;
-      let filesRemaining = limits.files ?? Number.POSITIVE_INFINITY;
+      let networkRemaining = maxNetworkBytes;
+      let contentRemaining = maxContentBytes;
+      let totalFileSizeRemaining = maxTotalFileSize;
+      let partsRemaining = maxParts;
+      let fieldsRemaining = maxFields;
+      let filesRemaining = maxFiles;
       let partSizeRemaining = 0;
 
       let awaitingFileDrain = false;
@@ -80,13 +87,16 @@ export function getMultipartFormFields(
         if (partName === undefined) {
           return handleError(new HTTPError(400, { body: 'missing field name' }));
         }
-        if (partName.length > fieldNameSizeLimit) {
+        const nameLength = Buffer.byteLength(partName, 'utf-8');
+        const nameLimit = Math.min(maxFieldNameSize, contentRemaining);
+        if (nameLength > nameLimit) {
           return handleError(
-            new HTTPError(400, {
-              body: `field name ${JSON.stringify(partName.substring(0, fieldNameSizeLimit))}... too long`,
+            new HTTPError(413, {
+              body: `field name ${JSON.stringify(partName.substring(0, nameLimit))}... too long`,
             }),
           );
         }
+        contentRemaining -= nameLength;
         filename = disp.params.get('filename*') ?? disp.params.get('filename');
         const contentType = parseContentType(header[CONTENT_TYPE]);
         mimeType = contentType?.mime ?? 'text/plain';
@@ -94,7 +104,7 @@ export function getMultipartFormFields(
         if (mimeType === 'application/octet-stream' || filename !== undefined) {
           // File
           if (!filesRemaining--) {
-            return handleError(new HTTPError(400, { body: 'too many files' }));
+            return handleError(new HTTPError(413, { body: 'too many files' }));
           }
           if (!filename) {
             // if a file field is submitted without any files, it will send an empty entry: ignore it
@@ -117,6 +127,12 @@ export function getMultipartFormFields(
           });
           fileStream = fs;
           ++activeFileStreams;
+          partSizeRemaining = Math.min(
+            maxFileSize,
+            totalFileSizeRemaining,
+            contentRemaining,
+            networkRemaining,
+          );
           callback({
             name: partName,
             type: 'file',
@@ -124,16 +140,16 @@ export function getMultipartFormFields(
             filename,
             encoding: partEncoding,
             mimeType,
+            sizeLimit: partSizeRemaining,
           });
           state = STATE_CONTENT;
-          partSizeRemaining = fileSizeLimit;
         } else {
           // Non-file
           if (!fieldsRemaining--) {
-            return handleError(new HTTPError(400, { body: 'too many fields' }));
+            return handleError(new HTTPError(413, { body: 'too many fields' }));
           }
           state = STATE_CONTENT;
-          partSizeRemaining = fieldSizeLimit;
+          partSizeRemaining = Math.min(maxFieldSize, contentRemaining, networkRemaining);
           const partCharset = contentType?.params.get('charset')?.toLowerCase() ?? defCharset;
           partDecoder = getTextDecoder(partCharset);
         }
@@ -163,7 +179,7 @@ export function getMultipartFormFields(
                 return;
               }
               if (!partsRemaining--) {
-                return handleError(new HTTPError(400, { body: 'too many parts' }));
+                return handleError(new HTTPError(413, { body: 'too many parts' }));
               }
               state = STATE_HEADER;
               if (start === end) {
@@ -193,7 +209,9 @@ export function getMultipartFormFields(
           if (state === STATE_CONTENT) {
             const stop = Math.min(end, start + partSizeRemaining);
             partSizeRemaining -= end - start;
+            contentRemaining -= end - start;
             if (fileStream) {
+              totalFileSizeRemaining -= end - start;
               if (stop > start) {
                 let safeData: Buffer;
                 if (isDataSafe) {
@@ -208,7 +226,7 @@ export function getMultipartFormFields(
               }
               if (partSizeRemaining < 0) {
                 return handleError(
-                  new HTTPError(400, {
+                  new HTTPError(413, {
                     body: `uploaded file for ${JSON.stringify(partName)}: ${JSON.stringify(filename)} too large`,
                   }),
                 );
@@ -216,7 +234,7 @@ export function getMultipartFormFields(
             } else {
               if (partSizeRemaining < 0) {
                 return handleError(
-                  new HTTPError(400, { body: `value for ${JSON.stringify(partName)} too long` }),
+                  new HTTPError(413, { body: `value for ${JSON.stringify(partName)} too long` }),
                 );
               }
               partContent += data.latin1Slice(start, stop);
@@ -254,6 +272,9 @@ export function getMultipartFormFields(
       chunkSplitter.push(BUF_CRLF); // allow matching boundary immediately at start of content
 
       const handleData = (chunk: Buffer) => {
+        if ((networkRemaining -= chunk.byteLength) < 0) {
+          return handleError(new HTTPError(413, { body: 'content too large' }));
+        }
         awaitingFileDrain = false;
         chunkSplitter.push(chunk);
         if (fileStream && awaitingFileDrain) {
