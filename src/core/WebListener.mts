@@ -65,7 +65,7 @@ export class WebListener extends (EventTarget as TypedEventTarget<
     };
     const listeners = toListeners(this._handler, { ...options, onError });
     if (options.autoContinue === false) {
-      server.addListener('checkContinue', listeners.request);
+      server.addListener('checkContinue', listeners.checkContinue);
     }
     if (options.rejectNonStandardExpect === false) {
       server.addListener('checkExpectation', listeners.request);
@@ -80,7 +80,7 @@ export class WebListener extends (EventTarget as TypedEventTarget<
 
     let removeListeners: (() => void) | undefined = () => {
       removeListeners = undefined;
-      server.removeListener('checkContinue', listeners.request);
+      server.removeListener('checkContinue', listeners.checkContinue);
       server.removeListener('checkExpectation', listeners.request);
       server.removeListener('request', listeners.request);
       server.removeListener('upgrade', listeners.upgrade);

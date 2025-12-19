@@ -17,12 +17,15 @@ interface TestParams {
   expectError: (message?: string | RegExp) => void;
 }
 
-type TestServerOptions = Omit<NativeListenersOptions, 'onError'> & { tls?: boolean };
+type TestServerOptions = Omit<NativeListenersOptions, 'onError'> & {
+  tls?: boolean;
+  autoContinue?: boolean;
+};
 
 export async function withServer(
   handler: Handler,
   test: (address: string, params: TestParams) => Promise<void>,
-  { tls, ...options }: TestServerOptions = {},
+  { tls, autoContinue, ...options }: TestServerOptions = {},
 ) {
   const errors: string[] = [];
   const listeners = toListeners(handler, {
@@ -47,7 +50,9 @@ export async function withServer(
   const server = tls ? httpsCreateServer(await generateTLSConfig()) : createServer();
   server.addListener('clientError', listeners.clientError);
   server.addListener('request', listeners.request);
-  server.addListener('checkContinue', listeners.request);
+  if (!autoContinue) {
+    server.addListener('checkContinue', listeners.checkContinue);
+  }
   server.addListener('checkExpectation', listeners.request);
   server.addListener('upgrade', listeners.upgrade);
   server.shouldUpgradeCallback = listeners.shouldUpgrade;

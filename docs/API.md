@@ -355,8 +355,13 @@ A collection of listeners which can be attached to a [`<http.Server>`]. This is 
 A request listener compatible with
 [`<http.Server>` `'request'`](https://nodejs.org/api/http.html#event-request).
 
-Also compatible with [`'checkContinue'`](https://nodejs.org/api/http.html#event-checkcontinue) and
+Also compatible with
 [`'checkExpectation'`](https://nodejs.org/api/http.html#event-checkexpectation).
+
+#### `nativelisteners.checkContinue`
+
+A checkContinue listener compatible with
+[`<http.Server>` `'checkContinue'`](https://nodejs.org/api/http.html#event-checkcontinue).
 
 #### `nativelisteners.upgrade`
 

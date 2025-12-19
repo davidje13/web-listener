@@ -19,11 +19,13 @@ interface UpgradeOutput {
 interface RequestExtraProps {
   _upgradeProtocols: null;
   _output?: RequestOutput;
+  _expectsContinue?: boolean;
 }
 
 interface UpgradeExtraProps {
   _upgradeProtocols: Set<string>;
   _output?: UpgradeOutput;
+  _expectsContinue?: never;
 }
 
 export type ServerErrorCallback = (error: unknown, context: string, req: IncomingMessage) => void;

@@ -54,6 +54,7 @@ export type ServerGeneralErrorCallback = (
 
 export interface NativeListeners {
   request: RequestListener;
+  checkContinue: RequestListener;
   upgrade: UpgradeListener;
   shouldUpgrade: ShouldUpgradeCallback;
   clientError: ClientErrorListener;
@@ -99,37 +100,46 @@ export function toListeners(
       }
     });
   };
+  const handleRequest = async (
+    req: IncomingMessage,
+    res: ServerResponse,
+    isCheckContinue: boolean,
+  ) => {
+    let props: MessageProps;
+    try {
+      props = internalBeginRequest(req, onError, false);
+    } catch (error: unknown) {
+      onError(error, 'parsing request', req);
+      internalDefaultErrorHandler(new HTTPError(400), req, { response: res });
+      return;
+    }
+    internalBeginResponse(props, false, { _target: res });
+    if (isCheckContinue) {
+      props._expectsContinue = true;
+    }
+    track(props);
+    if (closeState === 1) {
+      internalSoftClose(props, closeReason, closeOnError);
+    } else if (closeState === 2) {
+      internalHardClose(props);
+      internalEndRequest(req);
+      return;
+    }
+    const currentError = new ErrorAccumulator();
+    const r = await internalRunHandler(handler, props, currentError);
+    if (!currentError._hasError && (r === CONTINUE || r === NEXT_ROUTE || r === NEXT_ROUTER)) {
+      currentError._add(new HTTPError(404));
+    }
+    if (currentError._hasError) {
+      onError(currentError._error, 'handling request', req);
+      internalDefaultErrorHandler(currentError._error, req, { response: res });
+      internalEndRequest(req);
+    }
+  };
 
   return {
-    request: async (req, res) => {
-      let props: MessageProps;
-      try {
-        props = internalBeginRequest(req, onError, false);
-      } catch (error: unknown) {
-        onError(error, 'parsing request', req);
-        internalDefaultErrorHandler(new HTTPError(400), req, { response: res });
-        return;
-      }
-      internalBeginResponse(props, false, { _target: res });
-      track(props);
-      if (closeState === 1) {
-        internalSoftClose(props, closeReason, closeOnError);
-      } else if (closeState === 2) {
-        internalHardClose(props);
-        internalEndRequest(req);
-        return;
-      }
-      const currentError = new ErrorAccumulator();
-      const r = await internalRunHandler(handler, props, currentError);
-      if (!currentError._hasError && (r === CONTINUE || r === NEXT_ROUTE || r === NEXT_ROUTER)) {
-        currentError._add(new HTTPError(404));
-      }
-      if (currentError._hasError) {
-        onError(currentError._error, 'handling request', req);
-        internalDefaultErrorHandler(currentError._error, req, { response: res });
-        internalEndRequest(req);
-      }
-    },
+    request: (req, res) => handleRequest(req, res, false),
+    checkContinue: (req, res) => handleRequest(req, res, true),
 
     upgrade: async (req, socket, head) => {
       socket.once('finish', () => {
