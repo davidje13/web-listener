@@ -1,6 +1,6 @@
 import { makeTestTempDir } from '../../test-helpers/makeFileStructure.mts';
 import { withServer } from '../../test-helpers/withServer.mts';
-import { rawRequest } from '../../test-helpers/rawRequest.mts';
+import { makeRequestOnSocket, openRawSocket, rawRequest } from '../../test-helpers/rawRequest.mts';
 import { requestHandler } from '../../core/handler.mts';
 import { Router } from '../../core/Router.mts';
 import { negotiateEncoding, Negotiator } from '../request/Negotiator.mts';
@@ -165,4 +165,33 @@ describe('fileServer', () => {
       expect(await res1.text()).equals('Root Index');
     });
   });
+});
+
+describe('fileServer with large content', () => {
+  const size = 70000; // must be larger than the 65k high water mark
+  const TEST_DIR = makeTestTempDir('ff-', { 'large.txt': 'a'.repeat(size) });
+
+  it(
+    'emits no error if the client disconnects before the file is sent',
+    { timeout: 3000 },
+    async ({ getTyped }) => {
+      const handler = await fileServer(getTyped(TEST_DIR));
+
+      return withServer(handler, async (url) => {
+        const urlObj = new URL(url);
+        const socket = await openRawSocket(urlObj);
+        makeRequestOnSocket(socket, urlObj.host, '/large.txt', {});
+        let seen = Number.POSITIVE_INFINITY;
+        socket.once('data', (data) => {
+          seen = data.length;
+          socket.destroy(); // close connection while data is being sent back
+        });
+
+        // wait a moment for send to finish and potentially error
+        await new Promise((resolve) => setTimeout(resolve, 100));
+
+        expect(seen).isLessThan(size);
+      });
+    },
+  );
 });

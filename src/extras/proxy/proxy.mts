@@ -2,6 +2,7 @@ import { Agent as httpAgent, request as httpRequest, type OutgoingHttpHeaders } 
 import { Agent as httpsAgent, request as httpsRequest, type AgentOptions } from 'node:https';
 import { pipeline } from 'node:stream/promises';
 import { deleteProperty } from '../../util/safeAccess.mts';
+import { internalIsPrematureCloseError } from '../../util/isPrematureCloseError.mts';
 import { requestHandler } from '../../core/handler.mts';
 import { getAbortSignal } from '../../core/close.mts';
 import { HTTPError } from '../../core/HTTPError.mts';
@@ -114,7 +115,9 @@ export function proxy(
             res.writeHead(proxyRes.statusCode ?? 200, proxyRes.statusMessage, headers);
           }
 
-          pipeline(proxyRes, res).then(resolve, reject);
+          pipeline(proxyRes, res).then(resolve, (error) =>
+            reject(internalIsPrematureCloseError(res, error) ? STOP : error),
+          );
         });
 
         pipeline(req, proxyReq).catch(send502);

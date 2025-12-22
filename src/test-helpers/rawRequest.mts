@@ -61,9 +61,11 @@ export function openRawSocket(url: URL, { allowHalfOpen = false } = {}) {
     hostname = hostname.substring(1, hostname.length - 1);
   }
   return new Promise<Socket>((resolve, reject) => {
-    const socket = createConnection(Number.parseInt(url.port), hostname, () => resolve(socket));
+    const socket = createConnection(
+      { port: Number.parseInt(url.port), host: hostname, allowHalfOpen },
+      () => resolve(socket),
+    );
     socket.once('error', reject);
-    socket.allowHalfOpen = allowHalfOpen;
   });
 }
 

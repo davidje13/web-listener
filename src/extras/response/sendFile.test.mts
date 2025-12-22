@@ -242,5 +242,25 @@ describe('sendFile', () => {
     });
   });
 
+  it('ignores requests which close while data is being sent', { timeout: 3000 }, ({ getTyped }) => {
+    const filePath = getTyped(LARGE_TEST_FILE);
+    const handler = requestHandler((req, res) => sendFile(req, res, filePath));
+
+    return withServer(handler, async (url) => {
+      const socket = await rawRequestStream(url);
+      let seen = Number.POSITIVE_INFINITY;
+      socket.once('data', (data) => {
+        seen = data.length;
+        socket.destroy(); // close connection while data is being sent back
+      });
+
+      // wait a moment for send to finish and potentially error
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      expect(seen).isLessThan(70000);
+    });
+  });
+
   const TEST_FILE = makeTestTempFile('sf-', 'file.txt', 'This is my file content.');
+  const LARGE_TEST_FILE = makeTestTempFile('sf-', 'large.txt', 'a'.repeat(65536 * 3)); // must be large enough to be split into multiple packets
 });

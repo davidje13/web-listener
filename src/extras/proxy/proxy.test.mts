@@ -340,4 +340,24 @@ describe('proxy', () => {
       });
     });
   });
+
+  it('ignores requests which close while data is being sent', { timeout: 3000 }, () => {
+    const upstream = requestHandler((_, res) => res.end('a'.repeat(65536 * 3)));
+
+    return withServer(upstream, (upstreamUrl) =>
+      withServer(proxy(upstreamUrl), async (url) => {
+        const socket = await rawRequestStream(url);
+        let seen = Number.POSITIVE_INFINITY;
+        socket.once('data', (data) => {
+          seen = data.length;
+          socket.destroy(); // close connection while data is being sent back
+        });
+
+        // wait a moment for send to finish and potentially error
+        await new Promise((resolve) => setTimeout(resolve, 200));
+
+        expect(seen).isLessThan(70000);
+      }),
+    );
+  });
 });

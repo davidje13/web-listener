@@ -7,7 +7,9 @@ import { pipeline } from 'node:stream/promises';
 import { randomUUID } from 'node:crypto';
 import { internalEncodeHeaders } from '../../polyfill/SocketServerResponse.mts';
 import { internalIsFileHandle } from '../../util/isFileHandle.mts';
+import { internalIsPrematureCloseError } from '../../util/isPrematureCloseError.mts';
 import { StreamSlicer } from '../../util/StreamSlicer.mts';
+import { STOP } from '../../core/RoutingInstruction.mts';
 import { simplifyRange, type HTTPRange } from '../range.mts';
 
 // https://datatracker.ietf.org/doc/html/rfc7233
@@ -19,7 +21,7 @@ export async function sendRanges(
   httpRange: HTTPRange,
 ) {
   if (res.closed || !res.writable) {
-    return; // client closed connection; don't bother loading file
+    throw STOP; // client closed connection; don't bother loading file
   }
 
   if (typeof source !== 'string' && !internalIsFileHandle(source)) {
@@ -40,9 +42,11 @@ export async function sendRanges(
     const slicer = await getSlicer(source);
     try {
       if (res.closed || !res.writable) {
-        return; // client closed connection; stop sending data
+        throw STOP; // client closed connection; stop sending data
       }
       await pipeline(slicer._get(range.start, range.end), res);
+    } catch (error: unknown) {
+      throw internalIsPrematureCloseError(res, error) ? STOP : error;
     } finally {
       if (slicer._end) {
         await slicer._end();
@@ -81,13 +85,15 @@ export async function sendRanges(
   try {
     for (const { _head, _range } of sections) {
       if (res.closed || !res.writable) {
-        return; // client closed connection; stop sending data
+        throw STOP; // client closed connection; stop sending data
       }
       res.write(trailing + _head, 'ascii');
       await pipeline(slicer._get(_range.start, _range.end), res, { end: false });
       trailing = '\r\n';
     }
     res.end(trailing + terminator);
+  } catch (error: unknown) {
+    throw internalIsPrematureCloseError(res, error) ? STOP : error;
   } finally {
     if (slicer._end) {
       await slicer._end();

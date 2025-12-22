@@ -223,18 +223,29 @@ export function toListeners(
 
       // Custom behaviour from here:
 
-      // `Error: read ECONNRESET at TCP.onStreamRead` usually means the client aborted
-      // the connection while the server was sending data (and wanted an ACK).
-      // Same observed as `EPIPE Error: write EPIPE` on Linux.
+      if (code === 'EPIPE' && !socket.writable) {
+        // Client disconnected (gracefully) while the response was being sent.
+        // This error is also received by the sender (e.g. pipeline), which has
+        // a better chance of deciding if it's important, so we ignore it here.
+        return;
+      }
+
+      if (code === 'ECONNRESET' && !socket.writable) {
+        // Client disconnected (abruptly) while the response was being sent.
+        // This error is also received by the sender (e.g. pipeline), which has
+        // a better chance of deciding if it's important, so we ignore it here.
+        return;
+      }
 
       if (code === 'HPE_INVALID_EOF_STATE') {
         // Client aborted before uploading the entire body
         // Possibly related: https://github.com/nodejs/node/issues/23897
         // Similar: https://github.com/expressjs/multer/issues/779
         // Already handled by the reader, so ignore it here.
-      } else {
-        onError(error, 'initialising request', undefined);
+        return;
       }
+
+      onError(error, 'initialising request', undefined);
     },
 
     softClose(reason, onError, callback) {

@@ -4,11 +4,13 @@ import { pipeline } from 'node:stream/promises';
 import { stat, type FileHandle } from 'node:fs/promises';
 import type { Readable } from 'node:stream';
 import { createReadStream, type Stats } from 'node:fs';
+import { internalIsFileHandle } from '../../util/isFileHandle.mts';
+import { internalIsPrematureCloseError } from '../../util/isPrematureCloseError.mts';
+import { STOP } from '../../core/RoutingInstruction.mjs';
 import { getRange, type GetRangeOptions } from '../request/headers.mts';
 import { checkIfModified, checkIfRange } from '../request/conditional.mts';
 import { sendRanges } from '../response/sendRanges.mts';
 import { simplifyRange, type SimplifyRangeOptions } from '../range.mts';
-import { internalIsFileHandle } from '../../util/isFileHandle.mts';
 
 export async function sendFile(
   req: IncomingMessage,
@@ -18,7 +20,7 @@ export async function sendFile(
   options?: GetRangeOptions & SimplifyRangeOptions,
 ) {
   if (res.closed || !res.writable) {
-    return; // client closed connection; don't bother loading file
+    throw STOP; // client closed connection; don't bother loading file
   }
 
   if (!fileStats) {
@@ -28,7 +30,7 @@ export async function sendFile(
       fileStats = await source.stat();
     }
     if (res.closed || !res.writable) {
-      return; // client closed connection while we were loading file stats
+      throw STOP; // client closed connection while we were loading file stats
     }
   }
 
@@ -57,5 +59,9 @@ export async function sendFile(
   } else if (internalIsFileHandle(source)) {
     source = source.createReadStream({ start: 0, autoClose: false });
   }
-  return pipeline(source, res);
+  try {
+    await pipeline(source, res);
+  } catch (error: unknown) {
+    throw internalIsPrematureCloseError(res, error) ? STOP : error;
+  }
 }
