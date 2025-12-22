@@ -147,7 +147,7 @@ default. To apply encoding, specify the type you need:
           "method": "GET",
           "path": "/*path.json",
           "status": 200,
-          "body": "{\"path\":${json(path),\"page\":${int(?page:-1)}}}"
+          "body": "{\"path\":${json(path)},\"page\":${int(?page:-1)}}"
         }
       ]
     }

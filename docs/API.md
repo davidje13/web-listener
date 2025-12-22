@@ -37,7 +37,7 @@ router.get('/config', (req, res) => {
 
 // and static content
 router.use(
-  fileServer('static-content-dir', {
+  await fileServer('static-content-dir', {
     fallback: { filePath: 'index.html' },
   }),
 );
@@ -3079,6 +3079,14 @@ files created after startup will not be visible, but modifications to existing f
 as expected. The behaviour is otherwise identical. `'static-paths'` is usually the best choice for
 serving static files in production.
 
+Note that this returns a [`<Promise>`] which must be `await`ed before attaching as a handler! The
+delay is caused by the library checking the `realpath` of the chosen directory, which is used for
+security (to prevent files outside this path being served). It should resolve almost instantly for
+standard filesystems. If `mode` is `'static-paths'`, it will also identify all available file paths
+before resolving. This may take some time if you have a very large number of directories to search.
+If either operation fails (e.g. if the directory you request does not exist), the promise will
+reject with an [`<Error>`].
+
 ### `setDefaultCacheHeaders(req, res, file)`
 
 [`setDefaultCacheHeaders`]: #setdefaultcacheheadersreq-res-file
@@ -3649,7 +3657,7 @@ router.get('/config', (req, res) => {
 
 // and static content
 router.use(
-  fileServer('static-content-dir', {
+  await fileServer('static-content-dir', {
     fallback: { filePath: 'index.html' },
   }),
 );
