@@ -2768,7 +2768,7 @@ router.post('/', async (req, res) => {
   for await (const field of getFormFields(req)) {
     if (field.type === 'file') {
       console.log('got a file:', field.name, field.filename);
-      field.value.resume(); // ignore the uplaoded file and continue
+      field.value.resume(); // ignore the uploaded file and continue
     } else {
       console.log('got a field:', field.name, field.value);
     }
@@ -3008,7 +3008,7 @@ characters inside quoted text are escaped by doubling (e.g. `my "value"` encodes
     [`JSON.stringify`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/stringify#space).
     **Default:** `null`.
   - `undefinedAsNull` [`<boolean>`] if the `entity` is `undefined` and this is `true`, it will be
-    sent as `null`. If ths is `false`, it will be sent as an empty document. **Default:** `false`.
+    sent as `null`. If this is `false`, it will be sent as an empty document. **Default:** `false`.
   - `encoding` [`<string>`] **Default:** `'utf-8'`.
   - `end` [`<boolean>`] if `true`, `res` will be `end`ed after the JSON document has been written.
     **Default:** `true`.
@@ -3030,7 +3030,7 @@ set, this automatically sets [`Content-Type: application/json`][`Content-Type`].
     [`JSON.stringify`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/stringify#space).
     **Default:** `null`.
   - `undefinedAsNull` [`<boolean>`] if the `entity` is `undefined` and this is `true`, it will be
-    sent as `null`. If ths is `false`, it will be sent as an empty document. **Default:** `false`.
+    sent as `null`. If this is `false`, it will be sent as an empty document. **Default:** `false`.
   - `encoding` [`<string>`] **Default:** `'utf-8'`.
   - `end` [`<boolean>`] if `true`, `res` will be `end`ed after the JSON document has been written.
     **Default:** `true`.
