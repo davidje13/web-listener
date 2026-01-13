@@ -26,6 +26,7 @@ export {
   defer,
   addTeardown,
   getAbortSignal,
+  scheduleClose,
 } from './core/close.mts';
 export {
   requestHandler,

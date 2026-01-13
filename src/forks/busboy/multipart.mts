@@ -217,8 +217,7 @@ export function getMultipartFormFields(
                 if (isDataSafe) {
                   safeData = data.subarray(start, stop);
                 } else {
-                  safeData = Buffer.allocUnsafe(stop - start);
-                  data.copy(safeData, 0, start, stop);
+                  safeData = Buffer.copyBytesFrom(data, start, stop - start);
                 }
                 if (!fileStream.push(safeData)) {
                   awaitingFileDrain = true;

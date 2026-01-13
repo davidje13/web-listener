@@ -147,6 +147,7 @@ parameters from a parent, which can be typed with `Router<WithPathParameters<{ n
 - Graceful shutdown
   - [`setSoftCloseHandler`]
   - [`isSoftClosed`]
+  - [`scheduleClose`]
 - Registries:
   - Charset
     - [`registerCharset`]
@@ -1094,6 +1095,40 @@ after being registered).
 Soft closing allows a moment for handlers to close connections gracefully, for example by sending a
 message to the client and stopping processing of new incoming data. Simple handlers can ignore it,
 but it is useful for handlers of long-lived connections, such as WebSockets or Server-Sent Events.
+
+### `scheduleClose(req, reason, timestamp[, softCloseBufferTime[, onSoftCloseError]])`
+
+[`scheduleClose`]: #scheduleclosereq-reason-timestamp-softclosebuffertime-onsoftcloseerror
+
+- `req` [`<http.IncomingMessage>`]
+- `reason` [`<string>`] an arbitrary string which will be passed to the close handler (see
+  [`setSoftCloseHandler`])
+- `timestamp` [`<number>`] the timestamp (milliseconds since the UNIX epoch: 1st January 1970 UTC)
+  after which the connection should be "hard-closed". If this is in the past, the connection will be
+  hard-closed immediately.
+- `softCloseBufferTime` [`<number>`] a duration (in milliseconds) to subtract from the hard-close
+  timestamp for "soft-closing" the connection (see [`setSoftCloseHandler`]). This can be used to
+  avoid abrupt disconnection when the timestamp is reached. **Default:** `0`.
+- `onSoftCloseError` [`<Function>`] an error handling function for errors thrown by the registered
+  soft close handler. If not specified, these will be sent to any registered `'error'` listeners or
+  `onError` callback.
+
+Schedules closure of the connection at a future time. This can be useful for scheduling closure of
+long-lived connections when an access token expires, for example.
+
+If called multiple times for the same request, the earliest timestamp will take priority, and others
+will be discarded. This means it is not possible to extend a scheduled close time once it is set; it
+can only be brought sooner.
+
+If you want to close the connection immediately using the soft-close handler, you should set the
+`timestamp` as a "timeout" value, for example:
+
+```js
+// close the connection immediately, but give the soft-close
+// handler 5 seconds to try closing the connection "nicely"
+const timeout = 5000;
+scheduleClose(req, 'go away', Date.now() + timeout, timeout);
+```
 
 ### `defer(req, fn)`
 
