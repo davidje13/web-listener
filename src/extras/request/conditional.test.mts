@@ -101,6 +101,74 @@ describe('checkIfModified', () => {
       checkIfModified(sampleRequest({}), sampleResponse({ etag: '"foo"' }), BASIC_STATS),
     ).isTrue();
   });
+
+  describe('without file stats', () => {
+    it('returns false if the current etag matches if-none-match', () => {
+      expect(
+        checkIfModified(
+          sampleRequest({ 'if-none-match': '"foo"' }),
+          sampleResponse({ etag: '"foo"' }),
+          null,
+        ),
+      ).isFalse();
+
+      expect(
+        checkIfModified(
+          sampleRequest({ 'if-none-match': '"foo", W/"bar"' }),
+          sampleResponse({ etag: 'W/"bar"' }),
+          null,
+        ),
+      ).isFalse();
+    });
+
+    it('returns true if the current etag does not match if-none-match', () => {
+      expect(
+        checkIfModified(
+          sampleRequest({ 'if-none-match': '"nope"' }),
+          sampleResponse({ etag: '"foo"' }),
+          null,
+        ),
+      ).isTrue();
+
+      expect(
+        checkIfModified(
+          sampleRequest({ 'if-none-match': '"nope", W/"also-nope"' }),
+          sampleResponse({ etag: '"foo"' }),
+          null,
+        ),
+      ).isTrue();
+    });
+
+    it('returns true if the current etag does not match regardless of if-modified-since', () => {
+      expect(
+        checkIfModified(
+          sampleRequest({
+            'if-none-match': '"nope"',
+            'if-modified-since': new Date(0).toUTCString(),
+          }),
+          sampleResponse({ etag: '"foo"' }),
+          null,
+        ),
+      ).isTrue();
+    });
+
+    it('returns false if the current etag matches regardless of if-modified-since', () => {
+      expect(
+        checkIfModified(
+          sampleRequest({
+            'if-none-match': '"foo"',
+            'if-modified-since': new Date(0).toUTCString(),
+          }),
+          sampleResponse({ etag: '"foo"' }),
+          null,
+        ),
+      ).isFalse();
+    });
+
+    it('returns true if the request does not have if-modified-since or if-none-match', () => {
+      expect(checkIfModified(sampleRequest({}), sampleResponse({ etag: '"foo"' }), null)).isTrue();
+    });
+  });
 });
 
 describe('checkIfRange', () => {
@@ -247,6 +315,39 @@ describe('compareETag', () => {
     expect(compareETag(sampleResponse({ etag: '"foo"' }), BASIC_STATS, ['*'])).isTrue();
     expect(compareETag(sampleResponse({ etag: '"foo"' }), BASIC_STATS, ['"nope"', '*'])).isTrue();
     expect(compareETag(sampleResponse({}), BASIC_STATS, ['*'])).isTrue();
+  });
+
+  describe('without file stats', () => {
+    it('returns true if any of the given etags match the response etag header', () => {
+      expect(compareETag(sampleResponse({ etag: '"foo"' }), null, ['"foo"'])).isTrue();
+      expect(compareETag(sampleResponse({ etag: 'W/"foo"' }), null, ['W/"foo"'])).isTrue();
+      expect(
+        compareETag(sampleResponse({ etag: 'W/"foo"' }), null, ['"nope"', 'W/"foo"']),
+      ).isTrue();
+    });
+
+    it('does not generate a weak etag for the response', () => {
+      expect(
+        compareETag(sampleResponse({ 'content-encoding': 'foo/bar' }), null, [
+          generateWeakETag('foo/bar', BASIC_STATS),
+        ]),
+      ).isFalse();
+    });
+
+    it('returns false if none of the given etags match the response', () => {
+      expect(compareETag(sampleResponse({ etag: '"foo1"' }), null, ['"foo2"'])).isFalse();
+      expect(compareETag(sampleResponse({ etag: 'W/"foo1"' }), null, ['W/"foo2"'])).isFalse();
+      expect(
+        compareETag(sampleResponse({ etag: 'W/"foo"' }), null, ['"nope"', 'W/"also-no"']),
+      ).isFalse();
+      expect(compareETag(sampleResponse({}), null, ['"nope"', 'W/"also-no"'])).isFalse();
+    });
+
+    it('returns true if any of the given etags are a wildcard', () => {
+      expect(compareETag(sampleResponse({ etag: '"foo"' }), null, ['*'])).isTrue();
+      expect(compareETag(sampleResponse({ etag: '"foo"' }), null, ['"nope"', '*'])).isTrue();
+      expect(compareETag(sampleResponse({}), null, ['*'])).isTrue();
+    });
   });
 });
 

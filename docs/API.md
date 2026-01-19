@@ -2358,7 +2358,9 @@ specified scope (case sensitive).
 - Returns: [`<string>`]
 
 Generates a weak [`ETag`] header value from the given encoding and file stats (using modification
-time and file size). The returned value is of the form `W/"weak-etag-here"`
+time and file size). The returned value is of the form `W/"weak-etag-here"`.
+
+From `fileStats`, only the `mtimeMs` and `size` properties are used.
 
 The exact format of this ETag is not guaranteed to remain stable in future versions and should not
 be relied on.
@@ -2522,8 +2524,8 @@ It is usually better to use [`sanitiseAndAppendForwarded`].
 
 - `req` [`<http.IncomingMessage>`]
 - `res` [`<http.ServerResponse>`]
-- `fileStats` [`<fs.Stats>`]
-- Returns: [`<boolean>`]
+- `fileStats` [`<fs.Stats>`] | [`<null>`]
+- Returns: [`<boolean>`] `true` if the file has been modified and should be served in full
 
 Checks [`If-Modified-Since`] and [`If-None-Match`] for the request. Returns `true` if the file
 should be served in full (i.e. has been modified, or no conditions were sent), or `false` if the
@@ -2531,6 +2533,10 @@ cached content can be used (by returning [304 Not Modified]).
 
 ETags from [`If-None-Match`] are checked against any existing [`ETag`] header in the provided
 response, and against the result of [`generateWeakETag`] for the `fileStats`.
+
+From `fileStats`, only the `mtimeMs` and `size` properties are used. If `fileStats` is `null`, this
+will not check [`If-Modified-Since`] and will only compare [`If-None-Match`] against an existing
+[`ETag`] header in the provided response; it will not test against an auto-generated ETag.
 
 ### `checkIfRange(req, res, fileStats)`
 
@@ -2544,20 +2550,24 @@ response, and against the result of [`generateWeakETag`] for the `fileStats`.
 Checks [`If-Range`] for the request. Returns `true` if the conditions are met and range responses
 should be allowed, or `false` if any conditions are not met and the file should be served in full.
 
+From `fileStats`, only the `mtimeMs` and `size` properties are used.
+
 ### `compareETag(res, fileStats, etags)`
 
 [`compareETag`]: #compareetagres-filestats-etags
 
 - `res` [`<http.ServerResponse>`]
-- `fileStats` [`<fs.Stats>`]
+- `fileStats` [`<fs.Stats>`] | [`<null>`]
 - `etags` [`<string[]>`][`<string>`]
 - Returns: [`<boolean>`]
 
 Compares the [`ETag`] header of the response against a list of accepted ETags, returning `true` if
 any match. If `etags` includes `'*'`, this will always return `true`.
 
-If `etags` includes weak ETags (`W/"..."`), this will also compare the result of
-[`generateWeakETag`] against them, returning `true` if there is a match.
+If `etags` includes weak ETags (`W/"..."`) and `fileStats` has been provided, this will also compare
+the result of [`generateWeakETag`] against them, returning `true` if there is a match.
+
+From `fileStats`, only the `mtimeMs` and `size` properties are used.
 
 ### `getBodyStream(req[, options])`
 
@@ -2972,6 +2982,8 @@ Sends the `source` to the client, accounting for various cache control options:
 - [`If-Modified-Since`] and [`If-None-Match`] are checked if the request is a `GET` or `HEAD`;
 - [`Content-Range`] is checked if the request is a `GET` or `HEAD`;
 - only headers are sent if the request is a `HEAD`.
+
+From `fileStats`, only the `mtimeMs` and `size` properties are used.
 
 Note that if the `source` is a [`<fs.FileHandle>`] or a stream, it will _not_ be closed
 automatically by this method. It is the caller's responsibility to close it:

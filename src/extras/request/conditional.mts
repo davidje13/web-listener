@@ -6,7 +6,7 @@ import { readHTTPDateSeconds, getIfRange, readHTTPUnquotedCommaSeparated } from 
 export function checkIfModified(
   req: IncomingMessage,
   res: ServerResponse,
-  fileStats: Pick<Stats, 'mtimeMs' | 'size'>,
+  fileStats: Pick<Stats, 'mtimeMs' | 'size'> | null,
 ): boolean {
   const ifModifiedSince = readHTTPDateSeconds(req.headers['if-modified-since']);
   const ifNoneMatch = readHTTPUnquotedCommaSeparated(req.headers['if-none-match']);
@@ -14,7 +14,7 @@ export function checkIfModified(
     if (compareETag(res, fileStats, ifNoneMatch)) {
       return false;
     }
-  } else if (ifModifiedSince && ((fileStats.mtimeMs / 1000) | 0) <= ifModifiedSince) {
+  } else if (fileStats && ifModifiedSince && ((fileStats.mtimeMs / 1000) | 0) <= ifModifiedSince) {
     return false;
   }
   return true;
@@ -38,7 +38,7 @@ export function checkIfRange(
 
 export function compareETag(
   res: ServerResponse,
-  fileStats: Pick<Stats, 'mtimeMs' | 'size'>,
+  fileStats: Pick<Stats, 'mtimeMs' | 'size'> | null,
   etags: string[],
 ) {
   if (etags.includes('*')) {
@@ -53,7 +53,7 @@ export function compareETag(
       return false;
     }
   }
-  if (etags.some((etag) => etag.startsWith('W/"'))) {
+  if (fileStats && etags.some((etag) => etag.startsWith('W/"'))) {
     return etags.includes(generateWeakETag(res.getHeader('content-encoding'), fileStats));
   }
   return false;
