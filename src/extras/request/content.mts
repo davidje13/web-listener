@@ -107,7 +107,11 @@ export async function getBodyJson(
   for await (const part of readable) {
     parts.push(part);
   }
-  return JSON.parse(parts.join(''));
+  try {
+    return JSON.parse(parts.join(''));
+  } catch (err: unknown) {
+    throw new HTTPError(400, { body: 'invalid JSON', cause: err });
+  }
 }
 
 function internalGetDecoder(id: string): TransformStream<Uint8Array, Uint8Array> {

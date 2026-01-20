@@ -323,4 +323,18 @@ describe('getBodyJson', () => {
       { method: 'POST', body: Buffer.from(inputStr, 'utf-16le') },
     );
   });
+
+  it('throws if the content is malformed', { timeout: 3000 }, () => {
+    const handler = requestHandler(async (req, res) => {
+      await getBodyJson(req);
+      res.end('success');
+    });
+
+    return withServer(handler, async (url, { expectError }) => {
+      const res = await fetch(url, { method: 'POST', body: '{"oops"' });
+      expect(res.status).equals(400);
+      expect(await res.text()).equals('invalid JSON');
+      expectError('handling request /: HTTPError(400 Bad Request)');
+    });
+  });
 });
