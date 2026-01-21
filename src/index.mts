@@ -174,6 +174,11 @@ export {
   setDefaultCacheHeaders,
   type FileServerOptions,
 } from './extras/static/fileServer.mts';
+export {
+  staticContent,
+  staticJSON,
+  type StaticContentOptions,
+} from './extras/static/staticContent.mts';
 
 export { makeAcceptWebSocket } from './extras/websocket/acceptWebSocket.mts';
 export {

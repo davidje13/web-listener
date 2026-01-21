@@ -14,6 +14,7 @@ import {
   type FileFinderOptions,
   type ResolvedFileInfo,
 } from '../filesystem/FileFinder.mts';
+import { internalAddVary, internalSetContentEncoding } from './setHeaders.mts';
 
 export interface FileServerOptions extends FileFinderOptions {
   /**
@@ -165,16 +166,8 @@ export const fileServer = async (
           res.setHeader('content-language', contentLanguage);
         }
 
-        const contentEncoding = file.headers['content-encoding'];
-        if (contentEncoding && contentEncoding !== 'identity') {
-          res.setHeader('content-encoding', contentEncoding);
-        }
-
-        const vary = file.headers.vary;
-        if (vary) {
-          const existing = res.getHeader('vary') ?? '';
-          res.setHeader('vary', (existing ? existing + ', ' : '') + vary);
-        }
+        internalSetContentEncoding(res, file.headers['content-encoding']);
+        internalAddVary(res, file.headers.vary);
 
         await callback(req, res, file, isFallback);
         await sendFile(req, res, file.handle, file.stats);

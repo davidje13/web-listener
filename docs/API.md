@@ -121,8 +121,10 @@ parameters from a parent, which can be typed with `Router<WithPathParameters<{ n
   - [`sendJSONStream`]
   - [`<ServerSentEvents>`]
   - [`router.onReturn`] (templating)
-- Static files
+- Static files and content
   - [`fileServer`]
+  - [`staticContent`]
+  - [`staticJSON`]
   - [`sendFile`]
   - [`<Negotiator>`]
   - [`negotiateEncoding`]
@@ -3134,6 +3136,50 @@ before resolving. This may take some time if you have a very large number of dir
 If either operation fails (e.g. if the directory you request does not exist), the promise will
 reject with an [`<Error>`].
 
+### `staticContent(content, contentType[, options])`
+
+[`staticContent`]: #staticcontentcontent-contenttype-options
+
+- `content` [`<Buffer>`] the content to serve.
+- `contentType` [`<string>`] the [`Content-Type`] value to set.
+- `options` [`<Object>`]
+  - `headers` [`<Headers>`] | [`<Object>`] | [`<string[]>`][`<string>`] additional headers to set on
+    the response.
+  - `encodings` [`<string[]>`][`<string>`] a list of [`Content-Encoding`] values to honour. The
+    content will be compressed using each of these encodings at creation time, and if it is found to
+    be worthwhile, the compressed content will be stored in RAM to be served when requested.
+    **Default:** `[]`.
+  - `minCompression` [`<number>`] minimum compression (in bytes) which must be achieved for the
+    compression to be worthwhile. **Default:** `0`.
+- Returns: [`<Handler>`].
+
+Creates a request handler for serving static content. Expensive operations such as compression and
+[`ETag`] generation are performed once upfront with the results stored in RAM, so that the request
+handling can be as fast as possible.
+
+This handles [`Accept-Encoding`] and [`If-None-Match`] negotiation, and sets the necessary headers
+on the response. It is typically useful for serving generated content which does not change for the
+lifetime of the server. This does not set a [`Cache-Control`] header, so you should typically add
+this via the `headers` parameter.
+
+Example usage: [Serving static content]
+
+### `staticJSON(content[, options])`
+
+[`staticJSON`]: #staticjsoncontent-options
+
+- `content` [`<any>`] the content to serve.
+- `options` [`<Object>`] options to pass to [`staticContent`]
+- Returns: [`<Handler>`].
+
+Convenience function, shorthand for:
+
+```js
+staticContent(Buffer.from(JSON.stringify(content), 'utf-8'), 'application/json', options);
+```
+
+Example usage: [Serving static content]
+
 ### `setDefaultCacheHeaders(req, res, file)`
 
 [`setDefaultCacheHeaders`]: #setdefaultcacheheadersreq-res-file
@@ -3738,6 +3784,39 @@ server.listen(8080, 'localhost');
 ```
 
 Reference: [`weblistener.attach`], [`https.createServer`]
+
+## Serving static content
+
+[Serving static content]: #serving-static-content
+
+Example of setting up a route to serve generated, but static, content:
+
+```js
+import { Router, staticJSON } from 'web-listener';
+
+const router = new Router();
+
+const config = {
+  version: '1.0',
+  publicSetting: process.env['MY_PUBLIC_SETTING'],
+};
+
+router.get(
+  '/config',
+  staticJSON(config, {
+    headers: { 'Cache-Control': 'public, max-age: 60' },
+    encodings: ['br', 'gzip', 'deflate'],
+    minCompression: 100,
+  }),
+);
+```
+
+In this example, `/config` serves a static JSON file containing the value of the environment
+variable `MY_PUBLIC_SETTING`. The client may request Brotli, GZip, or Deflate compression, and the
+response can be cached for up to 60 seconds. After this time, clients will check if the content has
+changed by sending an [`If-None-Match`] header.
+
+Reference: [`staticJSON`], [`<Router>`]
 
 ## Proxy
 

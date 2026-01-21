@@ -1,9 +1,8 @@
-import zlib from 'node:zlib';
-import { promisify } from 'node:util';
 import { basename, dirname, extname, join } from 'node:path';
 import { readdir, readFile, stat, writeFile, rm } from 'node:fs/promises';
 import { internalMutateName, type FileNegotiationOption } from '../request/Negotiator.mts';
 import { getMime } from '../registries/mime.mts';
+import { compress } from './encoders.mts';
 
 export interface CompressionInfo {
   /** the path to the file */
@@ -67,15 +66,13 @@ export async function compressFileOffline(
     return info;
   }
 
-  const threshold = info.rawSize - minCompression;
   for (const opt of encodings) {
-    const compress = ENCODERS.get(opt.value);
     const mutated = join(dirname(file), internalMutateName(basename(file), opt.file));
-    if (!compress || mutated === opt.file) {
+    if (mutated === opt.file) {
       continue;
     }
-    const compressed = threshold > 0 ? await compress(raw) : undefined;
-    if (compressed && compressed.byteLength <= threshold) {
+    const compressed = await compress(raw, opt.value, minCompression);
+    if (compressed) {
       await writeFile(mutated, compressed);
       info.bestSize = Math.min(info.bestSize, compressed.byteLength);
       ++info.created;
@@ -117,19 +114,3 @@ async function findFilesR(dir: string, output: string[]) {
     output.push(dir);
   }
 }
-
-const ENCODERS = /*@__PURE__*/ new Map<string, (buffer: Buffer) => Promise<Buffer>>([
-  ['zstd', (buffer) => promisify(zlib.zstdCompress)(buffer)],
-  [
-    'br',
-    (buffer) =>
-      promisify(zlib.brotliCompress)(buffer, {
-        params: {
-          [zlib.constants.BROTLI_PARAM_QUALITY]: zlib.constants.BROTLI_MAX_QUALITY,
-          [zlib.constants.BROTLI_PARAM_SIZE_HINT]: buffer.length,
-        },
-      }),
-  ],
-  ['gzip', (buffer) => promisify(zlib.gzip)(buffer, { level: zlib.constants.Z_BEST_COMPRESSION })],
-  ['deflate', (buffer) => promisify(zlib.deflate)(buffer)],
-]);

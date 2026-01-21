@@ -21,3 +21,9 @@ export async function generateStrongETag(file: string | FileHandle) {
   }
   return `"sha256-${hash.digest('base64')}"`;
 }
+
+export const generateStrongETagStatic = (content: Buffer) => {
+  const hash = createHash('sha256');
+  hash.write(content);
+  return `"sha256-${hash.digest('base64')}"`;
+};
