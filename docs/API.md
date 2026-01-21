@@ -110,7 +110,7 @@ parameters from a parent, which can be typed with `Router<WithPathParameters<{ n
   - [`getBodyStream`]
   - [`getBodyTextStream`]
   - [`getBodyText`]
-  - [`getBodyJson`]
+  - [`getBodyJSON`]
   - [`getFormData`]
   - [`getFormFields`]
   - [`acceptBody`]
@@ -2625,9 +2625,9 @@ Reads the request body as a string, applying all the pre-processing stages from 
 Reads the request body as a string, applying all the pre-processing stages from [`getBodyStream`].
 Gathers the entire body in-memory then returns it as a single string.
 
-### `getBodyJson(req[, options])`
+### `getBodyJSON(req[, options])`
 
-[`getBodyJson`]: #getbodyjsonreq-options
+[`getBodyJSON`]: #getbodyjsonreq-options
 
 - `req` [`<http.IncomingMessage>`]
 - `options` [`<Object>`] options are passed to [`getBodyStream`] and [`getTextDecoderStream`].

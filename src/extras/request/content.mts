@@ -42,7 +42,7 @@ interface GetBodyTextOptions extends GetBodyOptions, TextDecoderOptions {
   defaultCharset?: string;
 }
 
-interface GetBodyJsonOptions extends GetBodyOptions, TextDecoderOptions {}
+interface GetBodyJSONOptions extends GetBodyOptions, TextDecoderOptions {}
 
 export function getBodyStream(
   req: IncomingMessage,
@@ -98,9 +98,9 @@ export async function getBodyText(req: IncomingMessage, options: GetBodyTextOpti
   return parts.join('');
 }
 
-export async function getBodyJson(
+export async function getBodyJSON(
   req: IncomingMessage,
-  options: GetBodyJsonOptions = {},
+  options: GetBodyJSONOptions = {},
 ): Promise<unknown> {
   const readable = await internalDecodeUnicode(getBodyStream(req, options), options);
   const parts = [];

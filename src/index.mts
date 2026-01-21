@@ -118,7 +118,7 @@ export {
   getBodyStream,
   getBodyTextStream,
   getBodyText,
-  getBodyJson,
+  getBodyJSON,
 } from './extras/request/content.mts';
 export { acceptBody, willSendBody } from './extras/request/continue.mts';
 export {

@@ -7,7 +7,7 @@ import { inRequestHandler, withServer } from '../../test-helpers/withServer.mts'
 import { makeStreamSearch } from '../../test-helpers/streamSearch.mts';
 import { rawRequest, rawRequestStream } from '../../test-helpers/rawRequest.mts';
 import { requestHandler } from '../../core/handler.mts';
-import { getBodyJson, getBodyStream, getBodyText, getBodyTextStream } from './content.mts';
+import { getBodyJSON, getBodyStream, getBodyText, getBodyTextStream } from './content.mts';
 import '../../polyfill/fetch.mts';
 import 'lean-test';
 
@@ -294,11 +294,11 @@ describe('getBodyText', () => {
   );
 });
 
-describe('getBodyJson', () => {
+describe('getBodyJSON', () => {
   it('returns the full JSON content from the request', { timeout: 3000 }, () =>
     inRequestHandler(
       async (req) => {
-        const content = await getBodyJson(req);
+        const content = await getBodyJSON(req);
         expect(content).equals({ foo: 'bar' });
       },
       { method: 'POST', body: JSON.stringify({ foo: 'bar' }) },
@@ -311,14 +311,14 @@ describe('getBodyJson', () => {
 
     await inRequestHandler(
       async (req) => {
-        expect(await getBodyJson(req)).equals(input);
+        expect(await getBodyJSON(req)).equals(input);
       },
       { method: 'POST', body: inputStr },
     );
 
     await inRequestHandler(
       async (req) => {
-        expect(await getBodyJson(req)).equals(input);
+        expect(await getBodyJSON(req)).equals(input);
       },
       { method: 'POST', body: Buffer.from(inputStr, 'utf-16le') },
     );
@@ -326,7 +326,7 @@ describe('getBodyJson', () => {
 
   it('throws if the content is malformed', { timeout: 3000 }, () => {
     const handler = requestHandler(async (req, res) => {
-      await getBodyJson(req);
+      await getBodyJSON(req);
       res.end('success');
     });
 
