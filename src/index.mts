@@ -63,6 +63,7 @@ export {
   requireBearerAuth,
   requireAuthScope,
   hasAuthScope,
+  getAuthScopes,
   type TokenAuthHandler,
 } from './extras/auth/bearer.mts';
 

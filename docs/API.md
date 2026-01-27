@@ -145,6 +145,7 @@ parameters from a parent, which can be typed with `Router<WithPathParameters<{ n
   - [`requireBearerAuth`]
   - [`requireAuthScope`]
   - [`hasAuthScope`]
+  - [`getAuthScopes`]
   - [`makeWebSocketFallbackTokenFetcher`]
 - Graceful shutdown
   - [`setSoftCloseHandler`]
@@ -1462,7 +1463,7 @@ character sets registered using [`registerCharset`], this will return the value 
 
 [`registerMime`]: #registermimedefinitions
 
-- `definitions` [`<Map>`]
+- `definitions` [`<Map>`] of [`<string>`] to [`<string>`]
 
 Add mime types to the internal registry. The keys of the `definitions` are the case-insensitive
 extensions to match (_excluding_ any leading `.`), and the values are the corresponding mime types.
@@ -1485,7 +1486,7 @@ Various mime types which are common in websites are registered by default.
 [`readMimeTypes`]: #readmimetypestypes
 
 - `types` [`<string>`]
-- Returns: [`<Map>`]
+- Returns: [`<Map>`] of [`<string>`] to [`<string>`]
 
 Read an
 [Apache .types](https://svn.apache.org/repos/asf/httpd/httpd/trunk/docs/conf/mime.types)-formatted
@@ -1496,7 +1497,7 @@ file. Can be combined with [`registerMime`] to register the result.
 [`decompressMime`]: #decompressmimedefinitions
 
 - `definitions` [`<string>`]
-- Returns: [`<Map>`]
+- Returns: [`<Map>`] of [`<string>`] to [`<string>`]
 
 Read a compressed mime mapping. Can be combined with [`registerMime`] to register the result.
 
@@ -2318,9 +2319,9 @@ If the value returned by `extractAndValidateToken` is an object with certain
   `true`, the connection will be soft-closed when the expiry time minus `softCloseBufferTime` is
   reached, and hard-closed when the expiry time is reached.
 - `scopes` [`<Object>`] | [`<string[]>`][`<string>`] | [`<string>`] a collection of scopes the user
-  should be granted (checked by [`requireAuthScope`] and [`hasAuthScope`]). If this is a `string`,
-  the scopes are space-separated. If it is an `Object`, the scopes are all keys which have a truthy
-  value.
+  should be granted (checked by [`requireAuthScope`], [`hasAuthScope`], and [`getAuthScopes`]). If
+  this is a `string`, the scopes are space-separated. If it is an `Object`, the scopes are all keys
+  which have a truthy value.
 
 The returned [`<Handler>`] also has an extra method: `getTokenData(req)`. This can be used from any
 authenticated handler to retrieve the raw value returned by `extractAndValidateToken`.
@@ -2350,6 +2351,17 @@ Example usage: [Bearer authentication middleware]
 
 Returns `true` if the request has been authenticated (e.g. by [`requireBearerAuth`]) and has the
 specified scope (case sensitive).
+
+### `getAuthScopes(req)`
+
+[`getAuthScopes`]: #getauthscopesreq
+
+- `req` [`<http.IncomingMessage>`]
+- Returns: [`<Set>`] of [`<string>`]
+
+If the request has been authenticated (e.g. by [`requireBearerAuth`]), this returns a set of all the
+scopes granted to the user (if any). If the request has not been authenticated, this returns an
+empty set.
 
 ### `generateWeakETag(encoding, fileStats)`
 
@@ -2904,7 +2916,7 @@ contains a decimal part).
 [`readHTTPKeyValues`]: #readhttpkeyvaluesraw
 
 - `raw` [`<string>`] | [`<undefined>`] the raw value of the header
-- Returns: [`<Map>`]
+- Returns: [`<Map>`] of [`<string>`] to [`<string>`]
 
 Reads a `;`-delimited string of `key=value`, with optionally quoted values.
 
@@ -4124,6 +4136,7 @@ Reference: [`getPathParameters`], [`makeAcceptWebSocket`], [`nextWebSocketMessag
   https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/RegExp
 [`<URL>`]: https://developer.mozilla.org/en-US/docs/Web/API/URL
 [`<Map>`]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map
+[`<Set>`]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Set
 [`<Blob>`]: https://developer.mozilla.org/en-US/docs/Web/API/Blob
 [`<Error>`]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error
 [`<SuppressedError>`]:

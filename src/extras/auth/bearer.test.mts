@@ -1,7 +1,7 @@
 import { Router } from '../../core/Router.mts';
 import { setSoftCloseHandler } from '../../core/close.mts';
 import { withServer } from '../../test-helpers/withServer.mts';
-import { hasAuthScope, requireAuthScope, requireBearerAuth } from './bearer.mts';
+import { getAuthScopes, hasAuthScope, requireAuthScope, requireBearerAuth } from './bearer.mts';
 import 'lean-test';
 
 const testTokenValidator = (token: string): unknown => {
@@ -289,4 +289,46 @@ describe('hasAuthScope', () => {
 
   it('returns false if the request is not authenticated', () =>
     runTest('/unauthenticated', {}, 'hasAuthScope s1: false'));
+});
+
+describe('getAuthScopes', () => {
+  function runTest(path: string, fetchInit: RequestInit, expectedBody: string) {
+    const router = new Router();
+    router.get('/authenticated', testAuth, (req, res) => {
+      res.end(`getAuthScopes: ${[...getAuthScopes(req)].sort().join(', ')}`);
+    });
+    router.get('/unauthenticated', (req, res) => {
+      res.end(`getAuthScopes: ${[...getAuthScopes(req)].sort().join(', ')}`);
+    });
+
+    return withServer(router, async (url) => {
+      const res = await fetch(url + path, fetchInit);
+      expect(res.status).equals(200);
+      expect(await res.text()).equals(expectedBody);
+    });
+  }
+
+  it('returns all scopes assigned to the user as a map', () =>
+    runTest(
+      '/authenticated',
+      { headers: { authorization: 'Bearer valid-{"scopes":{"foo":true,"bar":true,"baz":false}}' } },
+      'getAuthScopes: bar, foo',
+    ));
+
+  it('returns all scopes assigned to the user as a list', () =>
+    runTest(
+      '/authenticated',
+      { headers: { authorization: 'Bearer valid-{"scopes":["foo","bar"]}' } },
+      'getAuthScopes: bar, foo',
+    ));
+
+  it('returns an empty set if no scopes are set', () =>
+    runTest(
+      '/authenticated',
+      { headers: { authorization: 'Bearer valid-{"scopes":[]}' } },
+      'getAuthScopes: ',
+    ));
+
+  it('returns an empty set if the request is not authenticated', () =>
+    runTest('/unauthenticated', {}, 'getAuthScopes: '));
 });

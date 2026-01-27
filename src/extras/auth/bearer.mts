@@ -101,6 +101,8 @@ export function requireBearerAuth<Req = {}, Token = JWTToken>({
 export const hasAuthScope = (req: IncomingMessage, scope: string) =>
   AUTH.get(req)._scopes.has(scope);
 
+export const getAuthScopes = (req: IncomingMessage) => new Set(AUTH.get(req)._scopes);
+
 export const requireAuthScope = (scope: string): RequestHandler & UpgradeHandler =>
   anyHandler((req) => {
     const auth = AUTH.get(req);
