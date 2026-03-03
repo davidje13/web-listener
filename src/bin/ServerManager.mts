@@ -1,6 +1,8 @@
+import { spawn } from 'node:child_process';
 import { createServer, type Server, type ServerOptions } from 'node:http';
+import type { Readable, Writable } from 'node:stream';
 import { findCause, HTTPError, WebListener, type ListenOptions } from '../index.mts';
-import type { ConfigServer, ConfigServerOptions } from './config/types.mts';
+import type { ConfigServer, ConfigServerOptions, ConfigBackgroundTask } from './config/types.mts';
 import { buildRouter } from './buildRouter.mts';
 import type { Logger, AddColour } from './log.mts';
 
@@ -11,6 +13,7 @@ export class ServerManager {
   declare private readonly _log: Logger;
   declare private readonly _colour: AddColour;
   declare private readonly _servers: Map<number, ServerState>;
+  declare private _backgroundTasks: Set<BackgroundTaskState>;
 
   constructor(log: Logger, colour: AddColour) {
     this._started = false;
@@ -19,16 +22,38 @@ export class ServerManager {
     this._log = log;
     this._colour = colour;
     this._servers = new Map();
+    this._backgroundTasks = new Set();
   }
 
-  async set(servers: ConfigServer[]) {
+  async set(servers: ConfigServer[], backgroundTasks: ConfigBackgroundTask[]) {
     if (this._building || this._stopping) {
       return;
     }
     try {
       this._building = true;
-      const ports = new Set<number>();
+      const preTasks: (() => Promise<void>)[] = [];
       const tasks: (() => Promise<void>)[] = [];
+
+      const previousBackgroundTasks = this._backgroundTasks;
+      this._backgroundTasks = new Set();
+      tasksLoop: for (let i = 0; i < backgroundTasks.length; ++i) {
+        const taskConfig = backgroundTasks[i]!;
+        for (const taskState of previousBackgroundTasks) {
+          if (backgroundTaskConfigEqual(taskState.config, taskConfig)) {
+            this._backgroundTasks.add(taskState);
+            previousBackgroundTasks.delete(taskState);
+            continue tasksLoop;
+          }
+        }
+        tasks.push(async () => {
+          this._backgroundTasks.add(await this._startBackgroundTask(taskConfig));
+        });
+      }
+      for (const taskState of previousBackgroundTasks) {
+        preTasks.push(taskState.close);
+      }
+
+      const ports = new Set<number>();
       for (let i = 0; i < servers.length; ++i) {
         const serverConfig = servers[i]!;
         const port = serverConfig.port;
@@ -57,7 +82,27 @@ export class ServerManager {
           this._servers.delete(port);
         }
       }
-      await Promise.all(tasks.map((task) => task()));
+
+      const runTasks = async (tasks: (() => Promise<void>)[]) => {
+        let failures: unknown[] = [];
+        await Promise.all(
+          tasks.map(async (task) => {
+            try {
+              await task();
+            } catch (err) {
+              failures.push(err);
+            }
+          }),
+        );
+        if (failures.length) {
+          await this._shutdown();
+          throw failures.length > 1 ? new AggregateError(failures) : failures[0]!;
+        }
+      };
+
+      await runTasks(preTasks);
+      await runTasks(tasks);
+
       if (this._stopping) {
         this._shutdown();
       } else if (this._servers.size) {
@@ -68,6 +113,64 @@ export class ServerManager {
     } finally {
       this._building = false;
     }
+  }
+
+  private async _startBackgroundTask(config: ConfigBackgroundTask): Promise<BackgroundTaskState> {
+    const name = this._colour('35', config.command);
+
+    const ac = new AbortController();
+
+    return new Promise((resolve, reject) => {
+      this._log(2, `${name} ${this._colour('2', 'starting')}`);
+      const proc = spawn(config.command, config.arguments, {
+        cwd: config.cwd,
+        env: { ...process.env, TERM: '', COLORTERM: '', NO_COLOR: '1', ...config.environment },
+        killSignal: config.options.killSignal,
+        uid: config.options.uid,
+        gid: config.options.gid,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        signal: ac.signal,
+      });
+      if (config.options.displayStdout) {
+        pipePrefixed(proc.stdout, `${name} ${this._colour('2', '[stdout]')} `, process.stderr);
+      } else {
+        proc.stdout.resume();
+      }
+      if (config.options.displayStderr) {
+        pipePrefixed(proc.stderr, `${name} ${this._colour('2', '[stderr]')} `, process.stderr);
+      } else {
+        proc.stderr.resume();
+      }
+      proc.addListener('error', (err) => {
+        this._log(0, `${name} startup failed: ${err.message}`);
+        reject(err);
+      });
+      proc.addListener('exit', (code, signal) => {
+        if (code !== null) {
+          this._log(2, `${name} closed ${this._colour('2', `(exit code ${code})`)}`);
+        } else {
+          this._log(2, `${name} closed ${this._colour('2', `(exit signal ${signal})`)}`);
+        }
+      });
+      proc.addListener('spawn', () =>
+        resolve({
+          config,
+          close: () =>
+            new Promise((closeResolve) => {
+              if (proc.signalCode !== null || proc.exitCode !== null) {
+                closeResolve();
+              } else {
+                this._log(
+                  2,
+                  `${name} ${this._colour('2', `closing (signal ${config.options.killSignal})`)}`,
+                );
+                proc.addListener('exit', closeResolve);
+                proc.kill(config.options.killSignal);
+              }
+            }),
+        }),
+      );
+    });
   }
 
   private async _rerunServer(
@@ -157,7 +260,9 @@ export class ServerManager {
   private async _shutdown() {
     if (this._servers.size) {
       this._log(2, this._colour('2', 'shutting down'));
-      await Promise.all([...this._servers.values()].map((state) => state.close()));
+      await Promise.all(
+        [...this._servers.values(), ...this._backgroundTasks].map((state) => state.close()),
+      );
     }
     if (this._started) {
       this._log(2, 'shutdown complete');
@@ -177,6 +282,34 @@ export class ServerManager {
 
 const STATUS_COLOURS = ['', '37', '32', '36', '31', '41;97'];
 
+function pipePrefixed(readable: Readable, prefix: string, target: Writable) {
+  let line = '';
+  const writeln = (ln: string) =>
+    target.write(
+      prefix +
+        ln
+          .replaceAll(/\x1b\[[\d;]*[A-K]/g, '')
+          .replaceAll(
+            /[\x00-\x1f]/g,
+            (c) => `\\x${c.charCodeAt(0).toString(16).padStart(2, '0')}`,
+          ) +
+        '\n',
+    );
+  readable.addListener('data', (chunk) => {
+    line += chunk;
+    const parts = line.split('\n');
+    line = parts.pop()!;
+    for (const ln of parts) {
+      writeln(ln);
+    }
+  });
+  readable.addListener('end', () => {
+    if (line) {
+      writeln(line);
+    }
+  });
+}
+
 const listen = async (server: Server, port: number, host: string, backlog: number = 511) =>
   new Promise<void>((resolve, reject) => {
     server.once('error', reject);
@@ -192,6 +325,26 @@ interface ServerState {
   server: Server;
   detach: () => void;
   close: () => Promise<void>;
+}
+
+interface BackgroundTaskState {
+  config: ConfigBackgroundTask;
+  close: () => Promise<void>;
+}
+
+function backgroundTaskConfigEqual(a: ConfigBackgroundTask, b: ConfigBackgroundTask) {
+  return (
+    a.command === b.command &&
+    a.arguments.length === b.arguments.length &&
+    a.arguments.every((arg, i) => arg === b.arguments[i]) &&
+    a.cwd === b.cwd &&
+    JSON.stringify(a.environment) === JSON.stringify(b.environment) &&
+    a.options.uid === b.options.uid &&
+    a.options.gid === b.options.gid &&
+    a.options.killSignal === b.options.killSignal &&
+    a.options.displayStdout === b.options.displayStdout &&
+    a.options.displayStderr === b.options.displayStderr
+  );
 }
 
 function serverOptionsCompatible(a: ConfigServerOptions, b: ConfigServerOptions) {

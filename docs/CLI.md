@@ -13,6 +13,7 @@ This tool supports:
 - [static redirects](#redirect-requests)
 - [basic templating for fixtures and redirects](#templates)
 - [running multiple servers simultaneously](#run-multiple-servers)
+- [running background tasks](#run-background-tasks)
 
 Simple servers can be configured via CLI flags. Complex servers can be configured via JSON.
 
@@ -247,6 +248,34 @@ npx web-listener . --spa index.html --port 8080
       "mount": [{ "type": "files", "path": "/", "dir": "./web2" }]
     }
   ]
+}
+```
+
+### Run background tasks
+
+Launch background tasks. This example shows how to run the TypeScript compiler in watch mode while
+serving files.
+
+Note: if web-listener is stopped while the process is still running, it will be sent a `SIGKILL`
+signal.
+
+#### CLI Flags
+
+```sh
+npx web-listener . --exec 'tsc -w'
+```
+
+#### JSON Configuration
+
+```json
+{
+  "servers": [
+    {
+      "port": 8080,
+      "mount": [{ "type": "files", "path": "/", "dir": "." }]
+    }
+  ],
+  "backgroundTasks": [{ "command": "tsc", "arguments": ["-w"] }]
 }
 ```
 

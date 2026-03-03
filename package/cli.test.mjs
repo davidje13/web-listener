@@ -110,6 +110,31 @@ describe('cli', () => {
     expect(resRedirect.headers.get('location')).equals('/other');
   });
 
+  it('runs background tasks if requested', { timeout: 3000 }, async ({ [TEARDOWN]: teardown }) => {
+    const [port] = await findAvailablePorts(1);
+    const scriptedPath = join(selfDir, 'cli', 'sample', 'scripted.txt');
+    await rm(scriptedPath).catch(() => {});
+    const p = spawnProcess(
+      join(...binDir, 'web-listener'),
+      [
+        join('cli', 'sample'),
+        '--port',
+        String(port),
+        '--exec',
+        `touch ${join('cli', 'sample', 'scripted.txt')}`,
+      ],
+      { stdio: ['ignore', 'inherit', 'pipe'], cwd: selfDir },
+    );
+    teardown(p.close);
+    teardown(() => rm(scriptedPath).catch(() => {}));
+    if (!(await awaitLine(p.stderr, 'all servers ready'))) {
+      fail('failed to start server');
+    }
+
+    const resFile = await fetch(`http://localhost:${port}/scripted.txt`);
+    expect(resFile.status).equals(200);
+  });
+
   it('compresses content if requested', { timeout: 3000 }, async ({ [TEARDOWN]: teardown }) => {
     const compressedPath = join(selfDir, 'cli', 'sample', 'file.txt.gz');
     await rm(compressedPath).catch(() => {});

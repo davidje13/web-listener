@@ -35,6 +35,8 @@ program starts a Node.js HTTP/1.1 server listening on a requested port
 serving files from the given
 .Ar directory ,
 static fixtures, proxying to another server, and/or redirecting requests.
+It also has limited support for launching background tasks
+.Pq "e.g. for transpiling source code" .
 .Pp
 Simple servers can be configured using commandline arguments, but more complex
 setups require the use of JSON configuration.
@@ -123,6 +125,14 @@ Defaults to
 .
 .It Fl -deflate
 .compression Deflate .deflate
+.
+.It Fl -exec Ar command
+Execute a command as a background task.
+Can be specified multiple times to run multiple background tasks.
+The command will be split into arguments at each space, for example to run the
+TypeScript compiler in watch mode:
+.Pp
+.Dl "$ npx web-listener . --exec 'tsc -w'"
 .
 .It Fl e , Fl -ext
 A file extension which should be considered
@@ -293,7 +303,7 @@ Minimal configuration to serve files from the current directory:
 }
 .Ed
 .Pp
-More complex example definition, serving files if available, as well as a
+More complex example definition, serving files if available, a
 static fixture for
 .Qq "hello.txt" ,
 redirecting
@@ -302,7 +312,7 @@ requests to
 .Qq "*.new" ,
 proxying all non-matching requests to
 .Qq "https://example.com" ,
-and registering the
+running the TypeScript compiler in the background, and registering the
 .Qq "application/x-foo"
 mime type for
 .Qq "*.foo"
@@ -318,6 +328,12 @@ files:
         { "type": "redirect", "path": "/*thepath.php", "target": "/${thepath}.new${?}" },
         { "type": "proxy", "target": "https://example.com" }
       ]
+    }
+  ],
+  "backgroundTasks": [
+    {
+      "command": "tsc",
+      "arguments": ["-w"]
     }
   ],
   "mime": ["foo=application/x-foo"]
@@ -353,6 +369,21 @@ The structure of the document (with all default values shown) is:
         "shutdownTimeout": 500
       },
       "mount": <array of mounts>
+    }
+  ],
+  "backgroundTasks": [
+    {
+      "command": <name of command or path to executable>,
+      "arguments": [],
+      "cwd": ".",
+      "environment": {},
+      "options": {
+        "uid": <user ID number>,
+        "gid": <group ID number>,
+        "killSignal": "SIGTERM",
+        "displayStdout": true,
+        "displayStderr": true
+      }
     }
   ],
   "mime": <array of mime definitions>,
@@ -634,6 +665,10 @@ Proxy all requests to another server:
 Enable compressed files, and auto-generate them on startup:
 .Pp
 .Dl "$ npx web-listener . --brotli --gzip --write-compressed --min-compress 500"
+.Pp
+Run the TypeScript compiler in watch mode while serving files:
+.Pp
+.Dl "$ npx web-listener . --exec 'tsc -w'"
 .Pp
 Using inline JSON configuration:
 .Pp

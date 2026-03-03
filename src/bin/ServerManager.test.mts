@@ -11,7 +11,7 @@ describe('ServerManager', () => {
     const logs: string[] = [];
     const manager = new ServerManager((_, msg) => logs.push(msg), NO_COLOUR);
     try {
-      await manager.set([fixtureServer(port, 'content')]);
+      await manager.set([fixtureServer(port, 'content')], []);
       expect(logs).equals([
         `http://localhost:${port} starting`,
         `http://localhost:${port} ready`,
@@ -34,7 +34,7 @@ describe('ServerManager', () => {
     const logs: string[] = [];
     const manager = new ServerManager((_, msg) => logs.push(msg), NO_COLOUR);
     try {
-      await manager.set([fixtureServer(port1, 'content 1'), fixtureServer(port2, 'content 2')]);
+      await manager.set([fixtureServer(port1, 'content 1'), fixtureServer(port2, 'content 2')], []);
       expect(logs[logs.length - 1]).equals('all servers ready');
 
       const res1 = await fetch(`http://localhost:${port1}`);
@@ -53,7 +53,7 @@ describe('ServerManager', () => {
     const logs: string[] = [];
     const manager = new ServerManager((_, msg) => logs.push(msg), NO_COLOUR);
     try {
-      await manager.set([fixtureServer(port, 'content 1'), fixtureServer(port, 'content 2')]);
+      await manager.set([fixtureServer(port, 'content 1'), fixtureServer(port, 'content 2')], []);
       expect(logs).equals([
         `skipping servers[1] because port ${port} has already been defined`,
         `http://localhost:${port} starting`,
@@ -72,7 +72,7 @@ describe('ServerManager', () => {
     const logs: string[] = [];
     const manager = new ServerManager((_, msg) => logs.push(msg), NO_COLOUR);
     try {
-      await manager.set([fixtureServer(0, 'content 1'), fixtureServer(65536, 'content 2')]);
+      await manager.set([fixtureServer(0, 'content 1'), fixtureServer(65536, 'content 2')], []);
       expect(logs).equals([
         'servers[0] must have a specific port from 1 to 65535',
         'servers[1] must have a specific port from 1 to 65535',
@@ -89,7 +89,7 @@ describe('ServerManager', () => {
     const logs: string[] = [];
     const manager = new ServerManager((_, msg) => logs.push(msg), NO_COLOUR);
     try {
-      await manager.set([fixtureServer(port, 'content')]);
+      await manager.set([fixtureServer(port, 'content')], []);
       expect(logs).equals([
         `http://localhost:${port} starting`,
         `http://localhost:${port} ready`,
@@ -100,7 +100,7 @@ describe('ServerManager', () => {
       expect(await res1.text()).equals('content');
 
       logs.length = 0;
-      await manager.set([fixtureServer(port, 'updated content')]);
+      await manager.set([fixtureServer(port, 'updated content')], []);
       expect(logs).equals([`http://localhost:${port} updated`, 'all servers ready']);
 
       const res2 = await fetch(`http://localhost:${port}`);
@@ -116,7 +116,7 @@ describe('ServerManager', () => {
     const logs: string[] = [];
     const manager = new ServerManager((_, msg) => logs.push(msg), NO_COLOUR);
     try {
-      await manager.set([fixtureServer(port, 'content')]);
+      await manager.set([fixtureServer(port, 'content')], []);
       expect(logs).equals([
         `http://localhost:${port} starting`,
         `http://localhost:${port} ready`,
@@ -127,12 +127,15 @@ describe('ServerManager', () => {
       expect(await res1.text()).equals('content');
 
       logs.length = 0;
-      await manager.set([
-        {
-          ...fixtureServer(port, 'updated content'),
-          options: { ...DEFAULT_SERVER_OPTIONS, backlog: 300 },
-        },
-      ]);
+      await manager.set(
+        [
+          {
+            ...fixtureServer(port, 'updated content'),
+            options: { ...DEFAULT_SERVER_OPTIONS, backlog: 300 },
+          },
+        ],
+        [],
+      );
       expect(logs).equals([
         `http://localhost:${port} restarting (step 1: shutdown)`,
         `http://localhost:${port} closed`,
@@ -155,7 +158,10 @@ describe('ServerManager', () => {
       const logs: string[] = [];
       const manager = new ServerManager((_, msg) => logs.push(msg), NO_COLOUR);
       try {
-        await manager.set([fixtureServer(port1, 'content 1'), fixtureServer(port2, 'content 2')]);
+        await manager.set(
+          [fixtureServer(port1, 'content 1'), fixtureServer(port2, 'content 2')],
+          [],
+        );
         manager.shutdown();
         await expect.poll(() => logs[logs.length - 1], equals('shutdown complete'), {
           timeout: 300,
@@ -174,7 +180,7 @@ describe('ServerManager', () => {
       const logs: string[] = [];
       const manager = new ServerManager((_, msg) => logs.push(msg), NO_COLOUR);
       try {
-        manager.set([fixtureServer(port1, 'content 1'), fixtureServer(port2, 'content 2')]);
+        manager.set([fixtureServer(port1, 'content 1'), fixtureServer(port2, 'content 2')], []);
         manager.shutdown();
         await expect.poll(() => logs[logs.length - 1], equals('shutdown complete'), {
           timeout: 500,

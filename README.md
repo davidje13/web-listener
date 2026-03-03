@@ -30,17 +30,23 @@ new WebListener(router).listen(3000);
 npm install --save web-listener
 ```
 
-Or to just serve static content from a directory:
+### API Documentation
+
+The full API documentation can be found in [docs/API.md](docs/API.md).
+
+## CLI
+
+A full CLI tool is included for simple use-cases of serving static files or basic test fixtures.
+This is primarily aimed at local development, but is robust enough for production use. To serve
+static content from the current directory:
 
 ```sh
 npx web-listener . --port 8080
 ```
 
+### CLI Documentation
+
 The full CLI documentation can be found in [docs/CLI.md](docs/CLI.md).
-
-## API Documentation
-
-The full API documentation can be found in [docs/API.md](docs/API.md).
 
 ## TypeScript
 

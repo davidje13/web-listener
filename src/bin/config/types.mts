@@ -59,10 +59,25 @@ export interface ConfigServer {
   mount: ConfigMount[];
 }
 
+export interface ConfigBackgroundTask {
+  command: string;
+  arguments: string[];
+  cwd: string;
+  environment: Record<string, string>;
+  options: {
+    uid?: number | undefined;
+    gid?: number | undefined;
+    killSignal: NodeJS.Signals | number;
+    displayStdout: boolean;
+    displayStderr: boolean;
+  };
+}
+
 export type ConfigMime = string | Record<string, string>;
 
 export interface Config {
   servers: ConfigServer[];
+  backgroundTasks: ConfigBackgroundTask[];
   mime: ConfigMime | ConfigMime[];
   writeCompressed: boolean;
   minCompress: number;

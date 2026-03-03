@@ -71,7 +71,17 @@ async function run() {
     if (config.noServe) {
       stop();
     } else {
-      manager.set(config.servers);
+      manager.set(config.servers, config.backgroundTasks).catch((error) => {
+        if (error instanceof AggregateError) {
+          for (const subError of error.errors) {
+            log(0, subError instanceof Error ? subError.message : String(subError));
+          }
+        } else {
+          log(0, error instanceof Error ? error.message : String(error));
+        }
+        process.stdin.destroy();
+        process.exit(1);
+      });
     }
   }
 
@@ -87,7 +97,12 @@ async function run() {
       update();
     }
   });
+  let stopping = false;
   process.on('SIGINT', () => {
+    if (stopping) {
+      return;
+    }
+    stopping = true;
     log(2, '');
     stop();
   });

@@ -294,6 +294,7 @@ const DEFAULT_SERVER: ConfigServer = {
 
 const DEFAULT_CONFIG: Config = {
   servers: [DEFAULT_SERVER],
+  backgroundTasks: [],
   mime: [],
   writeCompressed: false,
   minCompress: 300,

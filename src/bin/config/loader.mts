@@ -24,6 +24,7 @@ const params = new Map<string, { type: 'string' | 'number' | 'boolean'; multi?: 
   ['config-file', { type: 'string' }],
   ['config-json', { type: 'string' }],
   ['dir', { type: 'string' }],
+  ['exec', { type: 'string', multi: true }],
   ['ext', { type: 'string', multi: true }],
   ['port', { type: 'number' }],
   ['host', { type: 'string' }],
@@ -136,6 +137,7 @@ export async function loadConfig(
   const port = numberParam('port');
   const host = stringParam('host');
   const dir = stringParam('dir') || '.';
+  const exec = stringListParam('exec').map((v) => v.split(' '));
   const ext = stringListParam('ext').map((v) => (v.startsWith('.') ? v : `.${v}`));
   const err404 = stringParam('404');
   const spa = stringParam('spa');
@@ -166,6 +168,16 @@ export async function loadConfig(
       mount.push({ type: 'proxy', target: proxy });
     }
     config = parser({ servers: [{ port: 8080, mount }] }, { file: '', path: '' });
+  }
+
+  for (const task of exec) {
+    config.backgroundTasks.push({
+      command: task[0]!,
+      arguments: task.slice(1),
+      cwd: process.cwd(),
+      environment: {},
+      options: { killSignal: 'SIGTERM', displayStdout: true, displayStderr: true },
+    });
   }
 
   const singleServer = config.servers.length === 1 ? config.servers[0] : undefined;
@@ -242,6 +254,10 @@ export async function loadConfig(
       config.log = log;
       for (const server of config.servers) {
         server.options.logRequests = false;
+      }
+      for (const task of config.backgroundTasks) {
+        task.options.displayStderr = false;
+        task.options.displayStdout = false;
       }
       break;
     case 'full':

@@ -7,6 +7,7 @@
   "properties": {
     "$schema": { "type": "string" },
     "servers": { "type": "array", "items": { "$ref": "#/$defs/server" } },
+    "backgroundTasks": { "type": "array", "items": { "$ref": "#/$defs/task" }, "default": [] },
     "mime": {
       "anyOf": [
         { "type": "array", "items": { "$ref": "#/$defs/mime" } },
@@ -266,6 +267,92 @@
         "path": { "type": "string" },
         "status": { "$ref": "#/$defs/status", "default": 307 },
         "target": { "type": "string" }
+      }
+    },
+    "task": {
+      "title": "Configuration for a background task",
+      "type": "object",
+      "additionalProperties": false,
+      "defaultSnippets": [
+        {
+          "label": "task",
+          "description": "Run an executable",
+          "body": { "command": "$1" }
+        }
+      ],
+      "required": ["command"],
+      "properties": {
+        "command": {
+          "anyOf": [
+            { "type": "string", "pattern": "[\\\\/]", "format": "uri-reference" },
+            { "type": "string", "pattern": "^[^\\\\/]*$" }
+          ]
+        },
+        "arguments": { "type": "array", "items": { "type": "string" }, "default": [] },
+        "cwd": { "type": "string", "default": ".", "format": "uri-reference" },
+        "environment": {
+          "type": "object",
+          "additionalProperties": { "type": "string" },
+          "default": {}
+        },
+        "options": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "uid": { "type": "number" },
+            "gid": { "type": "number" },
+            "killSignal": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "SIGABRT",
+                    "SIGALRM",
+                    "SIGBUS",
+                    "SIGCHLD",
+                    "SIGCONT",
+                    "SIGFPE",
+                    "SIGHUP",
+                    "SIGILL",
+                    "SIGINT",
+                    "SIGIO",
+                    "SIGIOT",
+                    "SIGKILL",
+                    "SIGPIPE",
+                    "SIGPOLL",
+                    "SIGPROF",
+                    "SIGPWR",
+                    "SIGQUIT",
+                    "SIGSEGV",
+                    "SIGSTKFLT",
+                    "SIGSTOP",
+                    "SIGSYS",
+                    "SIGTERM",
+                    "SIGTRAP",
+                    "SIGTSTP",
+                    "SIGTTIN",
+                    "SIGTTOU",
+                    "SIGUNUSED",
+                    "SIGURG",
+                    "SIGUSR1",
+                    "SIGUSR2",
+                    "SIGVTALRM",
+                    "SIGWINCH",
+                    "SIGXCPU",
+                    "SIGXFSZ",
+                    "SIGBREAK",
+                    "SIGLOST",
+                    "SIGINFO"
+                  ]
+                },
+                { "type": "number" }
+              ],
+              "default": "SIGTERM"
+            },
+            "displayStdout": { "type": "boolean", "default": true },
+            "displayStderr": { "type": "boolean", "default": true }
+          },
+          "default": {}
+        }
       }
     },
     "mime": {
