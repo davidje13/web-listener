@@ -14,7 +14,18 @@ rm web-listener.tgz || true;
 npm -s test;
 cd - >/dev/null;
 
-gzip -dc "$BASE_DIR/package/node_modules/web-listener/man1/web-listener.1.gz" | mandoc -T lint -W style;
+MANDOC_FILE="$BASE_DIR/package/node_modules/web-listener/man1/web-listener.1.gz"
+if which mandoc >/dev/null; then
+  # macOS
+  gzip -dc "$MANDOC_FILE" | mandoc -T lint -W style;
+elif which nroff >/dev/null; then
+  # Linux
+  WARNINGS="$(gzip -dc "$MANDOC_FILE" | nroff -mandoc -w all -W break 2>&1 >/dev/null)";
+  if [ -n "$WARNINGS" ]; then
+    echo "$WARNINGS";
+    exit 1;
+  fi;
+fi
 
 echo;
 echo "Package test complete";
