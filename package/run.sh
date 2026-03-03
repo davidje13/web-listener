@@ -14,6 +14,8 @@ rm web-listener.tgz || true;
 npm -s test;
 cd - >/dev/null;
 
+gzip -dc "$BASE_DIR/package/node_modules/web-listener/man1/web-listener.1.gz" | mandoc -T lint -W style;
+
 echo;
 echo "Package test complete";
 echo;

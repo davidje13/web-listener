@@ -1,0 +1,681 @@
+.\" See `man mdoc` for file format documentation
+.Dd __BUILD_DATE__
+.Dt WEB-LISTENER 1
+.Os
+.
+.\"======================================================================
+.Sh NAME
+.Nm web-listener
+.Nd launch one or more local HTTP servers
+.
+.\"======================================================================
+.Sh SYNOPSIS
+.de args
+.Oo
+.Op Fl -dir
+.Ar directory
+|
+.Fl -config-file Ar config-json-path
+|
+.Fl -config-json Ar config-json-document
+.Oc
+.Op options
+..
+.Nm
+.args
+.Nm npx Nm
+.args
+.
+.\"======================================================================
+.Sh DESCRIPTION
+The
+.Nm
+program starts a Node.js HTTP/1.1 server listening on a requested port
+.Pq "or multiple servers on multiple ports" ,
+serving files from the given
+.Ar directory ,
+static fixtures, proxying to another server, and/or redirecting requests.
+.Pp
+Simple servers can be configured using commandline arguments, but more complex
+setups require the use of JSON configuration.
+It is possible to combine most arguments with JSON configuration, in which case
+the commandline arguments will override the relevant parts of the JSON.
+.Pp
+Once running, the server(s) can be closed cleanly by sending a single SIGINT
+.Pq "typically Ctrl+C" .
+.Pp
+.Qq index.htm
+and
+.Qq index.html
+are automatically recognised as index files for directories.
+.Pp
+.de compression
+Allow clients to negotiate \\$1 compression.
+Will look for files ending
+.Qq \\$2
+to serve for these requests
+.Pq "content will not be dynamically compressed" .
+Set
+.Fl -write-compressed
+to automatically generate these files at startup.
+..
+.de nojson
+This cannot be combined with JSON configuration
+.Po
+.Fl -config-json
+or
+.Fl -config-file
+.Pc .
+..
+The options are as follows:
+.Bl -tag -width Ds
+.
+.It Fl -404 Ar file
+Path to a file
+.Po
+relative to
+.Fl -dir
+.Pc
+to serve with a HTTP 404 status code if a requested file is not found.
+.nojson
+If you want to serve the file with a HTTP 200 status code, use
+.Fl -spa
+instead.
+.
+.It Fl a Ar address , Fl -host Ar address
+The address to bind to.
+Defaults to
+.Qq localhost
+.Pq "i.e. only available on the local machine" .
+Use
+.Qq 0.0.0.0
+to listen on all addresses
+.Pq "i.e. be available over all networks" .
+If used with JSON configuration, this will override the host for all configured
+servers.
+.
+.It Fl b , Fl -br , Fl -brotli
+.compression Brotli .br
+.
+.It Fl C Ar document , Fl -config-json Ar document
+An inline JSON configuration document specifying more advanced configuration.
+See
+.Sx JSON CONFIGURATION
+below for details on the format.
+.
+.It Fl c Ar path , Fl -config-file Ar path
+A path
+.Pq relative to the current working directory
+to a JSON configuration document.
+See
+.Sx JSON CONFIGURATION
+below for details on the format.
+When JSON is provided this way, paths in the document are resolved relative to
+the file, not the current working directory.
+Once running, the configuration can be reloaded by sending SIGHUP, or by
+providing a newline to stdin.
+.
+.It Fl d Ar directory , Fl -dir Ar directory
+The directory to serve files from, relative to the current working directory.
+Defaults to
+.Qq "." .
+.nojson
+.
+.It Fl -deflate
+.compression Deflate .deflate
+.
+.It Fl e , Fl -ext
+A file extension which should be considered
+.Qq "implicit" .
+This can be provided multiple times to register multiple implicit file
+extensions.
+If a user requests a file which does not exist, the implicit file extensions
+are checked to see if a matching file can be found.
+If found, the file is sent as a direct response to the user
+.Pq "i.e. the user is not issued a redirect" .
+.
+.It Fl g , Fl -gz , Fl -gzip
+.compression Gzip .gz
+.
+.It Fl h , Fl -help
+Open this man page.
+.
+.It Fl -log Cm none | ready | progress | full
+Logging verbosity.
+Defaults to
+.Qq "full" .
+.Bl -tag -width "progress"
+.It Cm none
+Print nothing except errors.
+.It Cm ready
+Print errors, and
+.Qq all servers ready
+line once all servers have started successfully.
+.It Cm progress
+Print everything from
+.Cm ready
+and also startup, reload, and shutdown progress messages for each server.
+.It Cm full
+Print everything from
+.Cm progress
+and also a line for each requested resource, showing the status code and
+processing time.
+.El
+.
+.It Fl -mime Ar mapping
+Add additional mime mapping(s).
+.Ar mapping
+takes the form of
+.Qq "foo=application/foo" .
+This can be provided multiple times to register additional mappings, and
+multiple mappings can be defined in a single argument by using
+.Qq ";"
+or newline separators.
+See
+.Sx MIME DEFINITIONS
+below for more details on specifying mime type mappings.
+.
+.It Fl -mime-types Ar path
+Add additional mime mappings from an Apache .types formatted file.
+An example of this format can be found at
+.Lk https://svn.apache.org/repos/asf/httpd/httpd/trunk/docs/conf/mime.types .
+.
+.It Fl -min-compress
+The minimum compression
+.Pq in bytes
+which must be achieved when using
+.Fl -write-compressed .
+Defaults to
+.Qq 300 .
+If this amount of compression is not achieved, the compressed file is discarded
+without saving.
+.
+.It Fl -no-serve
+Do not start the server(s); just validate the configuration and generate
+compressed files if requested
+.Po
+via the
+.Fl -write-compressed
+flag
+.Pc ,
+then exit successfully.
+.
+.It Fl P Ar proxy , Fl -proxy Ar proxy
+A server to proxy requests to which do not match any files in
+.Ar directory .
+.nojson
+Note that if
+.Fl -404
+or
+.Fl -spa
+are set, this will have no effect.
+.
+.It Fl p Ar port , Fl -port Ar port
+The port to listen on.
+Defaults to
+.Qq "8080" .
+This can be combined with JSON configuration provided only a single server is
+defined.
+.
+.It Fl -spa Ar file
+Path to a file
+.Po
+relative to
+.Fl -dir
+.Pc
+to serve with a HTTP 200 status code if a requested file is not found.
+This is typically useful for
+.Qq "single-page"
+apps.
+.nojson
+If you want to serve the file with a HTTP 404 status code, use
+.Fl -404
+instead.
+.
+.It Fl v , Fl -version
+Print version information and exit.
+.
+.It Fl -write-compressed
+Generate and save compressed versions of all files in
+.Fl -dir
+.Pq and sub-directories
+at startup.
+The type of compression used depends on the
+.Fl -brotli ,
+.Fl -deflate ,
+.Fl -gzip ,
+and
+.Fl -zstd
+flags.
+If used with JSON configuration, this will generate the relevant compressed
+files for each configured
+.Qq files
+section individually.
+.
+.It Fl -zst , Fl -zstd
+.compression Zstd .zstd
+.
+.El
+.
+.\"======================================================================
+.Sh ENVIRONMENT
+.Bl -tag -width "NO_COLOR"
+.
+.It Ev NO_COLOR
+If set, the output will not include any ANSI escape sequences.
+.
+.El
+.Pp
+Other environment variables are processed by the
+.Xr node 1
+executable.
+.
+.\"======================================================================
+.Sh JSON CONFIGURATION
+JSON offers a more powerful way to configure the server, as well
+as allowing multiple servers to be launched by a single
+.Nm
+process.
+You can define one or more servers (one per port), each with its own set of
+mounted handlers.
+Most commandline arguments can be specified alongside JSON configuration, with
+the commandline arguments replacing the relevant options.
+.Pp
+For details on the JSON format itself, see
+.Lk https://www.json.org/json-en.html .
+.Pp
+Minimal configuration to serve files from the current directory:
+.Bd -literal -offset 2n
+{
+  "servers": [
+    { "port": 8080, "mount": [{ "type": "files", "dir": "." }] }
+  ]
+}
+.Ed
+.Pp
+More complex example definition, serving files if available, as well as a
+static fixture for
+.Qq "hello.txt" ,
+redirecting
+.Qq "*.php"
+requests to
+.Qq "*.new" ,
+proxying all non-matching requests to
+.Qq "https://example.com" ,
+and registering the
+.Qq "application/x-foo"
+mime type for
+.Qq "*.foo"
+files:
+.Bd -literal -offset 2n
+{
+  "servers": [
+    {
+      "port": 9000,
+      "mount": [
+        { "type": "files", "dir": "." },
+        { "type": "fixture", "method": "GET", "path": "/hello.txt", "body": "Hi!" },
+        { "type": "redirect", "path": "/*thepath.php", "target": "/${thepath}.new${?}" },
+        { "type": "proxy", "target": "https://example.com" }
+      ]
+    }
+  ],
+  "mime": ["foo=application/x-foo"]
+}
+.Ed
+.Pp
+The structure of the document (with all default values shown) is:
+.Bd -literal -offset 2n
+{
+  "servers": [
+    {
+      "port": <port number>,
+      "host": "localhost",
+      "options": {
+        "requestTimeout": 300000,
+        "keepAliveTimeout": 5000,
+        "keepAliveTimeoutBuffer": 1000,
+        "connectionsCheckingInterval": 30000,
+        "headersTimeout": 60000,
+        "highWaterMark": 65536,
+        "maxHeaderSize": 16384,
+        "noDelay": true,
+        "requireHostHeader": true,
+        "keepAlive": false,
+        "keepAliveInitialDelay": 0,
+        "uniqueHeaders": <array of header names>,
+        "backlog": 511,
+        "socketTimeout": 6000,
+        "rejectNonStandardExpect": false,
+        "autoContinue": false,
+        "logRequests": true,
+        "restartTimeout": 2000,
+        "shutdownTimeout": 500
+      },
+      "mount": <array of mounts>
+    }
+  ],
+  "mime": <array of mime definitions>,
+  "writeCompressed": false,
+  "minCompress": 300,
+  "noServe": false,
+  "log": "progress"
+}
+.Ed
+.Pp
+Within each server,
+.Qq mount
+defines an ordered list of services
+.Pq "earlier definitions take priority over later definitions" .
+.Pp
+The available mount types are:
+.Bl -tag -width 2n
+.
+.It Qq files
+Serve files from a directory.
+.Bd -literal -offset 2n
+{
+  "type": "files",
+  "path": "/",
+  "dir": ".",
+  "options": {
+    "mode": "dynamic",
+    "fallback": {
+      "statusCode": 200,
+      "filePath": <path to fallback file>
+    },
+    "verbose": false,
+    "subDirectories": true,
+    "caseSensitive": "exact",
+    "allowAllDotfiles": false,
+    "allowAllTildefiles": false,
+    "allowDirectIndexAccess": false,
+    "hide": [],
+    "allow": [".well-known"],
+    "indexFiles": ["index.htm", "index.html"],
+    "implicitSuffixes": [],
+    "negotiation": []
+  }
+}
+.Ed
+.
+.It Qq fixture
+Serve a fixture.
+May include templates in headers and body.
+.Bd -literal -offset 2n
+{
+  "type": "fixture",
+  "path": <path>,
+  "method": "GET",
+  "status": 200,
+  "headers": {},
+  "body": <fixture content>
+}
+.Ed
+.
+.It Qq redirect
+Serve a redirect.
+May include templates in target.
+.Bd -literal -offset 2n
+{
+  "type": "redirect",
+  "path": <path>,
+  "status": 307,
+  "target": <target URL>
+}
+.Ed
+.
+.It Qq proxy
+Proxy requests to another server.
+.Bd -literal -offset 2n
+{
+  "type": "proxy",
+  "path": "/",
+  "target": <target URL>
+  "options": {
+    "noDelay": false,
+    "keepAlive": false,
+    "keepAliveInitialDelay": <number>,
+    "keepAliveMsecs": <number>,
+    "agentKeepAliveTimeoutBuffer": <number>,
+    "maxSockets": <number>,
+    "maxFreeSockets": <number>,
+    "timeout": <number>,
+    "blockRequestHeaders": [],
+    "blockResponseHeaders": [],
+    "servername": <string>,
+    "ca": <string>,
+    "cert": <string>,
+    "sigalgs": <string>,
+    "ciphers": <string>,
+    "crl": <string>,
+    "ecdhCurve": <string>,
+    "key": <string>,
+    "passphrase": <string>,
+    "pfx": <string>,
+    "sessionTimeout": <number>,
+    "maxCachedSessions": <number>
+  }
+}
+.Ed
+.
+.El
+.Pp
+Templates behave like Javascript templates, using the
+.Qq ${variable}
+syntax.
+The available variables are:
+.Bl -bullet
+.It
+path parameter names
+.Po
+as shown in the example above:
+.Qq "${thepath}"
+.Pc ,
+.It
+named query / search parameters
+.Po
+with
+.Qq "${?parameter}"
+.Pc ,
+.It
+the entire query / search part of the request
+.Po
+with
+.Qq "${?}"
+.Pc .
+.El
+.Pp
+Templates are mostly useful for creating dynamic redirects as shown above, but
+can also be used in the
+.Qq body
+and
+.Qq header
+values for
+.Qq fixture
+definitions.
+.Pp
+To specify a fallback value, use the shell-style
+.Qq ":-" :
+.Qq "${pathParameter:-fallback}"
+.Pp
+Redirects automatically uri-encode parameters as needed for convenience
+.Po
+but you can override this by explicitly specifying
+.Fn raw
+or
+.Fn uri
+encoding
+.Pc .
+Other templates do not apply any encoding by default.
+To apply encoding, specify the type you need:
+.Bd -literal -offset 2n
+{
+  "servers": [
+    {
+      "port": 8080,
+      "mount": [
+        {
+          "type": "fixture",
+          "method": "GET",
+          "path": "/*path.htm",
+          "status": 200,
+          "body": "<html><body><h1>You requested ${html(path)}!</h1><p>You also added: ${html(?):-<em>no query string</em>}</p></body></html>"
+        },
+        {
+          "type": "fixture",
+          "method": "GET",
+          "path": "/*path.json",
+          "status": 200,
+          "body": "{\e"path\e":${json(path)},\e"page\e":${int(?page:-1)}}"
+        }
+      ]
+    }
+  ]
+}
+.Ed
+.Pp
+The available encoding types are:
+.Bl -tag -width Ds
+.It Fn raw
+the original value, unmodified
+.Pq path and query parameters will be URL decoded
+.It Fn html
+the value with special HTML characters escaped using
+.Qq "&"
+escapes
+.It Fn json
+the value as a JSON string
+.Pq even if it could be represented as a number, it will be encoded as a string
+.It Fn int
+the value as a plain integer, safe to include in HTML, JSON, URIs, etc.
+.Po
+prints
+.Qq 0
+if the input is not a valid integer
+.Pc
+.It Fn uri
+the value mapped through
+.Fn encodeURIComponent
+.Po
+for multi-component path parameters, each component is encoded individually
+then joined with
+.Qq "/"
+.Pc .
+This is the default encoding when writing redirects, except for
+.Qq "${?}"
+which is encoded
+.Fn raw
+by default.
+.El
+.Pp
+Note that this template language is designed to serve common needs for simple
+templating, such as redirects and simple testing stubs; it is not intended to
+be comprehensive.
+If you have more demanding needs you should use a dedicated templating library
+and build an application, rather than configuring endpoints using the CLI.
+.
+.\"======================================================================
+.Sh MIME DEFINITIONS
+When defining mime types, some shorthands are available:
+.Bl -bullet
+.It
+multiple mappings separated by semicolons:
+.Qq foo=text/x-foo;bar=text/x-bar
+.It
+multiple file extensions separated by commas:
+.Qq foo,bar=text/plain
+.It
+use the file extension in the mime type with {ext}:
+.Qq css,csv=text/{ext}
+.It
+optional parts in brackets:
+.Qq jp(e)g,tif(f)=image/{ext}
+.Po
+{ext} always maps to the full name, so the example maps
+.Qq *.jpg
+to
+.Qq image/jpeg
+.Pc
+.El
+.Pp
+When using an apache .types file, each line contains a mime type, any amount of
+whitespace, then a list of space-separated extensions (without a dot).
+Lines starting with
+.Qq #
+are ignored as comments.
+.
+.\"======================================================================
+.Sh EXIT STATUS
+The
+.Nm
+program exits 0 after a clean shutdown, and non-zero after an error
+.Pq "such as a configuration validation error" .
+.
+.\"======================================================================
+.Sh EXAMPLES
+Serve files from the current working directory on
+.Lk "http://localhost:3000" :
+.Pp
+.Dl "$ npx web-listener . --port 3000"
+.Pp
+Bind to all addresses, so the server is available over the network:
+.Pp
+.Dl "$ npx web-listener . --host 0.0.0.0 --port 3000"
+.Pp
+Add custom mime types:
+.Pp
+.Dl "$ npx web-listener . --mime 'foo=text/x-foo' --mime 'bar=text/x-bar'"
+.Pp
+Proxy all requests to another server:
+.Pp
+.Dl "$ npx web-listener /dev/null --proxy https://example.com"
+.Pp
+Enable compressed files, and auto-generate them on startup:
+.Pp
+.Dl "$ npx web-listener . --brotli --gzip --write-compressed --min-compress 500"
+.Pp
+Using inline JSON configuration:
+.Pp
+.Dl $ npx web-listener --config-json '{"servers":[{"port":8080,"mount":[{"type":"files","path":"/","dir":".","options":{"fallback":{"filePath":"index.html"}}}]}]}'
+.
+.\"======================================================================
+.Sh SEE ALSO
+NPM Package:
+.Lk https://www.npmjs.com/package/web-listener
+.Pp
+Additional CLI documentation:
+.Lk https://github.com/davidje13/web-listener/blob/HEAD/docs/CLI.md
+.Pp
+API Documentation:
+.Lk https://github.com/davidje13/web-listener/blob/HEAD/docs/API.md
+.
+.\"======================================================================
+.Sh AUTHORS
+.An David Evans
+.
+.\"======================================================================
+.Sh COPYRIGHT
+Copyright David Evans.
+.Nm
+is available under the MIT license.
+.
+.\"======================================================================
+.Sh SECURITY CONSIDERATIONS
+This command is intended for local development, but is secured such that it
+could be used in production if desired
+.Pq "fronted by a proxy which performs HTTPS termination" .
+.Pp
+Dotfiles and tilde-files are hidden by default
+.Po
+except
+.Qq .well-known
+.Pc ,
+and the server is protected against directory traversal attacks.
+See
+.Lk https://github.com/davidje13/web-listener/blob/HEAD/docs/SECURITY.md
+for a full analysis of the protections provided by
+.Nm .
+.Pp
+Do not use untrusted input as configuration.
+Doing so may result in exposure of sensitive files or arbitrary code execution.

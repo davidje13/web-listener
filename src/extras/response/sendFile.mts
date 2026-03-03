@@ -6,7 +6,7 @@ import type { Readable } from 'node:stream';
 import { createReadStream, type Stats } from 'node:fs';
 import { internalIsFileHandle } from '../../util/isFileHandle.mts';
 import { internalIsPrematureCloseError } from '../../util/isPrematureCloseError.mts';
-import { STOP } from '../../core/RoutingInstruction.mjs';
+import { STOP } from '../../core/RoutingInstruction.mts';
 import { getRange, type GetRangeOptions } from '../request/headers.mts';
 import { checkIfModified, checkIfRange } from '../request/conditional.mts';
 import { sendRanges } from '../response/sendRanges.mts';

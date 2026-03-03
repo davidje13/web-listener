@@ -1,7 +1,7 @@
 #!/usr/bin/env -S node --disable-proto=delete --disallow-code-generation-from-strings --force-node-api-uncaught-exceptions-policy --no-addons
 import { readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
-import { helpText } from './config/help.mts';
+import { spawnSync } from 'node:child_process';
 import { loadConfig, readArgs } from './config/loader.mts';
 import type { Config } from './config/types.mts';
 import { loadSchema, makeSchemaParser } from './config/schema.mts';
@@ -32,14 +32,20 @@ const addColour: AddColour =
     : (_, message) => message;
 
 const args = readArgs(process.argv.slice(2));
+const selfDir = dirname(new URL(import.meta.url).pathname);
 
 if (args.get('version') || args.get('help')) {
-  const pkg = JSON.parse(
-    await readFile(join(dirname(new URL(import.meta.url).pathname), 'package.json'), 'utf-8'),
-  );
-  process.stdout.write(`${pkg.name} ${pkg.version}\n`);
+  let pkg = { name: 'web-listener', version: 'unknown' };
+  try {
+    pkg = JSON.parse(await readFile(join(selfDir, 'package.json'), 'utf-8'));
+  } catch {}
+
   if (args.get('help')) {
-    process.stdout.write(helpText(pkg.name).join('\n') + '\n');
+    spawnSync('man', ['-M', selfDir, pkg.name], {
+      stdio: ['inherit', 'inherit', 'inherit'],
+    });
+  } else {
+    process.stdout.write(`${pkg.name} ${pkg.version}\n`);
   }
   process.exit(0);
 }

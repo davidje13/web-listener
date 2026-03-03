@@ -14,6 +14,8 @@ cd - >/dev/null;
 
 rm -rf "$BASE_DIR/build/types";
 cp "$BASE_DIR/README.md" "$BASE_DIR/LICENSE" "$BASE_DIR/build";
+mkdir -p "$BASE_DIR/build/man1";
+sed "s/__BUILD_DATE__/$(date '+%B %e, %Y' | sed 's/  / /')/" < "$BASE_DIR/src/bin/man1/web-listener.1" | gzip -cn9 > "$BASE_DIR/build/man1/web-listener.1.gz";
 node \
   -e 'const j=JSON.parse(process.argv[1]);for(const k of ["private","devDependencies","scripts"])delete j[k];process.stdout.write(JSON.stringify(j,null,"\t")+"\n");' \
   "$(cat "$BASE_DIR/package.json")" \
