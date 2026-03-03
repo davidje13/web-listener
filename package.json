@@ -23,7 +23,7 @@
   "scripts": {
     "format": "prettier --write .",
     "test": "lean-test src --preprocess=tsc --parallel-suites && npm run -s test-docs && package/build.sh && package/run.sh && tsc && prettier --check .",
-    "test-docs": "sed 's/__BUILD_DATE__/January 1, 2000/' < ./src/bin/man1/web-listener.1 | mandoc -T lint -W style && echo 'pass'",
+    "test-docs": "! which mandoc >/dev/null || ( sed 's/__BUILD_DATE__/January 1, 2000/' < ./src/bin/man1/web-listener.1 | mandoc -T lint -W style && echo 'pass' )",
     "test-performance": "performance/run.sh",
     "cli": "./src/bin/run.mts",
     "dopublish": "package/build.sh && npm publish package.tgz"
