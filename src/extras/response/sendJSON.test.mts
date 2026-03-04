@@ -5,6 +5,7 @@ import { withServer } from '../../test-helpers/withServer.mts';
 import { rawRequest } from '../../test-helpers/rawRequest.mts';
 import { versionIsGreaterOrEqual } from '../../test-helpers/versionIsGreaterOrEqual.mts';
 import { requestHandler } from '../../core/handler.mts';
+import { loadOnDemand } from './LoadOnDemand.mts';
 import { sendJSON, sendJSONStream } from './sendJSON.mts';
 import 'lean-test';
 
@@ -142,6 +143,25 @@ describe('sendJSONStream', () => {
       expect(res.headers.get('content-type')).equals('application/json');
       expect(res.headers.has('content-length')).isFalse();
     });
+  });
+
+  it('loads root data on demand', { timeout: 3000 }, async () => {
+    const output = Duplex.fromWeb(new TransformStream());
+    const streamOutText = text(output);
+    await sendJSONStream(
+      output,
+      loadOnDemand(() => Promise.resolve('loaded')),
+    );
+    expect(await streamOutText).equals('"loaded"');
+  });
+
+  it('loads nested data on demand', { timeout: 3000 }, async () => {
+    const output = Duplex.fromWeb(new TransformStream());
+    const streamOutText = text(output);
+    await sendJSONStream(output, {
+      foo: loadOnDemand(() => Promise.resolve('loaded')),
+    });
+    expect(await streamOutText).equals('{"foo":"loaded"}');
   });
 
   it('iterates through iterable lists', { timeout: 3000 }, async () => {

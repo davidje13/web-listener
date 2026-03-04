@@ -2,6 +2,7 @@ import { ServerResponse } from 'node:http';
 import type { Writable } from 'node:stream';
 import { internalDrainUncorked } from '../../util/drain.mts';
 import { VOID_BUFFER } from '../../util/voidBuffer.mts';
+import { dispose, LoadOnDemand } from './LoadOnDemand.mts';
 
 export interface CSVOptions {
   /**
@@ -43,6 +44,7 @@ export interface CSVOptions {
 }
 
 type MaybeAsyncIterable<T> = Iterable<T> | AsyncIterable<T>;
+type MaybeLoadOnDemand<T> = LoadOnDemand<T> | T;
 
 /**
  * Output a CSV formatted table, using the format from RFC4180.
@@ -56,7 +58,11 @@ type MaybeAsyncIterable<T> = Iterable<T> | AsyncIterable<T>;
  */
 export async function sendCSVStream(
   target: Writable,
-  table: MaybeAsyncIterable<MaybeAsyncIterable<string | null | undefined>>,
+  table: MaybeLoadOnDemand<
+    MaybeAsyncIterable<
+      MaybeLoadOnDemand<MaybeAsyncIterable<MaybeLoadOnDemand<string | null | undefined>>>
+    >
+  >,
   {
     delimiter = ',',
     newline = '\n',
@@ -66,6 +72,9 @@ export async function sendCSVStream(
     end = true,
   }: CSVOptions = {},
 ) {
+  if (target.writableAborted) {
+    return;
+  }
   if (typeof delimiter === 'string') {
     delimiter = Buffer.from(delimiter, encoding);
   }
@@ -106,35 +115,74 @@ export async function sendCSVStream(
   }
 
   target.cork();
+  if (table instanceof LoadOnDemand) {
+    table = await table.load();
+  }
   try {
     // flush headers before we try streaming the content
     // (else the first value will be in its own chunk, despite using cork())
     target.write(VOID_BUFFER);
 
-    for await (const row of table) {
+    for await (let row of table) {
       if (target.writableAborted) {
         break;
       }
-      let col = 0;
-      if (Symbol.iterator in row) {
-        for (const cell of row) {
-          if (col) {
-            target.write(delimiter);
+      if (row instanceof LoadOnDemand) {
+        row = await row.load();
+      }
+      try {
+        let col = 0;
+        if (Symbol.iterator in row) {
+          for (let cell of row) {
+            if (col) {
+              target.write(delimiter);
+            }
+            if (cell instanceof LoadOnDemand) {
+              if (target.writableAborted) {
+                break;
+              }
+              cell = await cell.load();
+            }
+            try {
+              if (!writeCell(cell)) {
+                await internalDrainUncorked(target);
+              }
+            } finally {
+              const p = dispose(cell);
+              if (p) {
+                await p;
+              }
+            }
+            ++col;
           }
-          if (!writeCell(cell)) {
-            await internalDrainUncorked(target);
+        } else {
+          for await (let cell of row) {
+            if (target.writableAborted) {
+              break;
+            }
+            if (col) {
+              target.write(delimiter);
+            }
+            if (cell instanceof LoadOnDemand) {
+              cell = await cell.load();
+            }
+            try {
+              if (!writeCell(cell)) {
+                await internalDrainUncorked(target);
+              }
+            } finally {
+              const p = dispose(cell);
+              if (p) {
+                await p;
+              }
+            }
+            ++col;
           }
-          ++col;
         }
-      } else {
-        for await (const cell of row) {
-          if (col) {
-            target.write(delimiter);
-          }
-          if (!writeCell(cell)) {
-            await internalDrainUncorked(target);
-          }
-          ++col;
+      } finally {
+        const p = dispose(row);
+        if (p) {
+          await p;
         }
       }
       if (!target.write(newline)) {
@@ -143,6 +191,10 @@ export async function sendCSVStream(
     }
   } finally {
     target.uncork();
+    const p = dispose(table);
+    if (p) {
+      await p;
+    }
   }
   if (end) {
     target.end();

@@ -116,6 +116,7 @@ parameters from a parent, which can be typed with `Router<WithPathParameters<{ n
   - [`acceptBody`]
   - [`willSendBody`]
 - Dynamic content
+  - [`loadOnDemand`]
   - [`sendCSVStream`]
   - [`sendJSON`]
   - [`sendJSONStream`]
@@ -3051,6 +3052,9 @@ If headers have not already been sent and [`Content-Type`] has not been set, thi
 [`Content-Type: text/csv`][`Content-Type`] with the given charset (`encoding`). If `headerRow` is
 `true`, it also sets `header=present`. If `headerRow` is `false`, it sets `header=absent`.
 
+[`loadOnDemand`] can be used for the `table` argument (or rows or cells within it) to delay loading
+data until it is required.
+
 Cells are sent in plain text if possible, or quoted if they contain a special character. Quote
 characters inside quoted text are escaped by doubling (e.g. `my "value"` encodes to
 `"my ""value"""`).
@@ -3097,12 +3101,30 @@ set, this automatically sets [`Content-Type: application/json`][`Content-Type`].
     **Default:** `true`.
 - Returns: [`<Promise>`] Fulfills with [`<undefined>`] once the entire document has been sent.
 
-This has the same behaviour as [`sendJSON`], but supports [`<stream.Readable>`]s and
-[`<AsyncIterable>`][`<AsyncIterator>`]s at any location in the `entity`.
+This has the same behaviour as [`sendJSON`], but supports [`loadOnDemand`], [`<stream.Readable>`]s
+and [`<AsyncIterable>`][`<AsyncIterator>`]s at any location in the `entity`.
 
 Note that this will not necessarily send data as soon as it is available; some buffering is used to
 increase the network efficiency. If you want to send events in real-time to the client, consider
 using [`<ServerSentEvents>`] instead.
+
+Example usage: [Streaming JSON responses].
+
+### `loadOnDemand(fn)`
+
+[`loadOnDemand`]: #loadondemandfn
+
+- `fn` [`<Function>`] returning an entity or a [`<Promise>`] which fulfills with an entity.
+
+This can be used as a value within [`sendCSVStream`] and [`sendJSONStream`] to delay loading data
+until the client is ready to receive it. This can be used, for example, to spread out load on a
+database, and avoid unnecessary requests (e.g. if the client closes the connection before the
+relevant data is required).
+
+When this function is used in a call to [`sendCSVStream`] or [`sendJSONStream`], the returned entity
+will be disposed automatically.
+
+Example usage: [Streaming JSON responses].
 
 ### `fileServer(baseDir[, options])`
 
@@ -4071,6 +4093,29 @@ router.get('/something', (req, res) => {
 ```
 
 Reference: [`addTeardown`], [`CONTINUE`], [`<Router>`]
+
+## Streaming JSON responses
+
+[Streaming JSON responses]: #streaming-json-responses
+
+```js
+import { getPathParameter, loadOnDemand, Router, sendJSONStream } from 'web-listener';
+
+const router = new Router();
+
+router.get('/resources/:id', async (req, res) => {
+  const id = getPathParameter(req, 'id');
+  const coreDetails = await myDB.loadCoreDetails(id);
+  return sendJSONStream(res, {
+    ...coreDetails,
+    subs: loadOnDemand(async () => {
+      return myDB.getSubResources(id); // e.g. could return an AsyncGenerator
+    }),
+  });
+});
+```
+
+Reference: [`getPathParameter`], [`loadOnDemand`], [`<Router>`], [`sendJSONStream`]
 
 ## WebSocket requests
 

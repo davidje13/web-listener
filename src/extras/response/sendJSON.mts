@@ -2,6 +2,7 @@ import { ServerResponse } from 'node:http';
 import { Readable, type Writable } from 'node:stream';
 import { internalDrainUncorked } from '../../util/drain.mts';
 import { VOID_BUFFER } from '../../util/voidBuffer.mts';
+import { dispose, LoadOnDemand } from './LoadOnDemand.mts';
 
 export interface JSONOptions {
   /**
@@ -74,35 +75,53 @@ export async function sendJSONStream(
   if (typeof space === 'number') {
     space = '          '.substring(0, space);
   }
-  const options: JSONPartOptions = {
-    _send: (v: string) => target.write(v, encoding),
-    _flush: () => internalDrainUncorked(target),
-    _replacer: replacer,
-    _space: space ?? '',
-  };
-  if (
-    target instanceof ServerResponse &&
-    !target.headersSent &&
-    !target.hasHeader('content-type')
-  ) {
-    target.setHeader('content-type', 'application/json');
-  }
-  entity = internalConvert(null, '', entity, options);
-  if (isSkip(entity)) {
-    if (undefinedAsNull) {
-      options._send('null');
+
+  try {
+    if (target.writableAborted) {
+      return;
     }
-  } else {
-    target.cork();
+    const ac = new AbortController();
+    target.once('close', () => ac.abort());
 
-    // flush headers before we try streaming the content
-    // (else the first token will be in its own chunk, despite using cork())
-    target.write(VOID_BUFFER);
+    const options: JSONPartOptions = {
+      _send: (v: string) => target.write(v, encoding),
+      _flush: () => internalDrainUncorked(target),
+      _replacer: replacer,
+      _space: space ?? '',
+      _signal: ac.signal,
+    };
+    if (
+      target instanceof ServerResponse &&
+      !target.headersSent &&
+      !target.hasHeader('content-type')
+    ) {
+      target.setHeader('content-type', 'application/json');
+    }
+    if (entity instanceof LoadOnDemand) {
+      entity = await entity.load();
+    }
+    entity = internalConvert(null, '', entity, options);
+    if (isSkip(entity)) {
+      if (undefinedAsNull) {
+        options._send('null');
+      }
+    } else {
+      target.cork();
 
-    try {
-      await internalSendJSONPart(options, entity, space ? '\n' : '');
-    } finally {
-      target.uncork();
+      // flush headers before we try streaming the content
+      // (else the first token will be in its own chunk, despite using cork())
+      target.write(VOID_BUFFER);
+
+      try {
+        await internalSendJSONPart(options, entity, space ? '\n' : '');
+      } finally {
+        target.uncork();
+      }
+    }
+  } finally {
+    const p = dispose(entity);
+    if (p) {
+      await p;
     }
   }
   if (end) {
@@ -115,6 +134,7 @@ interface JSONPartOptions {
   _flush: () => Promise<void>;
   _replacer: ((this: unknown, key: string, value: unknown) => unknown) | null;
   _space: string;
+  _signal: AbortSignal;
 }
 
 async function internalSendJSONPart(options: JSONPartOptions, entity: unknown, indent: string) {
@@ -125,21 +145,34 @@ async function internalSendJSONPart(options: JSONPartOptions, entity: unknown, i
     let first = true;
     return {
       _next: async (key: string, value: unknown) => {
-        const v = internalConvert(entity, key, value, options);
-        if (!keyed || !isSkip(v)) {
-          if (first) {
-            first = false;
-          } else {
-            options._send(',');
-          }
-          options._send(subIndent);
-          if (keyed) {
-            if (!options._send(JSON.stringify(key))) {
-              await options._flush();
+        if (options._signal.aborted) {
+          return;
+        }
+        if (value instanceof LoadOnDemand) {
+          value = await value.load();
+        }
+        try {
+          const v = internalConvert(entity, key, value, options);
+          if (!keyed || !isSkip(v)) {
+            if (first) {
+              first = false;
+            } else {
+              options._send(',');
             }
-            options._send(sep);
+            options._send(subIndent);
+            if (keyed) {
+              if (!options._send(JSON.stringify(key))) {
+                await options._flush();
+              }
+              options._send(sep);
+            }
+            await internalSendJSONPart(options, v, subIndent);
           }
-          await internalSendJSONPart(options, v, subIndent);
+        } finally {
+          const p = dispose(value);
+          if (p) {
+            await p;
+          }
         }
       },
       _end: () => {
@@ -150,6 +183,9 @@ async function internalSendJSONPart(options: JSONPartOptions, entity: unknown, i
       },
     };
   };
+  if (options._signal.aborted) {
+    return;
+  }
   if (
     entity === null ||
     typeof entity !== 'object' ||
@@ -169,6 +205,9 @@ async function internalSendJSONPart(options: JSONPartOptions, entity: unknown, i
     for await (const chunk of entity) {
       if (typeof chunk !== 'string') {
         throw new TypeError('Readables must have an encoding');
+      }
+      if (options._signal.aborted) {
+        break;
       }
       const encoded = JSON.stringify(chunk);
       if (!options._send(encoded.substring(1, encoded.length - 1))) {
@@ -193,6 +232,9 @@ async function internalSendJSONPart(options: JSONPartOptions, entity: unknown, i
     let i = 0;
     const act = loop('[', ']', false);
     for await (const v of entity) {
+      if (options._signal.aborted) {
+        break;
+      }
       await act._next(String(i++), v);
     }
     act._end();

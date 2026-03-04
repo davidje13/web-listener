@@ -5,6 +5,7 @@ import { withServer } from '../../test-helpers/withServer.mts';
 import { rawRequest } from '../../test-helpers/rawRequest.mts';
 import { versionIsGreaterOrEqual } from '../../test-helpers/versionIsGreaterOrEqual.mts';
 import { requestHandler } from '../../core/handler.mts';
+import { loadOnDemand } from './LoadOnDemand.mts';
 import { sendCSVStream } from './sendCSV.mts';
 import 'lean-test';
 
@@ -76,6 +77,29 @@ describe('sendCSVStream', () => {
     expect(await text(output)).equals('a,b\ntrailer');
   });
 
+  it('loads table data on demand', { timeout: 3000 }, async () => {
+    const output = Duplex.fromWeb(new TransformStream());
+    await sendCSVStream(
+      output,
+      loadOnDemand(() =>
+        Promise.resolve([
+          ['a', 'b'],
+          ['c', 'd'],
+        ]),
+      ),
+    );
+    expect(await text(output)).equals('a,b\nc,d\n');
+  });
+
+  it('loads row data on demand', { timeout: 3000 }, async () => {
+    const output = Duplex.fromWeb(new TransformStream());
+    await sendCSVStream(output, [
+      loadOnDemand(() => Promise.resolve(['a', 'b'])),
+      loadOnDemand(() => Promise.resolve(['c', 'd'])),
+    ]);
+    expect(await text(output)).equals('a,b\nc,d\n');
+  });
+
   it('accepts async row iterators', { timeout: 3000 }, async () => {
     const output = Duplex.fromWeb(new TransformStream());
     const source = async function* () {
@@ -84,6 +108,15 @@ describe('sendCSVStream', () => {
       yield ['c', 'd'];
     };
     await sendCSVStream(output, source());
+    expect(await text(output)).equals('a,b\nc,d\n');
+  });
+
+  it('loads cell data on demand', { timeout: 3000 }, async () => {
+    const output = Duplex.fromWeb(new TransformStream());
+    await sendCSVStream(output, [
+      [loadOnDemand(() => Promise.resolve('a')), 'b'],
+      ['c', loadOnDemand(() => Promise.resolve('d'))],
+    ]);
     expect(await text(output)).equals('a,b\nc,d\n');
   });
 
