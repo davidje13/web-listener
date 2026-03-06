@@ -6,8 +6,11 @@ import type {
 } from '../../index.mts';
 import type { LogLevel } from '../log.mts';
 
+export type ConfigHeaders = Record<string, string | string[]>;
+
 export type ConfigMountFilesOptions = Omit<FileServerOptions, 'negotiator'> & {
   negotiation?: FileNegotiation[];
+  headers?: ConfigHeaders;
 };
 
 interface ConfigMountFiles {
@@ -21,7 +24,9 @@ interface ConfigMountProxy {
   type: 'proxy';
   path: string;
   target: string;
-  options: ProxyOptions;
+  options: ProxyOptions & {
+    headers?: ConfigHeaders;
+  };
 }
 
 interface ConfigMountFixture {

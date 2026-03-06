@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import type { FileNegotiation, FileNegotiationOption } from '../../index.mts';
 import type { Mapper } from './schema.mts';
-import type { Config } from './types.mts';
+import type { Config, ConfigHeaders } from './types.mts';
 
 const shorthands = new Map<string, string>([
   ['', 'dir'],
@@ -13,6 +13,7 @@ const shorthands = new Map<string, string>([
   ['-e', 'ext'],
   ['-g', 'gzip'],
   ['-h', 'help'],
+  ['-H', 'header'],
   ['-p', 'port'],
   ['-P', 'proxy'],
   ['-v', 'version'],
@@ -35,6 +36,7 @@ const params = new Map<string, { type: 'string' | 'number' | 'boolean'; multi?: 
   ['proxy', { type: 'string' }],
   ['404', { type: 'string' }],
   ['spa', { type: 'string' }],
+  ['header', { type: 'string', multi: true }],
   ['mime', { type: 'string', multi: true }],
   ['mime-types', { type: 'string', multi: true }],
   ['write-compressed', { type: 'boolean' }],
@@ -139,6 +141,7 @@ export async function loadConfig(
   const dir = stringParam('dir') || '.';
   const exec = stringListParam('exec').map((v) => v.split(' '));
   const ext = stringListParam('ext').map((v) => (v.startsWith('.') ? v : `.${v}`));
+  const headers = stringListParam('header').map((v) => splitFirst(v, /: ?/));
   const err404 = stringParam('404');
   const spa = stringParam('spa');
   const proxy = stringParam('proxy');
@@ -227,6 +230,15 @@ export async function loadConfig(
       }
     }
   }
+  if (headers.length) {
+    for (const server of config.servers) {
+      for (const mount of server.mount) {
+        if (mount.type === 'files' || mount.type === 'proxy') {
+          mount.options.headers = mergeHeaders(mount.options.headers, headers);
+        }
+      }
+    }
+  }
   if (mime.length || mimeTypes.length) {
     if (!Array.isArray(config.mime)) {
       if (config.mime) {
@@ -265,6 +277,29 @@ export async function loadConfig(
       break;
   }
   return config;
+}
+
+function splitFirst(v: string, sep: RegExp): [string, string?] {
+  const m = v.match(sep);
+  return m ? [v.substring(0, m.index!), v.substring(m.index! + m[0].length)] : [v];
+}
+
+function mergeHeaders(
+  existing: ConfigHeaders | undefined,
+  headers: [string, string?][],
+): ConfigHeaders {
+  const lookup = new Map<string, string[]>(
+    Object.entries(existing ?? {}).map(([k, v]) => [k, Array.isArray(v) ? [...v] : [v]]),
+  );
+  for (const [header, value = ''] of headers) {
+    const existing = lookup.get(header);
+    if (existing) {
+      existing.push(value);
+    } else {
+      lookup.set(header, [value]);
+    }
+  }
+  return Object.fromEntries(lookup.entries());
 }
 
 const ENCODINGS = new Map<string, FileNegotiationOption>([

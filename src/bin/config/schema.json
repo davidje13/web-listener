@@ -137,6 +137,7 @@
                 "filePath": { "type": "string" }
               }
             },
+            "headers": { "$ref": "#/$defs/headers" },
             "verbose": { "type": "boolean", "default": false },
             "subDirectories": {
               "anyOf": [{ "type": "boolean" }, { "type": "integer" }],
@@ -216,6 +217,7 @@
             "maxSockets": { "type": "integer" },
             "maxFreeSockets": { "type": "integer" },
             "timeout": { "type": "integer" },
+            "headers": { "$ref": "#/$defs/headers" },
             "blockRequestHeaders": { "type": "array", "items": { "type": "string" } },
             "blockResponseHeaders": { "type": "array", "items": { "type": "string" } },
 
@@ -267,6 +269,12 @@
         "path": { "type": "string" },
         "status": { "$ref": "#/$defs/status", "default": 307 },
         "target": { "type": "string" }
+      }
+    },
+    "headers": {
+      "type": "object",
+      "additionalProperties": {
+        "anyOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" } }]
       }
     },
     "task": {

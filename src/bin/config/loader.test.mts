@@ -207,6 +207,52 @@ describe('loadConfig', () => {
           expected: { ...DEFAULT_CONFIG, minCompress: 400 },
         },
         {
+          name: 'header',
+          args: ['--header', 'foo: bar'],
+          expected: {
+            ...DEFAULT_CONFIG,
+            servers: [
+              {
+                ...DEFAULT_SERVER,
+                mount: [
+                  {
+                    ...DEFAULT_FILES,
+                    options: { ...DEFAULT_FILES_OPTIONS, headers: { foo: ['bar'] } },
+                  },
+                ],
+              },
+            ],
+          },
+        },
+        {
+          name: 'multiple header',
+          args: [
+            '--header',
+            'foo: bar',
+            '--header',
+            'foo: two:with-colon',
+            '--header',
+            'baz:second',
+          ],
+          expected: {
+            ...DEFAULT_CONFIG,
+            servers: [
+              {
+                ...DEFAULT_SERVER,
+                mount: [
+                  {
+                    ...DEFAULT_FILES,
+                    options: {
+                      ...DEFAULT_FILES_OPTIONS,
+                      headers: { foo: ['bar', 'two:with-colon'], baz: ['second'] },
+                    },
+                  },
+                ],
+              },
+            ],
+          },
+        },
+        {
           name: 'no-serve',
           args: ['--no-serve'],
           expected: { ...DEFAULT_CONFIG, noServe: true },

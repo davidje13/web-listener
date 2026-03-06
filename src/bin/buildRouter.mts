@@ -3,6 +3,7 @@ import {
   addTeardown,
   CONTINUE,
   fileServer,
+  generateWeakETag,
   getPathParameter,
   getQuery,
   getSearch,
@@ -46,11 +47,36 @@ export async function buildRouter(mount: ConfigMount[], log: (info: LogInfo) => 
             item.options.negotiation && item.options.negotiation.length > 0
               ? new Negotiator(item.options.negotiation)
               : undefined;
-          router.mount(item.path, await fileServer(item.dir, { ...item.options, negotiator }));
+          const headers = new Map(Object.entries(item.options.headers ?? {}));
+          router.mount(
+            item.path,
+            await fileServer(item.dir, {
+              ...item.options,
+              negotiator,
+              callback: (_, res, file) => {
+                if (!('etag' in headers)) {
+                  res.setHeader(
+                    'etag',
+                    generateWeakETag(res.getHeader('content-encoding'), file.stats),
+                  );
+                }
+                if (!('last-modified' in headers)) {
+                  res.setHeader('last-modified', file.stats.mtime.toUTCString());
+                }
+                res.setHeaders(headers);
+              },
+            }),
+          );
         }
         break;
       case 'proxy':
-        router.mount(item.path, proxy(item.target, item.options));
+        router.mount(
+          item.path,
+          proxy(item.target, {
+            ...item.options,
+            responseHeaders: [(_req, _res, headers) => ({ ...headers, ...item.options.headers })],
+          }),
+        );
         break;
       case 'fixture':
         const handler = (req: IncomingMessage, res: ServerResponse) => {

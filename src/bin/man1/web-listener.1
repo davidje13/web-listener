@@ -147,6 +147,11 @@ If found, the file is sent as a direct response to the user
 .It Fl g , Fl -gz , Fl -gzip
 .compression Gzip .gz
 .
+.It Fl H Ar name : Ns Ar value , Fl -header Ar name : Ns Ar value
+Set a header key/value pair on all file and proxy responses.
+This can be specified multiple times to set multiple headers (or the same
+header multiple times).
+.
 .It Fl h , Fl -help
 Open this man page.
 .
@@ -415,6 +420,7 @@ Serve files from a directory.
       "statusCode": 200,
       "filePath": <path to fallback file>
     },
+    "headers": {},
     "verbose": false,
     "subDirectories": true,
     "caseSensitive": "exact",
@@ -472,6 +478,7 @@ Proxy requests to another server.
     "maxSockets": <number>,
     "maxFreeSockets": <number>,
     "timeout": <number>,
+    "headers": {},
     "blockRequestHeaders": [],
     "blockResponseHeaders": [],
     "servername": <string>,
