@@ -1,7 +1,8 @@
 # Web Listener
 
 A small, dependency-free server abstraction for serving static files, proxying, and creating API
-endpoints with middleware. Supports HTTP/1.1 and upgrade requests (such as WebSockets).
+endpoints with middleware. Supports HTTP/1.1 and upgrade requests (such as WebSockets). Also
+includes a CLI utility for launching simple webservers (e.g. to serve static files).
 
 `web-listener` is designed to be tree-shakable so that it provides a minimal framework for those who
 want something simple, while still being able to deliver advanced capabilities for those who need
@@ -46,7 +47,13 @@ npx web-listener . --port 8080
 
 ### CLI Documentation
 
-The full CLI documentation can be found in [docs/CLI.md](docs/CLI.md).
+You can view the `web-listener` manual page with:
+
+```sh
+npx web-listener --help
+```
+
+Additional CLI documentation can be found in [docs/CLI.md](docs/CLI.md).
 
 ## TypeScript
 

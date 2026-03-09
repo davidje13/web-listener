@@ -44,7 +44,7 @@ It is possible to combine most arguments with JSON configuration, in which case
 the commandline arguments will override the relevant parts of the JSON.
 .Pp
 Once running, the server(s) can be closed cleanly by sending a single SIGINT
-.Pq "typically Ctrl+C" .
+.Pq "typically by pressing Ctrl+C in most terminals" .
 .Pp
 .Qq index.htm
 and
@@ -149,8 +149,8 @@ If found, the file is sent as a direct response to the user
 .
 .It Fl H Ar name : Ns Ar value , Fl -header Ar name : Ns Ar value
 Set a header key/value pair on all file and proxy responses.
-This can be specified multiple times to set multiple headers (or the same
-header multiple times).
+This can be specified multiple times to set multiple headers
+.Pq "or the same header multiple times" .
 .
 .It Fl h , Fl -help
 Open this man page.
@@ -291,8 +291,9 @@ JSON offers a more powerful way to configure the server, as well
 as allowing multiple servers to be launched by a single
 .Nm
 process.
-You can define one or more servers (one per port), each with its own set of
-mounted handlers.
+You can define one or more servers
+.Pq "one per port" ,
+each with its own set of mounted handlers.
 Most commandline arguments can be specified alongside JSON configuration, with
 the commandline arguments replacing the relevant options.
 .Pp
@@ -345,7 +346,9 @@ files:
 }
 .Ed
 .Pp
-The structure of the document (with all default values shown) is:
+The structure of the document
+.Pq with all default values shown
+is:
 .Bd -literal -offset 2n
 {
   "servers": [
@@ -638,7 +641,8 @@ to
 .El
 .Pp
 When using an apache .types file, each line contains a mime type, any amount of
-whitespace, then a list of space-separated extensions (without a dot).
+whitespace, then a list of space-separated extensions
+.Pq "without a dot" .
 Lines starting with
 .Qq #
 are ignored as comments.
@@ -648,7 +652,7 @@ are ignored as comments.
 The
 .Nm
 program exits 0 after a clean shutdown, and non-zero after an error
-.Pq "such as a configuration validation error" .
+.Pq "such as a configuration validation error, or a port already in use" .
 .
 .\"======================================================================
 .Sh EXAMPLES
@@ -668,6 +672,10 @@ Add custom mime types:
 Proxy all requests to another server:
 .Pp
 .Dl "$ npx web-listener /dev/null --proxy https://example.com"
+.Pp
+Add security headers to enable browser secure context:
+.Pp
+.Dl "$ npx web-listener . -H 'Cross-Origin-Opener-Policy: same-origin' -H 'Cross-Origin-Embedder-Policy: require-corp'"
 .Pp
 Enable compressed files, and auto-generate them on startup:
 .Pp
