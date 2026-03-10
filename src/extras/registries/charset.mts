@@ -62,24 +62,25 @@ export async function internalDecodeUnicode(
   options: TextDecoderOptions,
 ): Promise<ReadableStream<string>> {
   // This is specifically for detecting JSON encodings,
-  // which can be identified from the first 3 bytes.
+  // which can be identified from the first 4 bytes.
   // See https://www.ietf.org/rfc/rfc4627.txt
 
   const inReader = readable.getReader();
-  const temp = new Uint8Array(3);
+  const temp = new Uint8Array(4);
+  temp[0] = 1;
   let n = 0;
   let latestChunk: Uint8Array | null = null;
   while (true) {
     const next = await inReader.read();
-    const begin = 3 - n;
+    const begin = 4 - n;
     if (next.done) {
-      if (n === 0) {
-        temp[0] = 1;
-        temp[1] = 1;
-      } else if (n === 1) {
-        temp[1] = temp[0]!;
+      if (n < 3) {
+        if (n < 2) {
+          temp[1] = temp[0]!;
+        }
+        temp[2] = temp[0]!;
       }
-      temp[2] = temp[0]!;
+      temp[3] = temp[1]!;
       latestChunk = null;
       break;
     }
@@ -93,7 +94,12 @@ export async function internalDecodeUnicode(
   }
 
   const charset =
-    UNICODE_PATTERNS[(temp[0] ? 0b100 : 0) | (temp[1] ? 0b010 : 0) | (temp[2] ? 0b001 : 0)];
+    UNICODE_PATTERNS[
+      (temp[0] ? 0b1000 : 0) |
+        (temp[1] ? 0b0100 : 0) |
+        (temp[2] ? 0b0010 : 0) |
+        (temp[3] ? 0b0001 : 0)
+    ];
   if (!charset) {
     inReader.cancel();
     throw new HTTPError(415, { body: 'invalid JSON encoding' });
@@ -115,12 +121,20 @@ export async function internalDecodeUnicode(
 // The second character can be anything (if following a ")
 // No characters can be \x00
 const UNICODE_PATTERNS = [
-  /* 00 00 00 */ 'utf-32be',
-  /* 00 00 xx */ null,
-  /* 00 xx 00 */ 'utf-16be',
-  /* 00 xx xx */ 'utf-16be',
-  /* xx 00 00 */ 'utf-32le',
-  /* xx 00 xx */ 'utf-16le',
-  /* xx xx 00 */ null,
-  /* xx xx xx */ 'utf-8',
+  /* 00 00 00 00 */ null,
+  /* 00 00 00 xx */ 'utf-32be',
+  /* 00 00 xx 00 */ null,
+  /* 00 00 xx xx */ null,
+  /* 00 xx 00 00 */ null,
+  /* 00 xx 00 xx */ 'utf-16be',
+  /* 00 xx xx 00 */ 'utf-16be',
+  /* 00 xx xx xx */ 'utf-16be',
+  /* xx 00 00 00 */ 'utf-32le',
+  /* xx 00 00 xx */ 'utf-16le',
+  /* xx 00 xx 00 */ 'utf-16le',
+  /* xx 00 xx xx */ 'utf-16le',
+  /* xx xx 00 00 */ null,
+  /* xx xx 00 xx */ null,
+  /* xx xx xx 00 */ null,
+  /* xx xx xx xx */ 'utf-8',
 ];

@@ -91,6 +91,16 @@ describe('internalUnicodeDecoderStream', () => {
       expect(await read(await internalDecodeUnicode(stream([utf32be]), {}))).equals([json]);
     });
 
+    it('works if the document is a string starting with a non-BMP character with a 0 byte', async () => {
+      const json = '"\u0100"';
+      const { utf8, utf16le, utf16be, utf32le, utf32be } = makeEncodings(json);
+      expect(await read(await internalDecodeUnicode(stream([utf8]), {}))).equals([json]);
+      expect(await read(await internalDecodeUnicode(stream([utf16le]), {}))).equals([json]);
+      expect(await read(await internalDecodeUnicode(stream([utf16be]), {}))).equals([json]);
+      expect(await read(await internalDecodeUnicode(stream([utf32le]), {}))).equals([json]);
+      expect(await read(await internalDecodeUnicode(stream([utf32be]), {}))).equals([json]);
+    });
+
     it('works if the document is short', async () => {
       const json = '[]';
       const { utf8, utf16le, utf16be, utf32le, utf32be } = makeEncodings(json);
