@@ -26,6 +26,7 @@ export function removeForwarded(
   delete headers['x-forwarded-proto'];
   delete headers['x-forwarded-protocol'];
   delete headers['x-url-scheme'];
+  delete headers['via'];
   return headers;
 }
 

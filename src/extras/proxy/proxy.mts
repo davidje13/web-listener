@@ -15,14 +15,18 @@ export interface ProxyOptions extends AgentOptions {
   agent?: httpAgent | httpsAgent | undefined;
   /**
    * A list of headers to remove from proxied requests (runs before `requestHeaders`).
+   * Hop-by-hop headers (including standard hop-by-hop headers and
+   * everything listed in `Connection`) will always be removed.
    *
-   * @default ['connection', 'expect', 'host', 'keep-alive', 'proxy-authorization', 'transfer-encoding', 'upgrade', 'via']
+   * @default []
    */
   blockRequestHeaders?: string[] | undefined;
   /**
    * A list of headers to remove from proxied responses (runs before `responseHeaders`).
+   * Hop-by-hop headers (including standard hop-by-hop headers and
+   * everything listed in `Connection`) will always be removed.
    *
-   * @default ['connection', 'keep-alive', 'transfer-encoding']
+   * @default []
    */
   blockResponseHeaders?: string[] | undefined;
   /**
@@ -38,18 +42,9 @@ export interface ProxyOptions extends AgentOptions {
 export function proxy(
   forwardHost: string | URL,
   {
-    blockRequestHeaders = [
-      'connection',
-      'expect',
-      'host',
-      'keep-alive',
-      'proxy-authorization',
-      'transfer-encoding',
-      'upgrade',
-      'via',
-    ],
+    blockRequestHeaders = [],
     requestHeaders = [],
-    blockResponseHeaders = ['connection', 'keep-alive', 'transfer-encoding'],
+    blockResponseHeaders = [],
     responseHeaders = [],
     agent,
     ...options
@@ -90,6 +85,10 @@ export function proxy(
 
         let headers: OutgoingHttpHeaders = { ...req.headers };
         blockHeaders(headers, blockRequestHeaders);
+        delete headers.host;
+        if (headers.expect && continueExpression.test(headers.expect)) {
+          delete headers.expect;
+        }
         for (const adapter of requestHeaders) {
           headers = adapter(req, headers);
         }
@@ -129,7 +128,25 @@ function blockHeaders(headers: OutgoingHttpHeaders, blocked: string[]) {
   for (const key of readHTTPUnquotedCommaSeparated(headers['connection']) ?? []) {
     deleteProperty(headers, key.toLowerCase());
   }
+  for (const key of HOP_BY_HOP_HEADERS) {
+    deleteProperty(headers, key);
+  }
   for (const key of blocked) {
     deleteProperty(headers, key);
   }
 }
+
+// Expect: 100-continue condition matching Node.js
+// See https://github.com/nodejs/node/blob/95ee87da538734a07adb5b00e0682884b731aac9/lib/_http_common.js#L307
+const continueExpression = /(?:^|\W)100-continue(?:$|\W)/i;
+
+const HOP_BY_HOP_HEADERS = [
+  'connection',
+  'keep-alive',
+  'proxy-authenticate',
+  'proxy-authorization',
+  'te',
+  'trailer', // spec mistakenly lists this as 'trailers'
+  'transfer-encoding',
+  'upgrade',
+];

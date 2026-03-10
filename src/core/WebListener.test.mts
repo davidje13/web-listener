@@ -118,7 +118,7 @@ describe('WebListener', () => {
       try {
         const response = await rawRequest(url, {
           method: 'POST',
-          headers: { expect: '100-Continue' },
+          headers: { expect: '100-continue' },
         });
         expect(response).contains('100 Continue');
         expect(response).contains('handler content');
@@ -140,14 +140,14 @@ describe('WebListener', () => {
       try {
         const response1 = await rawRequest(url + '/yes', {
           method: 'POST',
-          headers: { expect: '100-Continue' },
+          headers: { expect: '100-continue' },
         });
         expect(response1).contains('100 Continue');
         expect(response1).contains('handler content');
 
         const response2 = await rawRequest(url + '/no', {
           method: 'POST',
-          headers: { expect: '100-Continue' },
+          headers: { expect: '100-continue' },
         });
         expect(response2).not(contains('100 Continue'));
         expect(response2).contains('handler content');

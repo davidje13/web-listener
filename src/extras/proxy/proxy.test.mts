@@ -137,7 +137,6 @@ describe('proxy', () => {
             Connection: 'x-custom-Hop-request, bleh',
             Expect: 'CustomExpectation',
             'Proxy-authorization': 'secret',
-            Via: 'this',
             'X-custom-hop-request': 'secret',
             'X-custom-request': 'Something',
             'User-agent': 'me',
@@ -153,7 +152,6 @@ describe('proxy', () => {
         expect(res.headers['x-custom-hop-response']).isUndefined();
         expect(res.headers['x-custom-request']).isUndefined();
         expect(res.headers['connection']).equals('keep-alive');
-        expect(res.headers['via']).isUndefined();
 
         const body = await text(res);
         const reflectedHeaders = body.split('\n');

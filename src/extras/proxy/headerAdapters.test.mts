@@ -17,6 +17,7 @@ describe('removeForwarded', () => {
       'x-forwarded-proto': 'gone',
       'x-forwarded-protocol': 'gone',
       'x-url-scheme': 'gone',
+      via: 'gone',
       other: 'remains',
     };
     const req = { headers: inputHeaders } as IncomingMessage;

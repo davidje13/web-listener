@@ -2067,7 +2067,7 @@ Represents the server address a request was sent to.
 
 #### `proxynode.host`
 
-- Type: [`<string>`] | [`<undefined>`] the host name in the request (e.g. the value of the `Host`
+- Type: [`<string>`] | [`<undefined>`] the host name in the request (e.g. the value of the [`Host`]
   header).
 
 #### `proxynode.proto`
@@ -2433,12 +2433,11 @@ router.use(jsonErrorHandler((error) => ({ error: error.body })));
   - `agent` a [`<http.Agent>`] or [`<https.Agent>`] to use instead of building one internally (if
     you need more control or want to share an agent across multiple handlers)
   - `blockRequestHeaders` [`<string[]>`][`<string>`] a list of headers to remove from proxied
-    requests (runs before `requestHeaders`). Note that headers listed in the [`Connection`] header
-    are removed automatically. **Default:**
-    `['connection', 'expect', 'host', 'keep-alive', 'proxy-authorization', 'transfer-encoding', 'upgrade', 'via']`.
+    requests (runs before `requestHeaders`). Note that standard hop-by-hop headers and those listed
+    in the [`Connection`] header are removed automatically. **Default:** `[]`.
   - `blockResponseHeaders` [`<string[]>`][`<string>`] a list of headers to remove from proxied
-    responses (runs before `responseHeaders`). Note that headers listed in the [`Connection`] header
-    are removed automatically. **Default:** `['connection', 'keep-alive', 'transfer-encoding']`.
+    responses (runs before `responseHeaders`). Note that standard hop-by-hop headers and those
+    listed in the [`Connection`] header are removed automatically. **Default:** `[]`.
   - `requestHeaders` [`<Function[]>`][`<Function>`] mutators for the proxied request headers. e.g.
     [`replaceForwarded`]. **Default:** `[]`.
   - `responseHeaders` [`<Function[]>`][`<Function>`] mutators for the proxied response headers.
@@ -2452,6 +2451,21 @@ example, for serving both an API and frontend content from the same server, espe
 development (when the frontend content may be served by a dynamic server).
 
 Note that this proxy does _not_ support proxying [`Upgrade`] or [`CONNECT`] requests.
+
+Hop-by-hop headers are always removed from the request and response:
+
+- [`Connection`] (and all header names listed in it)
+- [`Keep-Alive`]
+- [`Proxy-Authenticate`]
+- [`Proxy-Authorization`]
+- [`TE`]
+- [`Trailer`]
+- [`Transfer-Encoding`]
+- [`Upgrade`]
+
+Additionally, [`Host`] is always overwritten with the proxied host, and
+[`Expect: 100-continue`][`Expect`] is handled and removed from the request. `blockRequestHeaders`
+and `blockResponseHeaders` can be used to list additional headers to remove in each direction.
 
 Internally, a [`<http.Agent>`] or [`<https.Agent>`] pool is used to reduce communication overhead.
 This pool is never `destroy`ed, so if you are creating lots of short-lived `proxy`s, you should
@@ -2469,11 +2483,12 @@ A function which can be passed as a `requestHeaders` mutator function to [`proxy
 common forwarding headers:
 
 - [`Forwarded`]
-- `X-Forwarded-For`
-- `X-Forwarded-Host`
-- `X-Forwarded-Proto`
-- `X-Forwarded-Protocol`
-- `X-Url-Scheme`
+- [`X-Forwarded-For`]
+- [`X-Forwarded-Host`]
+- [`X-Forwarded-Proto`]
+- [`X-Forwarded-Protocol`]
+- [`X-Url-Scheme`]
+- [`Via`]
 
 ### `replaceForwarded(req, headers)`
 
@@ -3277,11 +3292,11 @@ able to spoof the data. The supported headers are:
 
 - [`Forwarded`]: Populates `client`, `server`, `host`, and `proto` (but note that these fields are
   all optional in the header, so may not be set for all entries).
-- `X-Forwarded-For`: Populates `client`.
-- `X-Forwarded-Host`: Populates `server`. Only used if `X-Forwarded-For` is set.
-- `X-Forwarded-Proto`: Populates `proto`. Only used if `X-Forwarded-For` is set.
-- `X-Forwarded-Protocol`: Populates `proto`. Only used if `X-Forwarded-For` is set.
-- `X-Url-Scheme`: Populates `proto`. Only used if `X-Forwarded-For` is set.
+- [`X-Forwarded-For`]: Populates `client`.
+- [`X-Forwarded-Host`]: Populates `server`. Only used if `X-Forwarded-For` is set.
+- [`X-Forwarded-Proto`]: Populates `proto`. Only used if `X-Forwarded-For` is set.
+- [`X-Forwarded-Protocol`]: Populates `proto`. Only used if `X-Forwarded-For` is set.
+- [`X-Url-Scheme`]: Populates `proto`. Only used if `X-Forwarded-For` is set.
 - [`Via`]: Populates `server`
 
 The returned function accepts a request [`<http.IncomingMessage>`] and returns an object with:
@@ -3413,7 +3428,7 @@ Extracts one item at a time from the queue. Completes once the queue is empty.
 - Returns: [`<Object>`] | [`<undefined>`]
 
 Reads an IPv4, IPv6, or alias address with an optional port (as used in [`Via`], [`Forwarded`], and
-`X-Forwarded-For` headers).
+[`X-Forwarded-For`] headers).
 
 Returns an object with `type` (`'IPv4'`, `'IPv6'`, or `'alias'`), `ip` [`<string>`], and `port`
 [`<number>`] | [`<undefined>`]. This structure is a superset of the address info structure returned
@@ -4271,16 +4286,36 @@ Reference: [`getPathParameters`], [`makeAcceptWebSocket`], [`nextWebSocketMessag
 [`ETag`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/ETag
 [`Expect`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Expect
 [`Forwarded`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Forwarded
+[`Host`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Host
 [`If-Modified-Since`]:
   https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/If-Modified-Since
 [`If-None-Match`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/If-None-Match
 [`If-Range`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/If-Range
+[`Keep-Alive`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Keep-Alive
 [`Origin`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Origin
+[`Proxy-Authenticate`]:
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Proxy-Authenticate
+[`Proxy-Authorization`]:
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Proxy-Authorization
 [`Range`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Range
 [`Sec-WebSocket-Origin`]:
   https://www.ietf.org/archive/id/draft-ietf-hybi-thewebsocketprotocol-06.html#rfc.section.10.7
+[`TE`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/TE
+[`Trailer`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Trailer
+[`Transfer-Encoding`]:
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Transfer-Encoding
 [`Upgrade`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Upgrade
 [`Vary`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Vary
 [`Via`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Via
 [`WWW-Authenticate`]:
   https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/WWW-Authenticate
+[`X-Forwarded-For`]:
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/X-Forwarded-For
+[`X-Forwarded-Host`]:
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/X-Forwarded-Host
+[`X-Forwarded-Proto`]:
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/X-Forwarded-Proto
+[`X-Forwarded-Protocol`]:
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/X-Forwarded-Proto#non-standard_forms
+[`X-Url-Scheme`]:
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/X-Forwarded-Proto#non-standard_forms

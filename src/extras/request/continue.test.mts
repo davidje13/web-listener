@@ -14,7 +14,7 @@ describe('acceptBody', () => {
     return withServer(handler, async (url) => {
       const response = await rawRequest(url, {
         method: 'POST',
-        headers: { expect: '100-Continue' },
+        headers: { expect: '100-continue' },
       });
       expect(response).contains('100 Continue');
       expect(response).contains('handler content');
@@ -51,7 +51,7 @@ describe('acceptBody', () => {
     return withServer(handler, async (url) => {
       const response = await rawRequest(url, {
         method: 'POST',
-        headers: { expect: '100-Continue' },
+        headers: { expect: '100-continue' },
       });
       const occurrences = [...response.matchAll(/100 Continue/g)];
       expect(occurrences).hasLength(1);
@@ -68,7 +68,7 @@ describe('acceptBody', () => {
     return withServer(handler, async (url) => {
       const response = await rawRequest(url, {
         method: 'POST',
-        headers: { connection: 'upgrade', upgrade: 'foo', expect: '100-Continue' },
+        headers: { connection: 'upgrade', upgrade: 'foo', expect: '100-continue' },
       });
       expect(response).not(contains('100 Continue'));
       expect(response).contains('raw content');
@@ -86,7 +86,7 @@ describe('willSendBody', () => {
     });
 
     return withServer(handler, async (url) => {
-      await rawRequest(url, { method: 'POST', headers: { expect: '100-Continue' } });
+      await rawRequest(url, { method: 'POST', headers: { expect: '100-continue' } });
       expect(captured).equals(true);
     });
   });
@@ -101,14 +101,14 @@ describe('willSendBody', () => {
     return withServer(
       handler,
       async (url) => {
-        await rawRequest(url, { method: 'POST', headers: { expect: '100-Continue' } });
+        await rawRequest(url, { method: 'POST', headers: { expect: '100-continue' } });
         expect(captured).equals(true);
       },
       { autoContinue: true },
     );
   });
 
-  it('returns true if Expect: 100-Continue was not sent', { timeout: 3000 }, () => {
+  it('returns true if Expect: 100-continue was not sent', { timeout: 3000 }, () => {
     let captured: unknown = undefined;
     const handler = requestHandler((req, res) => {
       captured = willSendBody(req);
@@ -122,7 +122,7 @@ describe('willSendBody', () => {
   });
 
   it(
-    'returns false if Expect: 100-Continue was sent and acceptBody has not been called',
+    'returns false if Expect: 100-continue was sent and acceptBody has not been called',
     { timeout: 3000 },
     () => {
       let captured: unknown = undefined;
@@ -132,7 +132,7 @@ describe('willSendBody', () => {
       });
 
       return withServer(handler, async (url) => {
-        await rawRequest(url, { method: 'POST', headers: { expect: '100-Continue' } });
+        await rawRequest(url, { method: 'POST', headers: { expect: '100-continue' } });
         expect(captured).equals(false);
       });
     },
