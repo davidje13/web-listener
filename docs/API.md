@@ -2643,7 +2643,11 @@ Gathers the entire body in-memory then returns it as a single string.
 [`getBodyJSON`]: #getbodyjsonreq-options
 
 - `req` [`<http.IncomingMessage>`]
-- `options` [`<Object>`] options are passed to [`getBodyStream`] and [`getTextDecoderStream`].
+- `options` [`<Object>`]
+  - `reviver` [`<Function>`] | [`<undefined>`] see
+    [`JSON.parse`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/parse#the_reviver_parameter).
+    **Default:** `undefined`.
+  - additional options are passed to [`getBodyStream`] and [`getTextDecoderStream`].
 - Returns: [`<Promise>`] Fulfills with [`<any>`].
 
 Reads the request body into memory and parses as JSON. The text encoding is automatically detected

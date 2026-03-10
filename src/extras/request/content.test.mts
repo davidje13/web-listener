@@ -305,6 +305,18 @@ describe('getBodyJSON', () => {
     ),
   );
 
+  it('uses the given reviver to unpack values', { timeout: 3000 }, () =>
+    inRequestHandler(
+      async (req) => {
+        const content = await getBodyJSON(req, {
+          reviver: (key, value) => (key === 'foo' ? 'changed' : value),
+        });
+        expect(content).equals({ foo: 'changed', bar: 'two' });
+      },
+      { method: 'POST', body: JSON.stringify({ foo: 'one', bar: 'two' }) },
+    ),
+  );
+
   it('detects the unicode encoding automatically', { timeout: 3000 }, async () => {
     const input = { foo: 'bar\u2026' };
     const inputStr = JSON.stringify(input);

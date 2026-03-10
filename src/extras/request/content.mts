@@ -42,7 +42,16 @@ interface GetBodyTextOptions extends GetBodyOptions, TextDecoderOptions {
   defaultCharset?: string;
 }
 
-interface GetBodyJSONOptions extends GetBodyOptions, TextDecoderOptions {}
+interface GetBodyJSONOptions extends GetBodyOptions, TextDecoderOptions {
+  reviver?:
+    | ((
+        this: Record<string, unknown> | unknown[],
+        key: string,
+        value: unknown,
+        context?: { source?: string },
+      ) => unknown)
+    | undefined;
+}
 
 export function getBodyStream(
   req: IncomingMessage,
@@ -91,11 +100,11 @@ export function getBodyTextStream(
 }
 
 export async function getBodyText(req: IncomingMessage, options: GetBodyTextOptions = {}) {
-  const parts = [];
+  let content = '';
   for await (const part of getBodyTextStream(req, options)) {
-    parts.push(part);
+    content += part;
   }
-  return parts.join('');
+  return content;
 }
 
 export async function getBodyJSON(
@@ -103,12 +112,12 @@ export async function getBodyJSON(
   options: GetBodyJSONOptions = {},
 ): Promise<unknown> {
   const readable = await internalDecodeUnicode(getBodyStream(req, options), options);
-  const parts = [];
+  let content = '';
   for await (const part of readable) {
-    parts.push(part);
+    content += part;
   }
   try {
-    return JSON.parse(parts.join(''));
+    return JSON.parse(content, options.reviver);
   } catch (err: unknown) {
     throw new HTTPError(400, { body: 'invalid JSON', cause: err });
   }
