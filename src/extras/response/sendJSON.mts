@@ -1,5 +1,6 @@
 import { ServerResponse } from 'node:http';
 import { Readable, type Writable } from 'node:stream';
+import { ReadableStream } from 'node:stream/web';
 import { internalDrainUncorked } from '../../util/drain.mts';
 import { VOID_BUFFER } from '../../util/voidBuffer.mts';
 import { dispose, LoadOnDemand } from './LoadOnDemand.mts';
@@ -77,18 +78,15 @@ export async function sendJSONStream(
   }
 
   try {
-    if (target.writableAborted) {
+    if (!target.writable) {
       return;
     }
-    const ac = new AbortController();
-    target.once('close', () => ac.abort());
 
     const options: JSONPartOptions = {
+      _target: target,
       _send: (v: string) => target.write(v, encoding),
-      _flush: () => internalDrainUncorked(target),
       _replacer: replacer,
       _space: space ?? '',
-      _signal: ac.signal,
     };
     if (
       target instanceof ServerResponse &&
@@ -100,8 +98,8 @@ export async function sendJSONStream(
     if (entity instanceof LoadOnDemand) {
       entity = await entity.load();
     }
-    entity = internalConvert(null, '', entity, options);
-    if (isSkip(entity)) {
+    const v = internalConvert(null, '', entity, options);
+    if (isSkip(v)) {
       if (undefinedAsNull) {
         options._send('null');
       }
@@ -113,7 +111,7 @@ export async function sendJSONStream(
       target.write(VOID_BUFFER);
 
       try {
-        await internalSendJSONPart(options, entity, space ? '\n' : '');
+        await internalSendJSONPart(options, v, space ? '\n' : '');
       } finally {
         target.uncork();
       }
@@ -130,11 +128,10 @@ export async function sendJSONStream(
 }
 
 interface JSONPartOptions {
+  _target: Writable;
   _send: (v: string) => boolean;
-  _flush: () => Promise<void>;
   _replacer: ((this: unknown, key: string, value: unknown) => unknown) | null;
   _space: string;
-  _signal: AbortSignal;
 }
 
 async function internalSendJSONPart(options: JSONPartOptions, entity: unknown, indent: string) {
@@ -145,7 +142,7 @@ async function internalSendJSONPart(options: JSONPartOptions, entity: unknown, i
     let first = true;
     return {
       _next: async (key: string, value: unknown) => {
-        if (options._signal.aborted) {
+        if (!options._target.writable) {
           return;
         }
         if (value instanceof LoadOnDemand) {
@@ -162,7 +159,7 @@ async function internalSendJSONPart(options: JSONPartOptions, entity: unknown, i
             options._send(subIndent);
             if (keyed) {
               if (!options._send(JSON.stringify(key))) {
-                await options._flush();
+                await internalDrainUncorked(options._target);
               }
               options._send(sep);
             }
@@ -183,7 +180,7 @@ async function internalSendJSONPart(options: JSONPartOptions, entity: unknown, i
       },
     };
   };
-  if (options._signal.aborted) {
+  if (!options._target.writable) {
     return;
   }
   if (
@@ -198,20 +195,20 @@ async function internalSendJSONPart(options: JSONPartOptions, entity: unknown, i
     isRawJSON(entity)
   ) {
     if (!options._send(JSON.stringify(entity) ?? 'null')) {
-      await options._flush();
+      await internalDrainUncorked(options._target);
     }
-  } else if (entity instanceof Readable) {
+  } else if (entity instanceof Readable || entity instanceof ReadableStream) {
     options._send('"');
     for await (const chunk of entity) {
       if (typeof chunk !== 'string') {
         throw new TypeError('Readables must have an encoding');
       }
-      if (options._signal.aborted) {
+      if (!options._target.writable) {
         break;
       }
       const encoded = JSON.stringify(chunk);
       if (!options._send(encoded.substring(1, encoded.length - 1))) {
-        await options._flush();
+        await internalDrainUncorked(options._target);
       }
     }
     options._send('"');
@@ -225,6 +222,9 @@ async function internalSendJSONPart(options: JSONPartOptions, entity: unknown, i
     let i = 0;
     const act = loop('[', ']', false);
     for (const v of entity) {
+      if (!options._target.writable) {
+        break;
+      }
       await act._next(String(i++), v);
     }
     act._end();
@@ -232,7 +232,7 @@ async function internalSendJSONPart(options: JSONPartOptions, entity: unknown, i
     let i = 0;
     const act = loop('[', ']', false);
     for await (const v of entity) {
-      if (options._signal.aborted) {
+      if (!options._target.writable) {
         break;
       }
       await act._next(String(i++), v);

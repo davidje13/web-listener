@@ -3040,7 +3040,8 @@ automatically by this method. It is the caller's responsibility to close it.
 
 - `res` [`<http.ServerResponse>`]
 - `table` [`<Array>`] | [`<AsyncIterable>`][`<AsyncIterator>`] of [`<Array>`] |
-  [`<AsyncIterable>`][`<AsyncIterator>`] of [`<string>`] | [`<null>`] | [`<undefined>`]
+  [`<AsyncIterable>`][`<AsyncIterator>`] of [`<stream.Readable>`] | [`<ReadableStream>`] |
+  [`<string>`] | [`<null>`] | [`<undefined>`]
 - `options` [`<Object>`]
   - `delimiter` [`<string>`] **Default:** `','`
   - `newline` [`<string>`] **Default:** `'\n'`
@@ -3054,14 +3055,16 @@ Sends the table of data as a CSV (or TSV) formatted file.
 
 If headers have not already been sent and [`Content-Type`] has not been set, this automatically sets
 [`Content-Type: text/csv`][`Content-Type`] with the given charset (`encoding`). If `headerRow` is
-`true`, it also sets `header=present`. If `headerRow` is `false`, it sets `header=absent`.
+`true`, it also sets `header=present`. If `headerRow` is `false`, it sets `header=absent`. Note that
+the CSV mime type does not support labeling more than one row as a header.
 
 [`loadOnDemand`] can be used for the `table` argument (or rows or cells within it) to delay loading
 data until it is required.
 
 Cells are sent in plain text if possible, or quoted if they contain a special character. Quote
 characters inside quoted text are escaped by doubling (e.g. `my "value"` encodes to
-`"my ""value"""`).
+`"my ""value"""`). If a [`<stream.Readable>`] or [`<ReadableStream>`] is provided, the content will
+always be quoted.
 
 ### `sendJSON(res, entity[, options])`
 
@@ -3105,8 +3108,13 @@ set, this automatically sets [`Content-Type: application/json`][`Content-Type`].
     **Default:** `true`.
 - Returns: [`<Promise>`] Fulfills with [`<undefined>`] once the entire document has been sent.
 
-This has the same behaviour as [`sendJSON`], but supports [`loadOnDemand`], [`<stream.Readable>`]s
-and [`<AsyncIterable>`][`<AsyncIterator>`]s at any location in the `entity`.
+This has the same behaviour as [`sendJSON`], but supports [`loadOnDemand`], [`<stream.Readable>`]s,
+[`<ReadableStream>`]s, and [`<AsyncIterable>`][`<AsyncIterator>`]s at any location in the `entity`.
+As a convenience, it also supports [`<Map>`]s (which are sent as JSON objects).
+
+If `entity` contains a [`loadOnDemand`]-wrapped function, it is called _before_ `replacer` for that
+property. If [`loadOnDemand`] returns a disposable object, it is guaranteed to be disposed
+automatically after being sent (or if the user cancels the request).
 
 Note that this will not necessarily send data as soon as it is available; some buffering is used to
 increase the network efficiency. If you want to send events in real-time to the client, consider
@@ -3119,11 +3127,13 @@ Example usage: [Streaming JSON responses].
 [`loadOnDemand`]: #loadondemandfn
 
 - `fn` [`<Function>`] returning an entity or a [`<Promise>`] which fulfills with an entity.
+- Returns: [`<Object>`] An opaque object which can be used within [`sendCSVStream`] and
+  [`sendJSONStream`].
 
 This can be used as a value within [`sendCSVStream`] and [`sendJSONStream`] to delay loading data
-until the client is ready to receive it. This can be used, for example, to spread out load on a
-database, and avoid unnecessary requests (e.g. if the client closes the connection before the
-relevant data is required).
+until the client is ready to receive it. This allows, for example, spreading out load on a database,
+and avoiding unnecessary requests (e.g. if the client closes the connection before the relevant data
+is required).
 
 When this function is used in a call to [`sendCSVStream`] or [`sendJSONStream`], the returned entity
 will be disposed automatically.

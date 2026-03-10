@@ -1,5 +1,6 @@
 import { ServerResponse } from 'node:http';
-import type { Writable } from 'node:stream';
+import type { Readable, Writable } from 'node:stream';
+import { ReadableStream } from 'node:stream/web';
 import { internalDrainUncorked } from '../../util/drain.mts';
 import { VOID_BUFFER } from '../../util/voidBuffer.mts';
 import { dispose, LoadOnDemand } from './LoadOnDemand.mts';
@@ -46,6 +47,8 @@ export interface CSVOptions {
 type MaybeAsyncIterable<T> = Iterable<T> | AsyncIterable<T>;
 type MaybeLoadOnDemand<T> = LoadOnDemand<T> | T;
 
+type CellContent = string | ReadableStream<string> | Readable | null | undefined;
+
 /**
  * Output a CSV formatted table, using the format from RFC4180.
  * Specifically:
@@ -59,9 +62,7 @@ type MaybeLoadOnDemand<T> = LoadOnDemand<T> | T;
 export async function sendCSVStream(
   target: Writable,
   table: MaybeLoadOnDemand<
-    MaybeAsyncIterable<
-      MaybeLoadOnDemand<MaybeAsyncIterable<MaybeLoadOnDemand<string | null | undefined>>>
-    >
+    MaybeAsyncIterable<MaybeLoadOnDemand<MaybeAsyncIterable<MaybeLoadOnDemand<CellContent>>>>
   >,
   {
     delimiter = ',',
@@ -72,7 +73,7 @@ export async function sendCSVStream(
     end = true,
   }: CSVOptions = {},
 ) {
-  if (target.writableAborted) {
+  if (!target.writable) {
     return;
   }
   if (typeof delimiter === 'string') {
@@ -83,22 +84,40 @@ export async function sendCSVStream(
   }
   const encQuote = typeof quote === 'string' ? Buffer.from(quote, encoding) : quote;
   const escapedQuote = quote + quote;
-  const writeCell = (content: string | null | undefined) => {
-    if (!content) {
+  const writeCell = (content: CellContent): Promise<void> | true => {
+    if (!content || !target.writable) {
       return true;
     }
 
-    const hasQuote = content.includes(quote);
-    if (!hasQuote && SIMPLE_CSV_CELL.test(content)) {
-      return target.write(content, encoding);
+    if (typeof content === 'string') {
+      const hasQuote = content.includes(quote);
+      if (!hasQuote && SIMPLE_CSV_CELL.test(content)) {
+        return target.write(content, encoding) || internalDrainUncorked(target);
+      }
+      target.write(encQuote);
+      if (hasQuote) {
+        target.write(content.replaceAll(quote, escapedQuote), encoding);
+      } else {
+        target.write(content, encoding);
+      }
+      return target.write(encQuote) || internalDrainUncorked(target);
     }
-    target.write(encQuote);
-    if (hasQuote) {
-      target.write(content.replaceAll(quote, escapedQuote), encoding);
-    } else {
-      target.write(content, encoding);
-    }
-    return target.write(encQuote);
+
+    return (async () => {
+      target.write(encQuote);
+      for await (const chunk of content) {
+        if (typeof chunk !== 'string') {
+          throw new TypeError('Readables must have an encoding');
+        }
+        if (!target.writable) {
+          break;
+        }
+        if (!target.write(chunk.replaceAll(quote, escapedQuote), encoding)) {
+          await internalDrainUncorked(target);
+        }
+      }
+      target.write(encQuote);
+    })();
   };
 
   if (
@@ -124,7 +143,7 @@ export async function sendCSVStream(
     target.write(VOID_BUFFER);
 
     for await (let row of table) {
-      if (target.writableAborted) {
+      if (!target.writable) {
         break;
       }
       if (row instanceof LoadOnDemand) {
@@ -134,18 +153,19 @@ export async function sendCSVStream(
         let col = 0;
         if (Symbol.iterator in row) {
           for (let cell of row) {
+            if (!target.writable) {
+              break;
+            }
             if (col) {
               target.write(delimiter);
             }
             if (cell instanceof LoadOnDemand) {
-              if (target.writableAborted) {
-                break;
-              }
               cell = await cell.load();
             }
             try {
-              if (!writeCell(cell)) {
-                await internalDrainUncorked(target);
+              const p = writeCell(cell);
+              if (p) {
+                await p;
               }
             } finally {
               const p = dispose(cell);
@@ -157,7 +177,7 @@ export async function sendCSVStream(
           }
         } else {
           for await (let cell of row) {
-            if (target.writableAborted) {
+            if (!target.writable) {
               break;
             }
             if (col) {
@@ -167,8 +187,9 @@ export async function sendCSVStream(
               cell = await cell.load();
             }
             try {
-              if (!writeCell(cell)) {
-                await internalDrainUncorked(target);
+              const p = writeCell(cell);
+              if (p) {
+                await p;
               }
             } finally {
               const p = dispose(cell);

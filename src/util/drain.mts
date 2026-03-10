@@ -4,10 +4,16 @@ import { VOID_BUFFER } from './voidBuffer.mts';
 
 export const internalDrainUncorked = (target: Writable) =>
   new Promise<void>((resolve) => {
+    if (!target.writable) {
+      return resolve();
+    }
     const next = () => {
+      target.off('close', next);
+      target.off('drain', next);
       target.cork();
       resolve();
     };
+    target.once('close', next);
     if (target instanceof ServerResponse) {
       // Work around a Node.js bug where drain fails to fire for corked responses,
       // but the write callback still works correctly.

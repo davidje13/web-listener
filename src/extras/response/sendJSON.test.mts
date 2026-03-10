@@ -167,26 +167,89 @@ describe('sendJSONStream', () => {
   it('iterates through iterable lists', { timeout: 3000 }, async () => {
     const output = Duplex.fromWeb(new TransformStream());
     const streamOutText = text(output);
+    let finallyCalled = 0;
     await sendJSONStream(output, {
       foo: (function* () {
-        yield 'one';
-        yield 'two';
+        try {
+          yield 'one';
+          yield 'two';
+        } finally {
+          ++finallyCalled;
+        }
       })(),
     });
     expect(await streamOutText).equals('{"foo":["one","two"]}');
+    expect(finallyCalled).equals(1);
+  });
+
+  it('closes iterators if the request is cancelled', { timeout: 3000 }, async () => {
+    const output = Duplex.fromWeb(new TransformStream());
+    let started = 0;
+    let finished = 0;
+    let finallyCalled = 0;
+    const promise = sendJSONStream(
+      output,
+      (function* () {
+        try {
+          ++started;
+          yield loadOnDemand(() => Promise.resolve('one'));
+          yield 'two';
+          ++finished;
+        } finally {
+          ++finallyCalled;
+        }
+      })(),
+    );
+    output.destroy();
+    await promise;
+    expect(started).equals(1);
+    expect(finished).equals(0);
+    expect(finallyCalled).equals(1);
   });
 
   it('iterates through async iterable lists', { timeout: 3000 }, async () => {
     const output = Duplex.fromWeb(new TransformStream());
     const streamOutText = text(output);
+    let finallyCalled = 0;
     await sendJSONStream(output, {
       foo: (async function* () {
-        yield 'one';
-        await new Promise((resolve) => setTimeout(resolve, 10));
-        yield 'two';
+        try {
+          yield 'one';
+          await new Promise((resolve) => setTimeout(resolve, 10));
+          yield 'two';
+        } finally {
+          ++finallyCalled;
+        }
       })(),
     });
     expect(await streamOutText).equals('{"foo":["one","two"]}');
+    expect(finallyCalled).equals(1);
+  });
+
+  it('closes async iterators if the request is cancelled', { timeout: 3000 }, async () => {
+    const output = Duplex.fromWeb(new TransformStream());
+    let started = 0;
+    let finished = 0;
+    let finallyCalled = 0;
+    const promise = sendJSONStream(output, {
+      foo: (async function* () {
+        try {
+          ++started;
+          yield 'one';
+          await new Promise((resolve) => setTimeout(resolve, 10));
+          yield 'two';
+          ++finished;
+        } finally {
+          ++finallyCalled;
+        }
+      })(),
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    output.destroy();
+    await promise;
+    expect(started).equals(1);
+    expect(finished).equals(0);
+    expect(finallyCalled).equals(1);
   });
 
   it('iterates through Sets', { timeout: 3000 }, async () => {
