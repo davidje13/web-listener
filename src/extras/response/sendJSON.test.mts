@@ -200,6 +200,7 @@ describe('sendJSONStream', () => {
         }
       })(),
     );
+    await Promise.resolve(); // wait a tick to avoid https://github.com/nodejs/node/issues/62199
     output.destroy();
     await promise;
     expect(started).equals(1);
