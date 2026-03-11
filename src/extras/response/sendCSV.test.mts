@@ -1,9 +1,8 @@
-import { TransformStream } from 'node:stream/web';
-import { text } from 'node:stream/consumers';
-import { Duplex, Readable } from 'node:stream';
+import { Readable } from 'node:stream';
 import { withServer } from '../../test-helpers/withServer.mts';
 import { rawRequest } from '../../test-helpers/rawRequest.mts';
 import { versionIsGreaterOrEqual } from '../../test-helpers/versionIsGreaterOrEqual.mts';
+import { writableString } from '../../test-helpers/writableString.mts';
 import { requestHandler } from '../../core/handler.mts';
 import { loadOnDemand } from './LoadOnDemand.mts';
 import { sendCSVStream } from './sendCSV.mts';
@@ -11,24 +10,24 @@ import 'lean-test';
 
 describe('sendCSVStream', () => {
   it('writes a CSV formatted table to the stream', { timeout: 3000 }, async () => {
-    const output = Duplex.fromWeb(new TransformStream());
+    const output = writableString();
     await sendCSVStream(output, [
       ['A1', 'B1'],
       ['A2', 'B2'],
     ]);
-    expect(await text(output)).equals('A1,B1\nA2,B2\n');
+    expect(output.currentText()).equals('A1,B1\nA2,B2\n');
   });
 
   it('quotes values with special characters', { timeout: 3000 }, async () => {
-    const output = Duplex.fromWeb(new TransformStream());
+    const output = writableString();
     await sendCSVStream(output, [['a\nb', 'c"quoted"', 'd,e']]);
-    expect(await text(output)).equals('"a\nb","c""quoted""","d,e"\n');
+    expect(output.currentText()).equals('"a\nb","c""quoted""","d,e"\n');
   });
 
   it('writes nothing if given an empty list', { timeout: 3000 }, async () => {
-    const output = Duplex.fromWeb(new TransformStream());
+    const output = writableString();
     await sendCSVStream(output, []);
-    expect(await text(output)).equals('');
+    expect(output.currentText()).equals('');
   });
 
   it('sets content headers on ServerResponse', { timeout: 3000 }, async () => {
@@ -58,7 +57,7 @@ describe('sendCSVStream', () => {
   });
 
   it('uses alternative delimiters if configured', { timeout: 3000 }, async () => {
-    const output = Duplex.fromWeb(new TransformStream());
+    const output = writableString();
     await sendCSVStream(
       output,
       [
@@ -67,18 +66,18 @@ describe('sendCSVStream', () => {
       ],
       { delimiter: '\t', newline: '\r\n', quote: "'" },
     );
-    expect(await text(output)).equals("A1\tB1\r\n'A''2'\t'B\t2'\r\n");
+    expect(output.currentText()).equals("A1\tB1\r\n'A''2'\t'B\t2'\r\n");
   });
 
   it('does not close the stream if configured', { timeout: 3000 }, async () => {
-    const output = Duplex.fromWeb(new TransformStream());
+    const output = writableString();
     await sendCSVStream(output, [['a', 'b']], { end: false });
     output.end('trailer');
-    expect(await text(output)).equals('a,b\ntrailer');
+    expect(output.currentText()).equals('a,b\ntrailer');
   });
 
   it('loads table data on demand', { timeout: 3000 }, async () => {
-    const output = Duplex.fromWeb(new TransformStream());
+    const output = writableString();
     await sendCSVStream(
       output,
       loadOnDemand(() =>
@@ -88,20 +87,20 @@ describe('sendCSVStream', () => {
         ]),
       ),
     );
-    expect(await text(output)).equals('a,b\nc,d\n');
+    expect(output.currentText()).equals('a,b\nc,d\n');
   });
 
   it('loads row data on demand', { timeout: 3000 }, async () => {
-    const output = Duplex.fromWeb(new TransformStream());
+    const output = writableString();
     await sendCSVStream(output, [
       loadOnDemand(() => Promise.resolve(['a', 'b'])),
       loadOnDemand(() => Promise.resolve(['c', 'd'])),
     ]);
-    expect(await text(output)).equals('a,b\nc,d\n');
+    expect(output.currentText()).equals('a,b\nc,d\n');
   });
 
   it('accepts async row iterators', { timeout: 3000 }, async () => {
-    const output = Duplex.fromWeb(new TransformStream());
+    const output = writableString();
     let finallyCalled = 0;
     const source = async function* () {
       try {
@@ -113,12 +112,12 @@ describe('sendCSVStream', () => {
       }
     };
     await sendCSVStream(output, source());
-    expect(await text(output)).equals('a,b\nc,d\n');
+    expect(output.currentText()).equals('a,b\nc,d\n');
     expect(finallyCalled).equals(1);
   });
 
   it('closes async row iterators if the request is cancelled', { timeout: 3000 }, async () => {
-    const output = Duplex.fromWeb(new TransformStream());
+    const output = writableString();
     let started = 0;
     let finished = 0;
     let finallyCalled = 0;
@@ -133,7 +132,6 @@ describe('sendCSVStream', () => {
       }
     };
     const promise = sendCSVStream(output, source());
-    await Promise.resolve(); // wait a tick to avoid https://github.com/nodejs/node/issues/62199
     output.destroy();
     await promise;
     expect(started).equals(1);
@@ -142,16 +140,16 @@ describe('sendCSVStream', () => {
   });
 
   it('loads cell data on demand', { timeout: 3000 }, async () => {
-    const output = Duplex.fromWeb(new TransformStream());
+    const output = writableString();
     await sendCSVStream(output, [
       [loadOnDemand(() => Promise.resolve('a')), 'b'],
       ['c', loadOnDemand(() => Promise.resolve('d'))],
     ]);
-    expect(await text(output)).equals('a,b\nc,d\n');
+    expect(output.currentText()).equals('a,b\nc,d\n');
   });
 
   it('accepts async cell iterators', { timeout: 3000 }, async () => {
-    const output = Duplex.fromWeb(new TransformStream());
+    const output = writableString();
     let finallyCalled = 0;
     const row = async function* () {
       try {
@@ -163,12 +161,12 @@ describe('sendCSVStream', () => {
       }
     };
     await sendCSVStream(output, [row(), row()]);
-    expect(await text(output)).equals('a,b\na,b\n');
+    expect(output.currentText()).equals('a,b\na,b\n');
     expect(finallyCalled).equals(2);
   });
 
   it('closes async cell iterators if the request is cancelled', { timeout: 3000 }, async () => {
-    const output = Duplex.fromWeb(new TransformStream());
+    const output = writableString();
     let started = 0;
     let finished = 0;
     let finallyCalled = 0;
@@ -193,11 +191,11 @@ describe('sendCSVStream', () => {
   });
 
   it('consumes readable strings', { timeout: 3000 }, async () => {
-    const output = Duplex.fromWeb(new TransformStream());
+    const output = writableString();
     await sendCSVStream(output, [
       [Readable.from(['This is', ' my "escaped" content']), Readable.from(['simple'])],
     ]);
-    expect(await text(output)).equals('"This is my ""escaped"" content","simple"\n');
+    expect(output.currentText()).equals('"This is my ""escaped"" content","simple"\n');
   });
 
   it('sends data on the wire efficiently', { timeout: 3000 }, async () => {
@@ -218,10 +216,9 @@ describe('sendCSVStream', () => {
 
   it('writes large values provided the stream is being consumed', { timeout: 3000 }, async () => {
     const large = 'x'.repeat(100000);
-    const output = Duplex.fromWeb(new TransformStream());
-    const outputText = text(output);
+    const output = writableString();
     await sendCSVStream(output, [['before', large, 'after']]);
-    const content = await outputText;
+    const content = output.currentText();
     expect(content).startsWith('before,xxx');
     expect(content).endsWith('xxx,after\n');
     expect(content).hasLength(14 + large.length);

@@ -1,41 +1,40 @@
-import { TransformStream } from 'node:stream/web';
-import { text, buffer } from 'node:stream/consumers';
-import { Duplex, Readable } from 'node:stream';
+import { Readable } from 'node:stream';
 import { withServer } from '../../test-helpers/withServer.mts';
 import { rawRequest } from '../../test-helpers/rawRequest.mts';
 import { versionIsGreaterOrEqual } from '../../test-helpers/versionIsGreaterOrEqual.mts';
+import { writableString } from '../../test-helpers/writableString.mts';
 import { requestHandler } from '../../core/handler.mts';
 import { loadOnDemand } from './LoadOnDemand.mts';
 import { sendJSON, sendJSONStream } from './sendJSON.mts';
 import 'lean-test';
 
 describe('sendJSON', () => {
-  it('writes JSON formatted data to the stream', { timeout: 3000 }, async () => {
-    const output = Duplex.fromWeb(new TransformStream());
+  it('writes JSON formatted data to the stream', () => {
+    const output = writableString();
     sendJSON(output, { foo: 'bar' });
-    expect(await text(output)).equals('{"foo":"bar"}');
+    expect(output.currentText()).equals('{"foo":"bar"}');
   });
 
-  it('passes replacer and space to JSON.stringify', { timeout: 3000 }, async () => {
-    const output = Duplex.fromWeb(new TransformStream());
+  it('passes replacer and space to JSON.stringify', () => {
+    const output = writableString();
     sendJSON(output, { foo: 'bar' }, { replacer: (_, v) => (v === 'bar' ? 'sub' : v), space: 1 });
-    expect(await text(output)).equals('{\n "foo": "sub"\n}');
+    expect(output.currentText()).equals('{\n "foo": "sub"\n}');
   });
 
-  it('sends undefined as null if configured', { timeout: 3000 }, async () => {
-    const output = Duplex.fromWeb(new TransformStream());
+  it('sends undefined as null if configured', () => {
+    const output = writableString();
     sendJSON(output, undefined, { undefinedAsNull: true });
-    expect(await text(output)).equals('null');
+    expect(output.currentText()).equals('null');
   });
 
-  it('does not close the stream if configured', { timeout: 3000 }, async () => {
-    const output = Duplex.fromWeb(new TransformStream());
+  it('does not close the stream if configured', () => {
+    const output = writableString();
     sendJSON(output, 'foo', { end: false });
     output.end('trailer');
-    expect(await text(output)).equals('"foo"trailer');
+    expect(output.currentText()).equals('"foo"trailer');
   });
 
-  it('sets content headers on ServerResponse', { timeout: 3000 }, async () => {
+  it('sets content headers on ServerResponse', { timeout: 3000 }, () => {
     const handler = requestHandler((_, res) => {
       sendJSON(res, { foo: 'bar' });
     });
@@ -47,7 +46,7 @@ describe('sendJSON', () => {
     });
   });
 
-  it('sends content synchronously in a single chunk', { timeout: 3000 }, async () => {
+  it('sends content synchronously in a single chunk', { timeout: 3000 }, () => {
     const handler = requestHandler((_, res) => {
       sendJSON(res, { foo: 'bar' }, { end: false });
       res.end();
@@ -105,10 +104,9 @@ describe('sendJSONStream', () => {
       timeout: 3000,
     },
     async ({ input, options = {} }: any) => {
-      const output = Duplex.fromWeb(new TransformStream());
-      const outputText = text(output);
+      const output = writableString();
       await sendJSONStream(output, input, options);
-      expect(await outputText).equals(JSON.stringify(input, options.replacer, options.space));
+      expect(output.currentText()).equals(JSON.stringify(input, options.replacer, options.space));
     },
   );
 
@@ -124,12 +122,11 @@ describe('sendJSONStream', () => {
       timeout: 3000,
     },
     async ({ input, options = {} }: any) => {
-      const output = Duplex.fromWeb(new TransformStream());
+      const output = writableString();
       sendJSON(output, input, options);
-      const streamOutput = Duplex.fromWeb(new TransformStream());
-      const streamOutBuffer = buffer(streamOutput);
+      const streamOutput = writableString();
       await sendJSONStream(streamOutput, input, options);
-      expect(await streamOutBuffer).equals(await buffer(output));
+      expect(streamOutput.currentBuffer()).equals(output.currentBuffer());
     },
   );
 
@@ -146,27 +143,24 @@ describe('sendJSONStream', () => {
   });
 
   it('loads root data on demand', { timeout: 3000 }, async () => {
-    const output = Duplex.fromWeb(new TransformStream());
-    const streamOutText = text(output);
+    const output = writableString();
     await sendJSONStream(
       output,
       loadOnDemand(() => Promise.resolve('loaded')),
     );
-    expect(await streamOutText).equals('"loaded"');
+    expect(output.currentText()).equals('"loaded"');
   });
 
   it('loads nested data on demand', { timeout: 3000 }, async () => {
-    const output = Duplex.fromWeb(new TransformStream());
-    const streamOutText = text(output);
+    const output = writableString();
     await sendJSONStream(output, {
       foo: loadOnDemand(() => Promise.resolve('loaded')),
     });
-    expect(await streamOutText).equals('{"foo":"loaded"}');
+    expect(output.currentText()).equals('{"foo":"loaded"}');
   });
 
   it('iterates through iterable lists', { timeout: 3000 }, async () => {
-    const output = Duplex.fromWeb(new TransformStream());
-    const streamOutText = text(output);
+    const output = writableString();
     let finallyCalled = 0;
     await sendJSONStream(output, {
       foo: (function* () {
@@ -178,12 +172,12 @@ describe('sendJSONStream', () => {
         }
       })(),
     });
-    expect(await streamOutText).equals('{"foo":["one","two"]}');
+    expect(output.currentText()).equals('{"foo":["one","two"]}');
     expect(finallyCalled).equals(1);
   });
 
   it('closes iterators if the request is cancelled', { timeout: 3000 }, async () => {
-    const output = Duplex.fromWeb(new TransformStream());
+    const output = writableString();
     let started = 0;
     let finished = 0;
     let finallyCalled = 0;
@@ -200,7 +194,6 @@ describe('sendJSONStream', () => {
         }
       })(),
     );
-    await Promise.resolve(); // wait a tick to avoid https://github.com/nodejs/node/issues/62199
     output.destroy();
     await promise;
     expect(started).equals(1);
@@ -209,8 +202,7 @@ describe('sendJSONStream', () => {
   });
 
   it('iterates through async iterable lists', { timeout: 3000 }, async () => {
-    const output = Duplex.fromWeb(new TransformStream());
-    const streamOutText = text(output);
+    const output = writableString();
     let finallyCalled = 0;
     await sendJSONStream(output, {
       foo: (async function* () {
@@ -223,12 +215,12 @@ describe('sendJSONStream', () => {
         }
       })(),
     });
-    expect(await streamOutText).equals('{"foo":["one","two"]}');
+    expect(output.currentText()).equals('{"foo":["one","two"]}');
     expect(finallyCalled).equals(1);
   });
 
   it('closes async iterators if the request is cancelled', { timeout: 3000 }, async () => {
-    const output = Duplex.fromWeb(new TransformStream());
+    const output = writableString();
     let started = 0;
     let finished = 0;
     let finallyCalled = 0;
@@ -254,33 +246,30 @@ describe('sendJSONStream', () => {
   });
 
   it('iterates through Sets', { timeout: 3000 }, async () => {
-    const output = Duplex.fromWeb(new TransformStream());
-    const streamOutText = text(output);
+    const output = writableString();
     await sendJSONStream(output, {
       foo: new Set(['one', 'two']),
     });
-    expect(await streamOutText).equals('{"foo":["one","two"]}');
+    expect(output.currentText()).equals('{"foo":["one","two"]}');
   });
 
   it('iterates through Maps', { timeout: 3000 }, async () => {
-    const output = Duplex.fromWeb(new TransformStream());
-    const streamOutText = text(output);
+    const output = writableString();
     await sendJSONStream(output, {
       foo: new Map([
         ['one', 1],
         ['two', 2],
       ]),
     });
-    expect(await streamOutText).equals('{"foo":{"one":1,"two":2}}');
+    expect(output.currentText()).equals('{"foo":{"one":1,"two":2}}');
   });
 
   it('consumes readable strings', { timeout: 3000 }, async () => {
-    const output = Duplex.fromWeb(new TransformStream());
-    const streamOutText = text(output);
+    const output = writableString();
     await sendJSONStream(output, {
       foo: Readable.from(['This is', ' my "escaped" content']),
     });
-    expect(await streamOutText).equals('{"foo":"This is my \\"escaped\\" content"}');
+    expect(output.currentText()).equals('{"foo":"This is my \\"escaped\\" content"}');
   });
 
   it('sends data on the wire efficiently', { timeout: 3000 }, async () => {
@@ -298,13 +287,24 @@ describe('sendJSONStream', () => {
 
   it('writes large values provided the stream is being consumed', { timeout: 3000 }, async () => {
     const large = 'x'.repeat(100000);
-    const output = Duplex.fromWeb(new TransformStream());
-    const outputText = text(output);
+    const output = writableString();
     await sendJSONStream(output, ['before', large, 'after']);
-    const content = await outputText;
+    const content = output.currentText();
     expect(content).startsWith('["before","xxx');
     expect(content).endsWith('xxx","after"]');
     expect(content).hasLength(21 + large.length);
+  });
+
+  it('stops writing if the stream is not being consumed', { timeout: 3000 }, async () => {
+    const large = 'x'.repeat(100000);
+    const output = writableString();
+    output.pause();
+    const promise = sendJSONStream(output, ['before', large, 'after']);
+    expect.poll(() => output.currentText().length, isGreaterThan(0));
+    expect(output.currentText().length).isLessThan(21 + large.length);
+    output.unpause();
+    await promise;
+    expect(output.currentText().length).equals(21 + large.length);
   });
 
   it('flushes to the wire if a large value is written', { timeout: 3000 }, async () => {
