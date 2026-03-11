@@ -1,29 +1,11 @@
 # Web Listener API Documentation
 
-## Core Concepts
+## Introduction
 
-This API is built around the [`node:http` API](https://nodejs.org/api/http.html).
+Web Listener allows you to serve static files, proxy requests, create APIs, and handle upgraded
+requests (such as WebSockets), among many other web-server-related features.
 
-Any valid [`<http.Server>` `'request'`](https://nodejs.org/api/http.html#event-request) listener
-function can be used as a [`requestHandler`] without modification.
-
-Any valid [`<http.Server>` `'upgrade'`](https://nodejs.org/api/http.html#event-upgrade_1) listener
-function can be used as an [`upgradeHandler`] with the addition of a call to [`delegateUpgrade`] to
-prevent automatic error responses if an error is thrown.
-
-The [`<Router>`] class can be used to define method-based and path-based routing for both HTTP and
-upgrade requests. Its behaviour is similar to the [express](https://www.npmjs.com/package/express)
-model where middleware is attached to specific routes. [`<Router>`]s can be nested to any depth.
-
-The [`<WebListener>`] class wraps a [`<Router>`] (or any other [`<Handler>`] type, if you do not
-need routing) and provides convenience methods for starting a server or attaching to an existing
-server. For more direct control, the underlying [`toListeners`] function can be used to convert a
-[`<Handler>`] into various listener types which can be attached to a server manually.
-
-Most applications should have a single [`<WebListener>`], typically wrapping a hierarchy of
-[`<Router>`]s.
-
-For example:
+At its core, you attach "handlers" to routes, then launch the server:
 
 ```js
 import { fileServer, Router, sendJSON, WebListener } from 'web-listener';
@@ -47,6 +29,33 @@ const weblistener = new WebListener(router);
 const server = await weblistener.listen(8080, 'localhost');
 ```
 
+## Core Concepts
+
+Most applications should have a single [`<WebListener>`], typically wrapping a hierarchy of
+[`<Router>`]s. The routers route requests according to their method and path to [`<Handler>`]s
+(which could, for example, serve a static file, perform an API action, or proxy to another server).
+
+The [`<Router>`] class can be used to define method-based and path-based routing for both HTTP and
+upgrade requests. Its behaviour is similar to the [express](https://www.npmjs.com/package/express)
+model where middleware is attached to specific routes. [`<Router>`]s can be nested to any depth.
+
+The [`<WebListener>`] class wraps a [`<Router>`] (or any other [`<Handler>`] type, if you do not
+need routing) and provides convenience methods for starting a server or attaching to an existing
+server. For more advanced uses, the underlying [`toListeners`] function can be used to convert a
+[`<Handler>`] into various listener types which can be attached to a server manually.
+
+## Compatibility
+
+This API is built around the [`node:http` API](https://nodejs.org/api/http.html).
+
+Any [`<http.Server>` `'request'`](https://nodejs.org/api/http.html#event-request) listener function
+can be used as a [`requestHandler`] without modification.
+
+For upgrade requests, any
+[`<http.Server>` `'upgrade'`](https://nodejs.org/api/http.html#event-upgrade_1) listener function
+can be used as an [`upgradeHandler`] with the addition of a call to [`delegateUpgrade`] to prevent
+automatic error responses if an error is thrown.
+
 ## Importing
 
 All classes and functions are available as named exports from `web-listener`:
@@ -63,9 +72,9 @@ names beginning with standard ASCII letters (`a-zA-Z`) are _not_ mangled.
 
 This library includes TypeScript declarations which ensure all features are strongly typed. Most of
 the time this is achieved by automatic inference and is invisible in the code, but in some cases you
-may need to specify types explicitly. The most common case is when using sub-routers which take path
-parameters from a parent, which can be typed with `Router<WithPathParameters<{ name: string }>>`
-(see [`<Router>`] for details).
+may need to specify types explicitly. The most common case is when creating a sub-router which takes
+path parameters from a parent, which can be typed with
+`Router<WithPathParameters<{ name: string }>>` (see [`<Router>`] for details).
 
 ## Index by Feature
 
