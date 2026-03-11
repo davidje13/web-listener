@@ -165,6 +165,7 @@ export {
 export { getRemainingPathComponents } from './extras/request/pathComponents.mts';
 
 export { loadOnDemand, type LoadOnDemand } from './extras/response/LoadOnDemand.mts';
+export { PP_BASE_DENY_2026, mergePermissionsPolicy } from './extras/response/permissionsPolicy.mts';
 export { sendCSVStream, type CSVOptions } from './extras/response/sendCSV.mts';
 export { sendFile } from './extras/response/sendFile.mts';
 export { sendJSON, sendJSONStream, type JSONOptions } from './extras/response/sendJSON.mts';

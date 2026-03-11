@@ -181,6 +181,7 @@ parameters from a parent, which can be typed with `Router<WithPathParameters<{ n
   - [`<FileFinder>`]
   - [`sendRanges`]
 - Utilities
+  - [`mergePermissionsPolicy`]
   - [`defer`]
   - [`addTeardown`]
   - [`makeMemo`]
@@ -3420,6 +3421,180 @@ Extracts one item at a time from the queue. Completes once the queue is empty.
 
 ## Utility Functions
 
+### `mergePermissionsPolicy(...policies)`
+
+[`mergePermissionsPolicy`]: #mergepermissionspolicypolicies
+
+- `policies` [`<string>`] a list of permissions policies to merge. Typically the first should be a
+  baseline, followed by one or more policies to apply on top.
+- Returns: [`<string>`] a permissions policy header value which can be set on responses.
+
+Merges and normalises [`Permissions-Policy`] header definitions. If multiple policies set
+permissions for the same feature, the permissions are combined. By including a particular baseline,
+you can start from a "deny all" policy (based on the available features at a point in time) and
+explicitly allow the features you intend to use. Note that only Chromium-based browsers (Chrome,
+Opera, Edge) support [`Permissions-Policy`].
+
+| Feature name                                    | Browser default | Denied by baseline  |
+| ----------------------------------------------- | --------------- | ------------------- |
+| [`accelerometer`]                               | `self`          | `PP_BASE_DENY_2026` |
+| [`ambient-light-sensor`]                        | `self`          | none                |
+| [`aria-notify`]                                 | `self`          | none                |
+| [`attribution-reporting`] ([deprecated][pp-d1]) | `*`             | `PP_BASE_DENY_2026` |
+| [`autoplay`]                                    | `self`          | `PP_BASE_DENY_2026` |
+| [`bluetooth`]                                   | `self`          | `PP_BASE_DENY_2026` |
+| [`browsing-topics`] ([deprecated][pp-d2])       | `*`             | `PP_BASE_DENY_2026` |
+| [`camera`]                                      | `self`          | `PP_BASE_DENY_2026` |
+| [`captured-surface-control`]                    | `self`          | none                |
+| [`ch-ua-high-entropy-values`]                   | `*`             | none                |
+| [`compute-pressure`]                            | `self`          | none                |
+| [`cross-origin-isolated`]                       | `self`          | `PP_BASE_DENY_2026` |
+| [`deferred-fetch-minimal`]                      | `*`             | `PP_BASE_DENY_2026` |
+| [`deferred-fetch`]                              | `self`          | `PP_BASE_DENY_2026` |
+| [`display-capture`]                             | `self`          | `PP_BASE_DENY_2026` |
+| [`encrypted-media`]                             | `self`          | `PP_BASE_DENY_2026` |
+| [`fullscreen`]                                  | `self`          | `PP_BASE_DENY_2026` |
+| [`gamepad`]                                     | `*`             | `PP_BASE_DENY_2026` |
+| [`geolocation`]                                 | `self`          | `PP_BASE_DENY_2026` |
+| [`gyroscope`]                                   | `self`          | `PP_BASE_DENY_2026` |
+| [`hid`]                                         | `self`          | none                |
+| [`identity-credentials-get`]                    | `self`          | `PP_BASE_DENY_2026` |
+| [`idle-detection`]                              | `self`          | `PP_BASE_DENY_2026` |
+| [`language-detector`]                           | `self`          | `PP_BASE_DENY_2026` |
+| [`local-fonts`]                                 | `self`          | none                |
+| [`magnetometer`]                                | `self`          | none                |
+| [`microphone`]                                  | `self`          | `PP_BASE_DENY_2026` |
+| [`midi`]                                        | `self`          | `PP_BASE_DENY_2026` |
+| [`on-device-speech-recognition`]                | `self`          | none                |
+| [`otp-credentials`]                             | `self`          | `PP_BASE_DENY_2026` |
+| [`payment`]                                     | `self`          | `PP_BASE_DENY_2026` |
+| [`picture-in-picture`]                          | `*`             | `PP_BASE_DENY_2026` |
+| [`private-state-token-issuance`]                | `*`             | `PP_BASE_DENY_2026` |
+| [`private-state-token-redemption`]              | `*`             | `PP_BASE_DENY_2026` |
+| [`publickey-credentials-create`]                | `self`          | `PP_BASE_DENY_2026` |
+| [`publickey-credentials-get`]                   | `self`          | `PP_BASE_DENY_2026` |
+| [`screen-wake-lock`]                            | `self`          | `PP_BASE_DENY_2026` |
+| [`serial`]                                      | `self`          | `PP_BASE_DENY_2026` |
+| [`speaker-selection`]                           | `self`          | none                |
+| [`storage-access`]                              | `*`             | `PP_BASE_DENY_2026` |
+| [`summarizer`]                                  | `self`          | none                |
+| [`translator`]                                  | `self`          | `PP_BASE_DENY_2026` |
+| [`usb`]                                         | `self`          | `PP_BASE_DENY_2026` |
+| [`web-share`]                                   | `self`          | `PP_BASE_DENY_2026` |
+| [`window-management`]                           | `self`          | `PP_BASE_DENY_2026` |
+| [`xr-spatial-tracking`]                         | `self`          | `PP_BASE_DENY_2026` |
+
+[pp-d1]: https://chromestatus.com/feature/6320639375966208
+[pp-d2]: https://groups.google.com/a/chromium.org/g/blink-dev/c/_R85yctz4Rs?pli=1
+[`accelerometer`]:
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Permissions-Policy/accelerometer
+[`ambient-light-sensor`]:
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Permissions-Policy/ambient-light-sensor
+[`aria-notify`]:
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Permissions-Policy/aria-notify
+[`attribution-reporting`]:
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Permissions-Policy/attribution-reporting
+[`autoplay`]:
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Permissions-Policy/autoplay
+[`bluetooth`]:
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Permissions-Policy/bluetooth
+[`browsing-topics`]:
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Permissions-Policy/browsing-topics
+[`camera`]:
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Permissions-Policy/camera
+[`captured-surface-control`]:
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Permissions-Policy/captured-surface-control
+[`ch-ua-high-entropy-values`]:
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Permissions-Policy/ch-ua-high-entropy-values
+[`compute-pressure`]:
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Permissions-Policy/compute-pressure
+[`cross-origin-isolated`]:
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Permissions-Policy/cross-origin-isolated
+[`deferred-fetch-minimal`]:
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Permissions-Policy/deferred-fetch-minimal
+[`deferred-fetch`]:
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Permissions-Policy/deferred-fetch
+[`display-capture`]:
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Permissions-Policy/display-capture
+[`encrypted-media`]:
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Permissions-Policy/encrypted-media
+[`fullscreen`]:
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Permissions-Policy/fullscreen
+[`gamepad`]:
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Permissions-Policy/gamepad
+[`geolocation`]:
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Permissions-Policy/geolocation
+[`gyroscope`]:
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Permissions-Policy/gyroscope
+[`hid`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Permissions-Policy/hid
+[`identity-credentials-get`]:
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Permissions-Policy/identity-credentials-get
+[`idle-detection`]:
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Permissions-Policy/idle-detection
+[`language-detector`]:
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Permissions-Policy/language-detector
+[`local-fonts`]:
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Permissions-Policy/local-fonts
+[`magnetometer`]:
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Permissions-Policy/magnetometer
+[`microphone`]:
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Permissions-Policy/microphone
+[`midi`]:
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Permissions-Policy/midi
+[`on-device-speech-recognition`]:
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Permissions-Policy/on-device-speech-recognition
+[`otp-credentials`]:
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Permissions-Policy/otp-credentials
+[`payment`]:
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Permissions-Policy/payment
+[`picture-in-picture`]:
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Permissions-Policy/picture-in-picture
+[`private-state-token-issuance`]:
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Permissions-Policy/private-state-token-issuance
+[`private-state-token-redemption`]:
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Permissions-Policy/private-state-token-redemption
+[`publickey-credentials-create`]:
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Permissions-Policy/publickey-credentials-create
+[`publickey-credentials-get`]:
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Permissions-Policy/publickey-credentials-get
+[`screen-wake-lock`]:
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Permissions-Policy/screen-wake-lock
+[`serial`]:
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Permissions-Policy/serial
+[`speaker-selection`]:
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Permissions-Policy/speaker-selection
+[`storage-access`]:
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Permissions-Policy/storage-access
+[`summarizer`]:
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Permissions-Policy/summarizer
+[`translator`]:
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Permissions-Policy/translator
+[`usb`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Permissions-Policy/usb
+[`web-share`]:
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Permissions-Policy/web-share
+[`window-management`]:
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Permissions-Policy/window-management
+[`xr-spatial-tracking`]:
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Permissions-Policy/xr-spatial-tracking
+
+Example usage:
+
+```js
+import { CONTINUE, PP_BASE_DENY_2026, mergePermissionsPolicy } from 'web-listener';
+
+const MY_PERMISSIONS_POLICY = mergePermissionsPolicy(
+  PP_BASE_DENY_2026,
+  'cross-origin-isolated=self',
+  'private-state-token-issuance=self',
+  'private-state-token-redemption=self',
+);
+
+myRouter.use((_, res) => {
+  res.setHeader('permissions-policy', MY_PERMISSIONS_POLICY);
+  return CONTINUE;
+});
+```
+
 ### `parseAddress(address)`
 
 [`parseAddress`]: #parseaddressaddress
@@ -4293,6 +4468,8 @@ Reference: [`getPathParameters`], [`makeAcceptWebSocket`], [`nextWebSocketMessag
 [`If-Range`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/If-Range
 [`Keep-Alive`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Keep-Alive
 [`Origin`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Origin
+[`Permissions-Policy`]:
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Permissions-Policy
 [`Proxy-Authenticate`]:
   https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Proxy-Authenticate
 [`Proxy-Authorization`]:
