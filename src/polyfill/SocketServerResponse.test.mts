@@ -1,5 +1,4 @@
-import { TransformStream, ReadableStream } from 'node:stream/web';
-import { Writable } from 'node:stream';
+import { writableString } from '../test-helpers/writableString.mts';
 import {
   internalEncodeHeaders,
   internalNormaliseHeaderValue,
@@ -9,8 +8,8 @@ import 'lean-test';
 
 describe('SocketServerResponse', () => {
   it('mimics part of the ServerResponse API', async () => {
-    const mockSocket = new TransformStream();
-    const response = new SocketServerResponse(Writable.fromWeb(mockSocket.writable));
+    const writable = writableString();
+    const response = new SocketServerResponse(writable);
     response.setHeader('foo', 'bar');
     response.setHeaders(new Headers({ zig: 'zag' }));
     expect(response.headersSent).isFalse();
@@ -18,7 +17,7 @@ describe('SocketServerResponse', () => {
     response.write('this is some ');
     response.end('body content!');
 
-    const sent = await readAll(mockSocket.readable, 'ascii');
+    const sent = writable.currentText('ascii');
     expect(sent).equals(
       ['HTTP/1.1 200 Yep', 'foo: bar', 'zig: zag', '', 'this is some body content!'].join('\r\n'),
     );
@@ -48,11 +47,3 @@ describe('normaliseHeaderValue', () => {
     expect(internalNormaliseHeaderValue(['foo', 'bar, baz'])).equals('foo, bar, baz');
   });
 });
-
-async function readAll(readable: ReadableStream, encoding: BufferEncoding) {
-  const buffers: Buffer[] = [];
-  for await (const chunk of readable) {
-    buffers.push(chunk);
-  }
-  return Buffer.concat(buffers).toString(encoding);
-}

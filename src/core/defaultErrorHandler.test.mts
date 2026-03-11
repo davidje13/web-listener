@@ -1,13 +1,12 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { Writable } from 'node:stream';
-import { text } from 'node:stream/consumers';
 import { SocketServerResponse } from '../polyfill/SocketServerResponse.mts';
+import { writableString } from '../test-helpers/writableString.mts';
 import { HTTPError } from './HTTPError.mts';
 import { internalDefaultErrorHandler } from './defaultErrorHandler.mts';
 import 'lean-test';
 
 describe('defaultErrorHandler', () => {
-  it('sends the error as a HTTP response', async () => {
+  it('sends the error as a HTTP response', () => {
     const mockNetwork = makeMockNetwork();
     const error = new HTTPError(400, {
       statusMessage: 'Oops',
@@ -18,7 +17,7 @@ describe('defaultErrorHandler', () => {
     });
     const req = {} as IncomingMessage;
     internalDefaultErrorHandler(error, req, { response: mockNetwork.response });
-    expect(await mockNetwork.read()).equals(
+    expect(mockNetwork.read()).equals(
       [
         'HTTP/1.1 400 Oops',
         'content-type: text/plain; charset=utf-8',
@@ -31,7 +30,7 @@ describe('defaultErrorHandler', () => {
     );
   });
 
-  it('ends the response without content if the headers have already been sent', async () => {
+  it('ends the response without content if the headers have already been sent', () => {
     const mockNetwork = makeMockNetwork();
     const error = new HTTPError(400, {
       statusMessage: 'Oops',
@@ -43,14 +42,12 @@ describe('defaultErrorHandler', () => {
     const req = {} as IncomingMessage;
     mockNetwork.response.writeHead(200);
     internalDefaultErrorHandler(error, req, { response: mockNetwork.response });
-    expect(await mockNetwork.read()).equals(['HTTP/1.1 200 OK', '', ''].join('\r\n'));
+    expect(mockNetwork.read()).equals(['HTTP/1.1 200 OK', '', ''].join('\r\n'));
   });
 });
 
 function makeMockNetwork() {
-  const out = new TransformStream();
-  const response = new SocketServerResponse(
-    Writable.fromWeb(out.writable),
-  ) as unknown as ServerResponse;
-  return { response, read: () => text(out.readable) };
+  const writable = writableString();
+  const response = new SocketServerResponse(writable) as unknown as ServerResponse;
+  return { response, read: () => writable.currentText() };
 }
