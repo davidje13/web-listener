@@ -176,6 +176,7 @@ export {
   fileServer,
   setDefaultCacheHeaders,
   type FileServerOptions,
+  type FallbackOptions,
 } from './extras/static/fileServer.mts';
 export {
   staticContent,

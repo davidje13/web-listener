@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
-import type { FileNegotiation, FileNegotiationOption } from '../../index.mts';
+import type { FallbackOptions, FileNegotiation, FileNegotiationOption } from '../../index.mts';
 import type { Mapper } from './schema.mts';
-import type { Config, ConfigHeaders } from './types.mts';
+import type { Config, ConfigHeaders, ConfigMount } from './types.mts';
 
 const shorthands = new Map<string, string>([
   ['', 'dir'],
@@ -24,7 +24,7 @@ const shorthands = new Map<string, string>([
 const params = new Map<string, { type: 'string' | 'number' | 'boolean'; multi?: boolean }>([
   ['config-file', { type: 'string' }],
   ['config-json', { type: 'string' }],
-  ['dir', { type: 'string' }],
+  ['dir', { type: 'string', multi: true }],
   ['exec', { type: 'string', multi: true }],
   ['ext', { type: 'string', multi: true }],
   ['port', { type: 'number' }],
@@ -130,7 +130,8 @@ export async function loadConfig(
   parser: Mapper<Config>,
   args: Map<string, unknown>,
 ): Promise<Config> {
-  const stringListParam = (name: string) => (args.get(name) ?? []) as string[];
+  const stringListParam = (name: string, fallback: string[] = []) =>
+    (args.get(name) ?? fallback) as string[];
   const stringParam = (name: string) => args.get(name) as string | undefined;
   const numberParam = (name: string) => args.get(name) as number | undefined;
 
@@ -138,7 +139,7 @@ export async function loadConfig(
   const json = stringParam('config-json');
   const port = numberParam('port');
   const host = stringParam('host');
-  const dir = stringParam('dir') || '.';
+  const dirs = stringListParam('dir', ['.']);
   const exec = stringListParam('exec').map((v) => v.split(' '));
   const ext = stringListParam('ext').map((v) => (v.startsWith('.') ? v : `.${v}`));
   const headers = stringListParam('header').map((v) => splitFirst(v, /: ?/));
@@ -160,13 +161,18 @@ export async function loadConfig(
   } else if (json) {
     config = parser(JSON.parse(json), { file: '', path: '' });
   } else {
-    let fallback: unknown;
+    let fallback: FallbackOptions | undefined;
     if (spa) {
       fallback = { statusCode: 200, filePath: spa };
     } else if (err404) {
       fallback = { statusCode: 404, filePath: err404 };
     }
-    const mount: unknown[] = [{ type: 'files', dir: dir, options: { fallback } }];
+    const mount: Partial<ConfigMount>[] = [];
+    for (let i = 0; i < dirs.length; ++i) {
+      const dir = dirs[i]!;
+      const isLast = i === dirs.length - 1;
+      mount.push({ type: 'files', dir: dir, options: { fallback: isLast ? fallback : undefined } });
+    }
     if (proxy) {
       mount.push({ type: 'proxy', target: proxy });
     }

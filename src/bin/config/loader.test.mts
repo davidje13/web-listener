@@ -15,17 +15,22 @@ describe('readArgs', () => {
     const actual = readArgs(['--dir', 'my-dir', '--port', '80']);
     expect(actual).equals(
       new Map<string, unknown>([
-        ['dir', 'my-dir'],
+        ['dir', ['my-dir']],
         ['port', 80],
       ]),
     );
+  });
+
+  it('loads multi-value arguments', () => {
+    const actual = readArgs(['--dir', 'my-dir', '--dir', 'second']);
+    expect(actual).equals(new Map<string, unknown>([['dir', ['my-dir', 'second']]]));
   });
 
   it('maps shorthands', () => {
     const actual = readArgs(['my-dir', '-gp', '8000']);
     expect(actual).equals(
       new Map<string, unknown>([
-        ['dir', 'my-dir'],
+        ['dir', ['my-dir']],
         ['gzip', true],
         ['port', 8000],
       ]),
@@ -36,7 +41,7 @@ describe('readArgs', () => {
     const actual = readArgs(['--dir=my-dir', '-gp=80']);
     expect(actual).equals(
       new Map<string, unknown>([
-        ['dir', 'my-dir'],
+        ['dir', ['my-dir']],
         ['gzip', true],
         ['port', 80],
       ]),

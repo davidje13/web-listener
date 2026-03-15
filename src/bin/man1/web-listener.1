@@ -75,7 +75,7 @@ The options are as follows:
 .It Fl -404 Ar file
 Path to a file
 .Po
-relative to
+relative to the last
 .Fl -dir
 .Pc
 to serve with a HTTP 404 status code if a requested file is not found.
@@ -119,6 +119,7 @@ providing a newline to stdin.
 .
 .It Fl d Ar directory , Fl -dir Ar directory
 The directory to serve files from, relative to the current working directory.
+Can be specified multiple times to provide fall-backs.
 Defaults to
 .Qq "." .
 .nojson
@@ -235,7 +236,7 @@ defined.
 .It Fl -spa Ar file
 Path to a file
 .Po
-relative to
+relative to the last
 .Fl -dir
 .Pc
 to serve with a HTTP 200 status code if a requested file is not found.
