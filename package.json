@@ -46,10 +46,10 @@
     "ajv-formats": "3.x",
     "eventsource": "4.x",
     "lean-test": "2.x",
-    "prettier": "3.8.1",
+    "prettier": "3.8.3",
     "rollup": "4.x",
     "rollup-plugin-dts": "6.x",
-    "typescript": "5.9.x",
+    "typescript": "6.0.x",
     "ws": "8.x"
   }
 }
