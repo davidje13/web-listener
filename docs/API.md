@@ -139,7 +139,6 @@ path parameters from a parent, which can be typed with
   - [`<Negotiator>`]
   - [`negotiateEncoding`]
   - Cache
-    - [`setDefaultCacheHeaders`]
     - [`generateWeakETag`]
     - [`generateStrongETag`]
     - [`checkIfModified`]
@@ -886,9 +885,13 @@ Value to send in the corresponding `Content-*` response header for the [`fileneg
       should use `/` separators, even on Windows.
   - `verbose` [`<boolean>`] emit verbose error messages when a file is not found. This can be
     helpful for debugging why a file is not being served. **Default:** `false`.
+  - `headers` [`<Headers>`] | [`<Object>`] | [`<string[]>`][`<string>`] additional headers to set on
+    the response.
+  - `dynamicHeaders` [`<string[]>`][`<string>`] a list of headers to set dynamically. Can contain
+    [`ETag`] (which will be set using [`generateWeakETag`]) and [`Last-Modified`] (set from the
+    requested file's `mtime`). **Default:** `['etag', 'last-modified']`.
   - `callback` [`<Function>`] a (possibly asynchronous) function to call when a file is being
-    served. Can modify headers in the response. **Default:** [`setDefaultCacheHeaders`]. The
-    function is called with:
+    served. Can modify headers in the response. The function is called with:
     - `req` [`<http.IncomingMessage>`]
     - `res` [`<http.ServerResponse>`]
     - `file` [`<ResolvedFileInfo>`] details of the file which will be sent
@@ -1595,11 +1598,11 @@ You can also use [`jsonErrorHandler`] to automatically send these errors in JSON
     Typically you should only do this if you are using a custom status code - do not use alternative
     messages for recognised status codes.
   - `headers` [`<Headers>`] | [`<Object>`] | [`<string[]>`][`<string>`] additional headers to set on
-    the response
+    the response.
   - `body` [`<string>`] content of the response to send. This is sent with
-    [`Content-Type: text/plain`][`Content-Type`] by default
+    [`Content-Type: text/plain`][`Content-Type`] by default.
   - `cause` [`<any>`] another error which caused this error (not sent to the client, but may appear
-    in logs)
+    in logs).
 
 Create a new `HTTPError` object and set various properties on it.
 
@@ -3351,19 +3354,6 @@ can use this method for more control.
 An `AbortSignal` which fires when [`serversentevents.close`] is called (and no further server-sent
 events should be sent).
 
-### `setDefaultCacheHeaders(req, res, file)`
-
-[`setDefaultCacheHeaders`]: #setdefaultcacheheadersreq-res-file
-
-This is the default `callback` for [`fileServer`]. It is implemented as:
-
-```js
-function setDefaultCacheHeaders(req, res, file) {
-  res.setHeader('etag', generateWeakETag(res.getHeader('content-encoding'), file.stats));
-  res.setHeader('last-modified', file.stats.mtime.toUTCString());
-}
-```
-
 ### `setSoftCloseHandler(req, fn)`
 
 [`setSoftCloseHandler`]: #setsoftclosehandlerreq-fn
@@ -4460,6 +4450,7 @@ Reference: [`getPathParameters`], [`makeAcceptWebSocket`], [`nextWebSocketMessag
 [`If-None-Match`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/If-None-Match
 [`If-Range`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/If-Range
 [`Keep-Alive`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Keep-Alive
+[`Last-Modified`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Last-Modified
 [`Origin`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Origin
 [`Permissions-Policy`]:
   https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Permissions-Policy

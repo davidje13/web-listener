@@ -322,6 +322,7 @@ const DEFAULT_FILES_OPTIONS: ConfigMountFilesOptions = {
   allowAllDotfiles: false,
   allowAllTildefiles: false,
   allowDirectIndexAccess: false,
+  dynamicHeaders: ['etag', 'last-modified'],
   hide: [],
   allow: ['.well-known'],
   indexFiles: ['index.htm', 'index.html'],

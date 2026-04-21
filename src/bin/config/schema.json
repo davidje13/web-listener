@@ -138,6 +138,11 @@
               }
             },
             "headers": { "$ref": "#/$defs/headers" },
+            "dynamicHeaders": {
+              "type": "array",
+              "items": { "enum": ["etag", "last-modified"] },
+              "default": ["etag", "last-modified"]
+            },
             "verbose": { "type": "boolean", "default": false },
             "subDirectories": {
               "anyOf": [{ "type": "boolean" }, { "type": "integer" }],
@@ -152,8 +157,8 @@
             "allowDirectIndexAccess": { "type": "boolean", "default": false },
             "hide": {
               "type": "array",
-              "default": [],
-              "items": { "$ref": "#/$defs/stringOrRegex" }
+              "items": { "$ref": "#/$defs/stringOrRegex" },
+              "default": []
             },
             "allow": {
               "type": "array",

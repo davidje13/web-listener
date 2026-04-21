@@ -4,6 +4,7 @@ import { CONTINUE } from '../../core/RoutingInstruction.mts';
 import type { RequestHandler } from '../../core/handler.mts';
 import { HTTPError } from '../../core/HTTPError.mts';
 import type { MaybePromise } from '../../util/MaybePromise.mts';
+import { internalNormaliseHeaders, type AnyHeaders } from '../../util/normaliseHeaders.mts';
 import { getRemainingPathComponents } from '../request/pathComponents.mts';
 import { sendFile } from '../response/sendFile.mts';
 import { generateWeakETag } from '../cache/etag.mts';
@@ -52,19 +53,32 @@ export interface FileServerOptions extends FileFinderOptions {
   verbose?: boolean;
 
   /**
-   * A function to call when a file is being served. Can modify headers in the response.
-   * The default implementation is:
+   * Static headers to set on all responses.
+   */
+  headers?: AnyHeaders;
+
+  /**
+   * A list of dynamic headers to generate for responses. Note that headers specified in
+   * `headers` or set by `callback` will override the dynamically generated values. Set to an
+   * empty list or `false` to disable all dynamic headers.
+   *
+   * Equivalent to the following code in `callback`:
    *
    *  ```
    *  res.setHeader('etag', generateWeakETag(res.getHeader('content-encoding'), file.stats));
    *  res.setHeader('last-modified', file.stats.mtime.toUTCString());
    *  ```
    *
-   * If you override this function, you must decide which cache headers you wish to set.
+   * @default ['etag', 'last-modified']
+   */
+  dynamicHeaders?: ('etag' | 'last-modified')[] | false;
+
+  /**
+   * A function to call when a file is being served. Can modify headers in the response.
    *
-   * This function is called after the `Content-Type` and `Content-Encoding` headers have been set,
-   * so you can inspect those if you need to know the mime type or encoding of the response, or
-   * change them if you want to set different values.
+   * This function is called after the `Content-Type`, `Content-Encoding`, and any configured
+   * dynamic headers have been set, so you can inspect those or change them if you want to set
+   * different values.
    *
    * @param req
    * @param res
@@ -110,7 +124,9 @@ export const fileServer = async (
     mode = 'dynamic',
     fallback,
     verbose,
-    callback = setDefaultCacheHeaders,
+    headers,
+    dynamicHeaders = ['etag', 'last-modified'],
+    callback,
     ...options
   }: FileServerOptions = {},
 ): Promise<RequestHandler> => {
@@ -128,6 +144,12 @@ export const fileServer = async (
 
   const pathOptions = mode === 'dynamic' ? {} : { rejectPotentiallyUnsafe: false };
   const fileLookup = mode === 'dynamic' ? fileFinder : await fileFinder.precompute();
+
+  const normHeaders = internalNormaliseHeaders(headers);
+  const dHeaders = new Set((dynamicHeaders || []).map((v) => v.toLowerCase()));
+  for (const h of normHeaders.keys()) {
+    dHeaders.delete(h);
+  }
 
   return {
     handleRequest: async (req: IncomingMessage, res: ServerResponse) => {
@@ -169,7 +191,14 @@ export const fileServer = async (
         internalSetContentEncoding(res, file.headers['content-encoding']);
         internalAddVary(res, file.headers.vary);
 
-        await callback(req, res, file, isFallback);
+        res.setHeaders(normHeaders);
+        if (dHeaders.has('etag')) {
+          res.setHeader('etag', generateWeakETag(res.getHeader('content-encoding'), file.stats));
+        }
+        if (dHeaders.has('last-modified')) {
+          res.setHeader('last-modified', file.stats.mtime.toUTCString());
+        }
+        await callback?.(req, res, file, isFallback);
         await sendFile(req, res, file.handle, file.stats);
       } finally {
         file.handle.close().catch(() => {});
@@ -178,13 +207,3 @@ export const fileServer = async (
     },
   };
 };
-
-export function setDefaultCacheHeaders(
-  req: IncomingMessage,
-  res: ServerResponse,
-  file: ResolvedFileInfo,
-) {
-  void req;
-  res.setHeader('etag', generateWeakETag(res.getHeader('content-encoding'), file.stats));
-  res.setHeader('last-modified', file.stats.mtime.toUTCString());
-}

@@ -4,6 +4,7 @@ export { parseAddress, makeAddressTester, type Address } from './util/address.mt
 export { BlockingQueue } from './util/BlockingQueue.mts';
 export { findCause } from './util/findCause.mts';
 export { getAddressURL } from './util/getAddressURL.mts';
+export type { AnyHeaders } from './util/normaliseHeaders.mts';
 export { Queue } from './util/Queue.mts';
 export { stringPredicate } from './util/regexpFlags.mts';
 
@@ -174,7 +175,6 @@ export { ServerSentEvents, type ServerSentEvent } from './extras/response/Server
 
 export {
   fileServer,
-  setDefaultCacheHeaders,
   type FileServerOptions,
   type FallbackOptions,
 } from './extras/static/fileServer.mts';

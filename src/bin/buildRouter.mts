@@ -3,7 +3,6 @@ import {
   addTeardown,
   CONTINUE,
   fileServer,
-  generateWeakETag,
   getPathParameter,
   getQuery,
   getSearch,
@@ -47,26 +46,7 @@ export async function buildRouter(mount: ConfigMount[], log: (info: LogInfo) => 
             item.options.negotiation && item.options.negotiation.length > 0
               ? new Negotiator(item.options.negotiation)
               : undefined;
-          const headers = new Map(Object.entries(item.options.headers ?? {}));
-          router.mount(
-            item.path,
-            await fileServer(item.dir, {
-              ...item.options,
-              negotiator,
-              callback: (_, res, file) => {
-                if (!('etag' in headers)) {
-                  res.setHeader(
-                    'etag',
-                    generateWeakETag(res.getHeader('content-encoding'), file.stats),
-                  );
-                }
-                if (!('last-modified' in headers)) {
-                  res.setHeader('last-modified', file.stats.mtime.toUTCString());
-                }
-                res.setHeaders(headers);
-              },
-            }),
-          );
+          router.mount(item.path, await fileServer(item.dir, { ...item.options, negotiator }));
         }
         break;
       case 'proxy':
@@ -78,7 +58,7 @@ export async function buildRouter(mount: ConfigMount[], log: (info: LogInfo) => 
           }),
         );
         break;
-      case 'fixture':
+      case 'fixture': {
         const handler = (req: IncomingMessage, res: ServerResponse) => {
           for (const [key, value] of Object.entries(item.headers)) {
             if (typeof value === 'string') {
@@ -100,6 +80,7 @@ export async function buildRouter(mount: ConfigMount[], log: (info: LogInfo) => 
         }
         router.onRequest(item.method, item.path, handler);
         break;
+      }
       case 'redirect':
         router.at(
           item.path,
