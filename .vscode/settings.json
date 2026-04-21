@@ -3,8 +3,10 @@
   "editor.formatOnSave": true,
   "editor.tabSize": 2,
   "files.exclude": {
-    "**/build": true,
-    "**/node_modules": true,
+    "build": true,
+    "node_modules": true,
+    "package/node_modules": true,
+    "performance/node_modules": true,
     "package-lock.json": true
   },
   "javascript.preferences.quoteStyle": "single",
