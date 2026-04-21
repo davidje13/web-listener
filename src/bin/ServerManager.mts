@@ -183,13 +183,12 @@ export class ServerManager {
       options.logRequests
         ? (info) => {
             const method = this._colour('1', info.method.replaceAll(/[^a-zA-Z0-9\-_]/g, '?'));
-            const path = encodeURI(info.path);
             const status = this._colour(
               STATUS_COLOURS[(info.status / 100) | 0] ?? '',
               String(info.status),
             );
             const duration = this._colour('2', `(${info.duration}ms)`);
-            this._log(0, `${name} ${method} ${path} ${status} ${duration}`);
+            this._log(0, `${name} ${method} ${info.path} ${status} ${duration}`);
           }
         : () => {},
     );

@@ -10,6 +10,7 @@ import {
   proxy,
   requestHandler,
   Router,
+  getAbsolutePath,
 } from '../index.mts';
 import type { ConfigMount } from './config/types.mts';
 import { render } from './template.mts';
@@ -30,7 +31,7 @@ export async function buildRouter(mount: ConfigMount[], log: (info: LogInfo) => 
         const duration = Date.now() - tm0;
         log({
           method: req.method ?? 'GET',
-          path: req.url ?? '/',
+          path: getAbsolutePath(req),
           status: res.statusCode,
           duration,
         });

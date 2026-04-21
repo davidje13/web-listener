@@ -238,23 +238,34 @@ describe('buildRouter', () => {
   });
 
   it('logs requests', { timeout: 3000 }, async () => {
-    const events: LogInfo[] = [];
+    const events: Omit<LogInfo, 'duration'>[] = [];
     const router = await buildRouter(
-      [{ type: 'fixture', method: 'GET', path: '/', status: 200, headers: {}, body: 'Hi' }],
-      (info) => events.push(info),
+      [
+        { type: 'fixture', method: 'GET', path: '/', status: 200, headers: {}, body: 'Hi' },
+        { type: 'redirect', path: '/gone', status: 301, target: '/other' },
+        { type: 'fixture', method: 'GET', path: '/spc@chars', status: 200, headers: {}, body: '' },
+      ],
+      (info) => events.push({ method: info.method, path: info.path, status: info.status }),
     );
     return withServer(router, async (url, { expectError }) => {
       await fetch(url);
-      expect(events).hasLength(1);
-      expect(events[0]?.method).equals('GET');
-      expect(events[0]?.path).equals('/');
-      expect(events[0]?.status).equals(200);
+      expect(events).equals([{ method: 'GET', path: '/', status: 200 }]);
+      events.length = 0;
+
+      await fetch(url + '/gone', { redirect: 'manual' });
+      expect(events).equals([{ method: 'GET', path: '/gone', status: 301 }]);
+      events.length = 0;
+
+      await fetch(url + '/spc@chars');
+      expect(events).equals([{ method: 'GET', path: '/spc@chars', status: 200 }]);
+      events.length = 0;
+
+      await fetch(url + '/spc%40chars');
+      expect(events).equals([{ method: 'GET', path: '/spc%40chars', status: 200 }]);
+      events.length = 0;
 
       await fetch(url + '/nope', { method: 'PUT' });
-      expect(events).hasLength(2);
-      expect(events[1]?.method).equals('PUT');
-      expect(events[1]?.path).equals('/nope');
-      expect(events[1]?.status).equals(404);
+      expect(events).equals([{ method: 'PUT', path: '/nope', status: 404 }]);
       expectError('handling request /nope: HTTPError(404 Not Found)');
     });
   });
