@@ -1,5 +1,6 @@
 import { basename, dirname, extname, join } from 'node:path';
-import { readdir, readFile, stat, writeFile, rm } from 'node:fs/promises';
+import { readdir, readFile, writeFile, rm } from 'node:fs/promises';
+import { Queue } from '../../util/Queue.mts';
 import { internalMutateName, type FileNegotiationOption } from '../request/Negotiator.mts';
 import { getMime } from '../registries/mime.mts';
 import { compress } from './encoders.mts';
@@ -89,9 +90,18 @@ export async function compressFilesInDir(
   encodings: FileNegotiationOption[],
   options: CompressionOptions = {},
 ): Promise<CompressionInfo[]> {
-  const allFiles: string[] = [];
-  await findFilesR(dir, allFiles);
-  const files = new Set(allFiles);
+  const files = new Set<string>();
+  const pathsQueue = new Queue(dir);
+  for (const base of pathsQueue) {
+    for (const f of await readdir(base, { withFileTypes: true, encoding: 'utf-8' })) {
+      if (f.isDirectory()) {
+        pathsQueue.push(join(base, f.name));
+      } else if (f.isFile()) {
+        files.add(join(base, f.name));
+      }
+    }
+  }
+
   // remove existing compressed files from the set
   for (const file of files) {
     for (const opt of encodings) {
@@ -102,15 +112,4 @@ export async function compressFilesInDir(
     }
   }
   return Promise.all([...files].map((file) => compressFileOffline(file, encodings, options)));
-}
-
-async function findFilesR(dir: string, output: string[]) {
-  const s = await stat(dir);
-  if (s.isDirectory()) {
-    for (const file of await readdir(dir)) {
-      await findFilesR(join(dir, file), output);
-    }
-  } else if (s.isFile()) {
-    output.push(dir);
-  }
 }
