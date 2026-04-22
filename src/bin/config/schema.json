@@ -108,7 +108,8 @@
               { "$ref": "#/$defs/mount-files" },
               { "$ref": "#/$defs/mount-proxy" },
               { "$ref": "#/$defs/mount-fixture" },
-              { "$ref": "#/$defs/mount-redirect" }
+              { "$ref": "#/$defs/mount-redirect" },
+              { "$ref": "#/$defs/mount-dependencies" }
             ]
           }
         }
@@ -274,6 +275,59 @@
         "path": { "type": "string" },
         "status": { "$ref": "#/$defs/status", "default": 307 },
         "target": { "type": "string" }
+      }
+    },
+    "mount-dependencies": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": { "const": "dependencies" },
+        "path": { "type": "string", "default": "/node_modules" },
+        "package": { "type": "string", "default": "./package.json", "format": "uri-reference" },
+        "options": {
+          "type": "object",
+          "default": {},
+          "additionalProperties": false,
+          "properties": {
+            "environment": {
+              "type": "array",
+              "items": { "type": "string" },
+              "default": ["browser", "import", "production"]
+            },
+            "mapFilePath": { "type": "string", "default": "/importmap.json" },
+            "sourcesBasePath": { "type": "string", "default": "/" },
+            "modulesBasePath": { "type": "string", "default": "/node_modules" },
+            "mode": { "enum": ["dynamic", "static-paths"], "default": "dynamic" },
+            "headers": { "$ref": "#/$defs/headers" },
+            "dynamicHeaders": {
+              "type": "array",
+              "items": { "enum": ["etag", "last-modified"] },
+              "default": ["etag", "last-modified"]
+            },
+            "verbose": { "type": "boolean", "default": false },
+            "subDirectories": {
+              "anyOf": [{ "type": "boolean" }, { "type": "integer" }],
+              "default": true
+            },
+            "caseSensitive": {
+              "enum": ["exact", "filesystem", "force-lowercase"],
+              "default": "exact"
+            },
+            "allowAllDotfiles": { "type": "boolean", "default": false },
+            "allowAllTildefiles": { "type": "boolean", "default": false },
+            "hide": {
+              "type": "array",
+              "default": [],
+              "items": { "$ref": "#/$defs/stringOrRegex" }
+            },
+            "allow": {
+              "type": "array",
+              "items": { "type": "string" },
+              "default": [".well-known"]
+            }
+          }
+        }
       }
     },
     "headers": {

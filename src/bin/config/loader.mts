@@ -37,6 +37,7 @@ const params = new Map<string, { type: 'string' | 'number' | 'boolean'; multi?: 
   ['404', { type: 'string' }],
   ['spa', { type: 'string' }],
   ['header', { type: 'string', multi: true }],
+  ['dependencies', { type: 'string' }],
   ['mime', { type: 'string', multi: true }],
   ['mime-types', { type: 'string', multi: true }],
   ['write-compressed', { type: 'boolean' }],
@@ -146,6 +147,7 @@ export async function loadConfig(
   const err404 = stringParam('404');
   const spa = stringParam('spa');
   const proxy = stringParam('proxy');
+  const dependencies = stringParam('dependencies');
   const minCompress = numberParam('min-compress');
   const mime = stringListParam('mime');
   const mimeTypes = stringListParam('mime-types');
@@ -205,6 +207,16 @@ export async function loadConfig(
       server.host = host;
     }
   }
+  if (dependencies !== undefined) {
+    for (const server of config.servers) {
+      server.mount.push({
+        type: 'dependencies',
+        path: '/node_modules',
+        package: dependencies,
+        options: {},
+      });
+    }
+  }
   const addNegotiation = (feature: FileNegotiation['feature'], encoding: FileNegotiationOption) => {
     for (const server of config.servers) {
       for (const mount of server.mount) {
@@ -239,7 +251,7 @@ export async function loadConfig(
   if (headers.length) {
     for (const server of config.servers) {
       for (const mount of server.mount) {
-        if (mount.type === 'files' || mount.type === 'proxy') {
+        if (mount.type === 'files' || mount.type === 'proxy' || mount.type === 'dependencies') {
           mount.options.headers = mergeHeaders(mount.options.headers, headers);
         }
       }

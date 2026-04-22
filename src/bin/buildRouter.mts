@@ -13,6 +13,7 @@ import {
   getAbsolutePath,
 } from '../index.mts';
 import type { ConfigMount } from './config/types.mts';
+import { dependencies } from './modules/dependencies.mts';
 import { render } from './template.mts';
 
 export interface LogInfo {
@@ -95,6 +96,12 @@ export async function buildRouter(mount: ConfigMount[], log: (info: LogInfo) => 
             res.statusCode = item.status;
             res.end();
           }),
+        );
+        break;
+      case 'dependencies':
+        router.mount(
+          item.path,
+          await dependencies(item.package, { ...item.options, modulesBasePath: item.path }),
         );
         break;
     }

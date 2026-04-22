@@ -45,6 +45,22 @@ static content from the current directory:
 npx web-listener . --port 8080
 ```
 
+The CLI includes several advanced features for local development, such as running a build command in
+the background, and generating an importmap from a package.json file.
+
+An example of an advanced use case with TypeScript and dependencies:
+
+```sh
+npx web-listener --dir build --dir . --dependencies ./package.json --exec 'tsc -w'
+```
+
+To use dependencies with regular imports when using `--dependencies`, you can add this
+auto-generated script to your page, which will inject an importmap:
+
+```html
+<script src="/node_modules/importmap.json.js"></script>
+```
+
 ### CLI Documentation
 
 You can view the `web-listener` manual page with:

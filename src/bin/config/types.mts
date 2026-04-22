@@ -4,6 +4,7 @@ import type {
   CombinedServerOptions,
   FileNegotiation,
 } from '../../index.mts';
+import type { DependencyHandlerOptions } from '../modules/dependencies.mts';
 import type { LogLevel } from '../log.mts';
 
 export type ConfigHeaders = Record<string, string | string[]>;
@@ -45,11 +46,21 @@ interface ConfigMountRedirect {
   target: string;
 }
 
+interface ConfigMountDependencies {
+  type: 'dependencies';
+  path: string;
+  package: string;
+  options: Omit<DependencyHandlerOptions, 'negotiator' | 'fallback'> & {
+    headers?: ConfigHeaders;
+  };
+}
+
 export type ConfigMount =
   | ConfigMountFiles
   | ConfigMountProxy
   | ConfigMountFixture
-  | ConfigMountRedirect;
+  | ConfigMountRedirect
+  | ConfigMountDependencies;
 
 export interface ConfigServerOptions extends CombinedServerOptions {
   logRequests: boolean;

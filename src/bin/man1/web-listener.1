@@ -127,6 +127,15 @@ Defaults to
 .It Fl -deflate
 .compression Deflate .deflate
 .
+.It Fl -dependencies Ar packageJsonPath
+If set, this mounts all the dependencies from the package.json file at
+.Ar packageJsonPath ,
+and creates an importmap which can be used to load them.
+Because browsers do not support loading importmaps from external files,
+it is also made available as a script which can be loaded with:
+.Pp
+.Dl <script src="/node_modules/importmap.json.js"></script>
+.
 .It Fl -exec Ar command
 Execute a command as a background task.
 Can be specified multiple times to run multiple background tasks.
@@ -319,6 +328,8 @@ requests to
 .Qq "*.new" ,
 proxying all non-matching requests to
 .Qq "https://example.com" ,
+making all package dependencies available under
+.Qq "node_modules" ,
 running the TypeScript compiler in the background, and registering the
 .Qq "application/x-foo"
 mime type for
@@ -333,7 +344,8 @@ files:
         { "type": "files", "dir": "." },
         { "type": "fixture", "method": "GET", "path": "/hello.txt", "body": "Hi!" },
         { "type": "redirect", "path": "/*thepath.php", "target": "/${thepath}.new${?}" },
-        { "type": "proxy", "target": "https://example.com" }
+        { "type": "proxy", "target": "https://example.com" },
+        { "type": "dependencies", "path": "/node_modules", "package": "./package.json" }
       ]
     }
   ],
@@ -425,6 +437,7 @@ Serve files from a directory.
       "filePath": <path to fallback file>
     },
     "headers": {},
+    "dynamicHeaders": ["etag", "last-modified"],
     "verbose": false,
     "subDirectories": true,
     "caseSensitive": "exact",
@@ -497,6 +510,31 @@ Proxy requests to another server.
     "pfx": <string>,
     "sessionTimeout": <number>,
     "maxCachedSessions": <number>
+  }
+}
+.Ed
+.
+.It Qq dependencies
+Serve package dependencies and an importmap file.
+.Bd -literal -offset 2n
+{
+  "type": "dependencies",
+  "path": "/node_modules",
+  "package": "./package.json",
+  "options": {
+    "environment": ["browser", "import", "production"],
+    "mapFilePath": "/importmap.json",
+    "sourcesBasePath": "/",
+    "modulesBasePath": "/node_modules",
+    "mode": "dynamic",
+    "headers": {},
+    "dynamicHeaders": ["etag", "last-modified"],
+    "verbose": false,
+    "caseSensitive": "exact",
+    "allowAllDotfiles": false,
+    "allowAllTildefiles": false,
+    "hide": [],
+    "allow": [".well-known"]
   }
 }
 .Ed
@@ -681,6 +719,14 @@ Add security headers to enable browser secure context:
 Enable compressed files, and auto-generate them on startup:
 .Pp
 .Dl "$ npx web-listener . --brotli --gzip --write-compressed --min-compress 500"
+.Pp
+Make dependencies available:
+.Pp
+.Dl "$ npx web-listener . --dependencies ./package.json"
+.Pp
+Dependencies can be loaded using the generated importmap definition:
+.Pp
+.Dl <script src="/node_modules/importmap.json.js"></script>
 .Pp
 Run the TypeScript compiler in watch mode while serving files:
 .Pp
