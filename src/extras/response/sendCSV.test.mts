@@ -174,17 +174,14 @@ describe('sendCSVStream', () => {
       try {
         ++started;
         yield 'a';
-        await new Promise((resolve) => setTimeout(resolve, 10));
+        output.destroy();
         yield 'b';
         ++finished;
       } finally {
         ++finallyCalled;
       }
     };
-    const promise = sendCSVStream(output, [row()]);
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    output.destroy();
-    await promise;
+    await sendCSVStream(output, [row()]);
     expect(started).equals(1);
     expect(finished).equals(0);
     expect(finallyCalled).equals(1);

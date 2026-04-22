@@ -224,12 +224,12 @@ describe('sendJSONStream', () => {
     let started = 0;
     let finished = 0;
     let finallyCalled = 0;
-    const promise = sendJSONStream(output, {
+    await sendJSONStream(output, {
       foo: (async function* () {
         try {
           ++started;
           yield 'one';
-          await new Promise((resolve) => setTimeout(resolve, 10));
+          output.destroy();
           yield 'two';
           ++finished;
         } finally {
@@ -237,9 +237,6 @@ describe('sendJSONStream', () => {
         }
       })(),
     });
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    output.destroy();
-    await promise;
     expect(started).equals(1);
     expect(finished).equals(0);
     expect(finallyCalled).equals(1);

@@ -165,8 +165,7 @@ export async function inRequestHandler(
             await test(req, res, {
               ...params,
               expectFetchError: () => {
-                rejectRequest = () => {};
-                resolveRequest();
+                rejectRequest = resolveRequest;
               },
               abort: async () => {
                 rejectRequest = () => {};
