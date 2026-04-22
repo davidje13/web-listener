@@ -149,10 +149,7 @@ describe('generateImportMap', () => {
   it('resolves wildcard exports', async () => {
     const result = await generateImportMap(
       [
-        makePackage('a', 'root-pkg', {
-          isRoot: true,
-          dependencies: { foo: 'b' },
-        }),
+        makePackage('a', 'root-pkg', { isRoot: true, dependencies: { foo: 'b' } }),
         makePackage('b', 'foo', {
           exports: { '.': './f1', './*.hmm': './*.ts' },
           files: ['./f1', './f2', './f3.js', './f4.ts'],
@@ -168,6 +165,76 @@ describe('generateImportMap', () => {
       imports: {
         foo: '/base/foo/f1',
         'foo/f4.hmm': '/base/foo/f4.ts',
+      },
+      scopes: {},
+    });
+  });
+
+  it('favours more specific mappings regardless of input order', async () => {
+    const files = ['./f1', './f2', './f31', './f32'];
+    const expected = {
+      imports: {
+        'foo/1': '/base/foo/f1',
+        'foo/2': '/base/foo/f1',
+        'foo/31': '/base/foo/f1',
+        'foo/32': '/base/foo/f2',
+        'foo/331': '/base/foo/f31',
+        'foo/332': '/base/foo/f32',
+      },
+      scopes: {},
+    };
+
+    const result1 = await generateImportMap(
+      [
+        makePackage('a', 'root-pkg', { isRoot: true, dependencies: { foo: 'b' } }),
+        makePackage('b', 'foo', {
+          exports: { './*': './f*', './3*': './f*', './2': './f1' },
+          files,
+        }),
+      ],
+      new Set(),
+      '/base',
+      '/src',
+      (packageJson) => packageJson.name,
+    );
+    expect(result1.importMap).equals(expected);
+
+    const result2 = await generateImportMap(
+      [
+        makePackage('a', 'root-pkg', { isRoot: true, dependencies: { foo: 'b' } }),
+        makePackage('b', 'foo', {
+          exports: { './2': './f1', './3*': './f*', './*': './f*' },
+          files,
+        }),
+      ],
+      new Set(),
+      '/base',
+      '/src',
+      (packageJson) => packageJson.name,
+    );
+    expect(result2.importMap).equals(expected);
+  });
+
+  it('does not expose inputs mapped to null', async () => {
+    const result = await generateImportMap(
+      [
+        makePackage('a', 'root-pkg', { isRoot: true, dependencies: { foo: 'b' } }),
+        makePackage('b', 'foo', {
+          exports: { '.': './f1', './f2': null, './*': './*', './f3*': null },
+          files: ['./f1', './f2', './f3', './f31', './f4'],
+        }),
+      ],
+      new Set(),
+      '/base',
+      '/src',
+      (packageJson) => packageJson.name,
+    );
+
+    expect(result.importMap).equals({
+      imports: {
+        foo: '/base/foo/f1',
+        'foo/f1': '/base/foo/f1',
+        'foo/f4': '/base/foo/f4',
       },
       scopes: {},
     });

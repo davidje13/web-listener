@@ -137,7 +137,9 @@ function addMappings(
 }
 
 function renderModuleSpecifierMap(mapping: Map<string, string | null>): ModuleSpecifierMap {
-  return Object.fromEntries([...mapping.entries()].map(([k, v]) => [encodeURIPath(k), v]));
+  return Object.fromEntries(
+    [...mapping.entries()].filter(([_, v]) => v !== null).map(([k, v]) => [encodeURIPath(k), v]),
+  );
 }
 
 export async function resolveMapping(
@@ -184,7 +186,7 @@ export async function resolveMapping(
         wildcardNullMappings.push({ _id: idCheck, _specificity: specificity });
       }
     } else {
-      staticMappings.set(id, { _target: target, _specificity: [-1, 0] });
+      staticMappings.set(id, { _target: target, _specificity: [Number.POSITIVE_INFINITY, 0] });
     }
   }
 
@@ -196,7 +198,7 @@ export async function resolveMapping(
         if (match !== false) {
           const id = map._id[1] + match + map._id[2];
           const existing = staticMappings.get(id);
-          if (!existing || cmpSpecificity(map._specificity, existing._specificity) < 0) {
+          if (!existing || cmpSpecificity(map._specificity, existing._specificity) > 0) {
             staticMappings.set(id, { _target: path, _specificity: map._specificity });
           }
         }
@@ -208,8 +210,8 @@ export async function resolveMapping(
     for (const [id, mapping] of staticMappings) {
       if (
         mapping._target !== null &&
-        cmpSpecificity(pattern._specificity, mapping._specificity) < 0 &&
-        matchPattern(pattern._id, id)
+        cmpSpecificity(pattern._specificity, mapping._specificity) > 0 &&
+        matchPattern(pattern._id, id) !== false
       ) {
         mapping._target = null;
       }
