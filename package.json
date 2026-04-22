@@ -17,6 +17,12 @@
   "type": "module",
   "main": "./index.js",
   "types": "./index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    }
+  },
   "man": "./man1/web-listener.1.gz",
   "sideEffects": false,
   "bin": "./run.js",
