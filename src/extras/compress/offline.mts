@@ -1,5 +1,5 @@
 import { basename, dirname, extname, join } from 'node:path';
-import { readdir, readFile, writeFile, rm } from 'node:fs/promises';
+import { readdir, readFile, writeFile, rm, utimes, stat } from 'node:fs/promises';
 import { Queue } from '../../util/Queue.mts';
 import { internalMutateName, type FileNegotiationOption } from '../request/Negotiator.mts';
 import { getMime } from '../registries/mime.mts';
@@ -67,6 +67,7 @@ export async function compressFileOffline(
     return info;
   }
 
+  const fileStats = await stat(file);
   for (const opt of encodings) {
     const mutated = join(dirname(file), internalMutateName(basename(file), opt.file));
     if (mutated === opt.file) {
@@ -75,6 +76,7 @@ export async function compressFileOffline(
     const compressed = await compress(raw, opt.value, minCompression);
     if (compressed) {
       await writeFile(mutated, compressed);
+      await utimes(mutated, fileStats.atime, fileStats.mtime);
       info.bestSize = Math.min(info.bestSize, compressed.byteLength);
       ++info.created;
     } else if (deleteObsolete) {

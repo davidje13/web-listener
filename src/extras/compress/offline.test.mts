@@ -1,4 +1,4 @@
-import { readdir } from 'node:fs/promises';
+import { readdir, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { makeTestTempDir } from '../../test-helpers/makeFileStructure.mts';
 import { compressFileOffline, compressFilesInDir } from './offline.mts';
@@ -33,6 +33,18 @@ describe('compressFileOffline', () => {
       'compressible.txt.gz',
       'custom-compressible.txt.deflate',
     ]);
+  });
+
+  it('copies the access and modification times', async ({ getTyped }) => {
+    const dir = getTyped(TEST_DIR);
+    const file = join(dir, 'compressible.txt');
+    await compressFileOffline(file, [{ value: 'gzip', file: '{file}.gz' }]);
+
+    const outFile = join(dir, 'compressible.txt.gz');
+    const statsIn = await stat(file);
+    const statsOut = await stat(outFile);
+    expect(statsOut.atime).equals(statsIn.atime);
+    expect(statsOut.mtime).equals(statsIn.mtime);
   });
 
   it('does not remove obsolete compressed files if deleteObsolete is false', async ({
