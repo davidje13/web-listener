@@ -18,7 +18,7 @@ export async function generateImportMap(
   basePath: string,
   rootPackagePath: string,
   packageToPath: (packageJson: PackageJson, dir: string) => string,
-): Promise<{ hostedDirs: { dir: string; path: string }[]; importMap: ImportMap }> {
+): Promise<{ packages: HostedPackage[]; importMap: ImportMap }> {
   if (basePath.endsWith('/')) {
     basePath = basePath.substring(0, basePath.length - 1);
   }
@@ -38,7 +38,7 @@ export async function generateImportMap(
       _packageInfo: pkg,
       _exports: [],
       _absPathEncoded: pkg.isRoot ? rootPackagePath : `${basePath}/${encodeURIPath(uniquePath)}`,
-      _relPath: uniquePath,
+      _subPath: pkg.isRoot ? null : uniquePath,
     };
     packageMapping.set(pkg.id, o);
     return o;
@@ -55,11 +55,11 @@ export async function generateImportMap(
     }),
   );
 
-  const hostedDirs: { dir: string; path: string }[] = [];
-  let baseImports = new Map<string, string | null>();
-  const scopes: Entry<string, Map<string, string | null>>[] = [];
+  const hostedPackages: HostedPackage[] = [];
+  let baseImports: ModuleSpecifierLookup = new Map();
+  const scopes: Entry<string, ModuleSpecifierLookup>[] = [];
   for (const pkg of augmentedPackages) {
-    const imports = new Map<string, string | null>();
+    const imports: ModuleSpecifierLookup = new Map();
     if (pkg._packageInfo.packageJson.name && pkg._packageInfo.packageJson.exports) {
       addMappings(imports, pkg._exports, pkg._packageInfo.packageJson.name, pkg._absPathEncoded);
     }
@@ -93,28 +93,28 @@ export async function generateImportMap(
         throw new Error(`unable to resolve import ${target}`);
       }
     }
-    const importMap = imports;
     if (pkg._packageInfo.isRoot) {
-      baseImports = importMap;
+      baseImports = imports;
     } else {
-      hostedDirs.push({ dir: pkg._packageInfo.dir, path: pkg._relPath });
-      scopes.push([pkg._absPathEncoded + '/', importMap]);
+      scopes.push([pkg._absPathEncoded + '/', imports]);
     }
+    hostedPackages.push({ dir: pkg._packageInfo.dir, subPath: pkg._subPath, imports });
   }
   const scopesOut: Entry<string, ModuleSpecifierMap>[] = [];
   // optimisation: remove mappings from scoped sections if they are already covered by the root
   for (const [scope, mapping] of scopes) {
+    const reducedMapping = new Map(mapping);
     for (const [k, v] of baseImports) {
-      if (mapping.get(k) === v) {
-        mapping.delete(k);
+      if (reducedMapping.get(k) === v) {
+        reducedMapping.delete(k);
       }
     }
-    if (mapping.size) {
-      scopesOut.push([scope, renderModuleSpecifierMap(mapping)]);
+    if (reducedMapping.size) {
+      scopesOut.push([scope, renderModuleSpecifierMap(reducedMapping)]);
     }
   }
   return {
-    hostedDirs,
+    packages: hostedPackages,
     importMap: {
       imports: renderModuleSpecifierMap(baseImports),
       scopes: Object.fromEntries(scopesOut),
@@ -123,8 +123,8 @@ export async function generateImportMap(
 }
 
 function addMappings(
-  output: Map<string, string | null>,
-  mappings: Entry<string, string | null>[],
+  output: ModuleSpecifierLookup,
+  mappings: ModuleSpecifierEntries,
   inPrefix: string,
   outPrefix: string,
 ) {
@@ -136,18 +136,18 @@ function addMappings(
   }
 }
 
-function renderModuleSpecifierMap(mapping: Map<string, string | null>): ModuleSpecifierMap {
+function renderModuleSpecifierMap(mapping: ModuleSpecifierLookup): ModuleSpecifierMap {
   return Object.fromEntries(
     [...mapping.entries()].filter(([_, v]) => v !== null).map(([k, v]) => [encodeURIPath(k), v]),
   );
 }
 
 export async function resolveMapping(
-  mappings: Map<string, string | null>,
+  mappings: ModuleSpecifierLookup,
   getTargetPaths: () => MaybePromise<Set<string>>,
   idValidator: (v: string) => boolean,
   targetValidator: (v: string) => boolean,
-): Promise<Entry<string, string | null>[]> {
+): Promise<ModuleSpecifierEntries> {
   const staticMappings = new Map<string, { _target: string | null; _specificity: Specificity }>();
   const wildcardMappings: {
     _id: WildcardPattern;
@@ -233,6 +233,8 @@ const matchPattern = (pattern: WildcardPattern, candidate: string): string | fal
 
 const cmpSpecificity = (a: Specificity, b: Specificity) => a[0] - b[0] || a[1] - b[1];
 
+type ModuleSpecifierLookup = Map<string, string | null>;
+type ModuleSpecifierEntries = Entry<string, string | null>[];
 type ModuleSpecifierMap = Record<string, string | null>;
 
 interface ImportMap {
@@ -241,12 +243,18 @@ interface ImportMap {
   scopes?: Record<string, ModuleSpecifierMap>;
 }
 
+interface HostedPackage {
+  dir: string;
+  subPath: string | null;
+  imports: ModuleSpecifierLookup;
+}
+
 interface TempImportExportInfo {
   _packageInfo: PackageInfo;
-  _exports: Entry<string, string | null>[];
+  _exports: ModuleSpecifierEntries;
   _cachedFiles?: Set<string>;
   _absPathEncoded: string;
-  _relPath: string;
+  _subPath: string | null;
 }
 
 const encodeURIPath = (v: string) =>

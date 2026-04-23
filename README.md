@@ -35,6 +35,11 @@ npm install --save web-listener
 
 The full API documentation can be found in [docs/API.md](docs/API.md).
 
+### TypeScript
+
+Types are included in the library. Note that for full type safety (particularly path parameters),
+you must set `"strict": true` (or at least `"strictFunctionTypes": true`) in your `tsconfig.json`.
+
 ## CLI
 
 A full CLI tool is included for simple use-cases of serving static files or basic test fixtures.
@@ -51,15 +56,16 @@ the background, and generating an importmap from a package.json file.
 An example of an advanced use case with TypeScript and dependencies:
 
 ```sh
-npx web-listener --dir build --dir . --dependencies ./package.json --exec 'tsc -w'
+npx web-listener --dir ./build --dir ./src --dependencies ./package.json --exec 'tsc -w --outDir ./build'
 ```
 
-To use dependencies with regular imports when using `--dependencies`, you can add this
-auto-generated script to your page, which will inject an importmap:
+When using `--dependencies`, you can inject an importmap into your page with:
 
 ```html
 <script src="/node_modules/importmap.json.js"></script>
 ```
+
+Note that browsers do not currently support importmaps inside web workers.
 
 ### CLI Documentation
 
@@ -70,11 +76,6 @@ npx web-listener --help
 ```
 
 Additional CLI documentation can be found in [docs/CLI.md](docs/CLI.md).
-
-## TypeScript
-
-Types are included in the library. Note that for full type safety (particularly path parameters),
-you must set `"strict": true` (or at least `"strictFunctionTypes": true`) in your `tsconfig.json`.
 
 ## Production Considerations
 

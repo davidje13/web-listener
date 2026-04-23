@@ -39,15 +39,17 @@ export async function dependencies(
     flatModules,
   );
 
-  for (const { dir, path } of map.hostedDirs) {
-    router.mount(
-      '/' + path,
-      await fileServer(dir, {
-        ...fileServerOptions,
-        hide: [...(fileServerOptions.hide ?? []), 'node_modules'],
-        indexFiles: [],
-      }),
-    );
+  for (const { dir, subPath } of map.packages) {
+    if (subPath) {
+      router.mount(
+        '/' + subPath,
+        await fileServer(dir, {
+          ...fileServerOptions,
+          hide: [...(fileServerOptions.hide ?? []), 'node_modules'],
+          indexFiles: [],
+        }),
+      );
+    }
   }
   const importMapJSON = JSON.stringify(map.importMap);
   if (mapFilePath) {

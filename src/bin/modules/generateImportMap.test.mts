@@ -95,9 +95,13 @@ describe('generateImportMap', () => {
   it('returns file to path mappings', async () => {
     const result = await generateImportMap(
       [
-        makePackage('a', 'root-pkg', { isRoot: true, dependencies: { foo: 'b', bar: 'c' } }),
-        makePackage('b', 'foo', { dependencies: { bar: 'c' } }),
-        makePackage('c', 'bar'),
+        makePackage('a', 'root-pkg', {
+          isRoot: true,
+          exports: './index.js',
+          dependencies: { foo: 'b', bar: 'c' },
+        }),
+        makePackage('b', 'foo', { exports: './index.js', dependencies: { bar: 'c' } }),
+        makePackage('c', 'bar', { exports: './index.js' }),
       ],
       new Set(),
       '/base',
@@ -105,9 +109,25 @@ describe('generateImportMap', () => {
       (packageJson) => packageJson.name,
     );
 
-    expect(result.hostedDirs).equals([
-      { dir: '/path/for/b', path: 'foo' },
-      { dir: '/path/for/c', path: 'bar' },
+    expect(result.packages).equals([
+      {
+        dir: '/path/for/a',
+        subPath: null,
+        imports: new Map([
+          ['root-pkg', '/src/index.js'],
+          ['foo', '/base/foo/index.js'],
+          ['bar', '/base/bar/index.js'],
+        ]),
+      },
+      {
+        dir: '/path/for/b',
+        subPath: 'foo',
+        imports: new Map([
+          ['foo', '/base/foo/index.js'],
+          ['bar', '/base/bar/index.js'],
+        ]),
+      },
+      { dir: '/path/for/c', subPath: 'bar', imports: new Map([['bar', '/base/bar/index.js']]) },
     ]);
   });
 
