@@ -47,6 +47,19 @@ describe('compressFileOffline', () => {
     expect(statsOut.mtime).equals(statsIn.mtime);
   });
 
+  it('does not copy the modification time if matchModifiedTime is false', async ({ getTyped }) => {
+    const dir = getTyped(TEST_DIR);
+    const file = join(dir, 'compressible.txt');
+    await compressFileOffline(file, [{ value: 'gzip', file: '{file}.gz' }], {
+      matchModifiedTime: false,
+    });
+
+    const outFile = join(dir, 'compressible.txt.gz');
+    const statsIn = await stat(file);
+    const statsOut = await stat(outFile);
+    expect(statsOut.mtime).not(equals(statsIn.mtime));
+  });
+
   it('does not remove obsolete compressed files if deleteObsolete is false', async ({
     getTyped,
   }) => {

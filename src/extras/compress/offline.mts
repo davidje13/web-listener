@@ -36,6 +36,13 @@ export interface CompressionOptions {
   deleteObsolete?: boolean;
 
   /**
+   * if `true`, the modified time of the compressed files will be set to match the modified time of
+   * the input file
+   * @default true
+   */
+  matchModifiedTime?: boolean;
+
+  /**
    * Filter to apply to files (does not attempt to compress files if the function returns `false`)
    * @param path the full path to the file
    * @param mime the mime type of the file (if known, else 'application/binary')
@@ -51,7 +58,12 @@ const DEFAULT_FILTER = (_: string, mime: string) =>
 export async function compressFileOffline(
   file: string,
   encodings: FileNegotiationOption[],
-  { minCompression = 0, deleteObsolete = false, filter = DEFAULT_FILTER }: CompressionOptions = {},
+  {
+    minCompression = 0,
+    deleteObsolete = false,
+    matchModifiedTime = true,
+    filter = DEFAULT_FILTER,
+  }: CompressionOptions = {},
 ): Promise<CompressionInfo> {
   const raw = await readFile(file);
   const info = {
@@ -76,7 +88,9 @@ export async function compressFileOffline(
     const compressed = await compress(raw, opt.value, minCompression);
     if (compressed) {
       await writeFile(mutated, compressed);
-      await utimes(mutated, fileStats.atime, fileStats.mtime);
+      if (matchModifiedTime) {
+        await utimes(mutated, fileStats.atime, fileStats.mtime);
+      }
       info.bestSize = Math.min(info.bestSize, compressed.byteLength);
       ++info.created;
     } else if (deleteObsolete) {

@@ -488,6 +488,8 @@ From `fileStats`, only the `mtimeMs` and `size` properties are used.
     saving. **Default:** `0`.
   - `deleteObsolete` [`<boolean>`] if `true`, existing compressed files which are no-longer relevant
     will be deleted. **Default:** `false`.
+  - `matchModifiedTime` [`<boolean>`] if `true`, the modified time of the compressed files will be
+    set to match the modified time of the input file. **Default:** `true`.
   - `filter` [`<Function>`] a function which decides which files to attempt to compress. Called with
     the full file path [`<string>`] and mime type [`<string>`], returns [`<boolean>`]. **Default:**
     a function which rejects known image, video, audio, and font mime types.
@@ -516,6 +518,8 @@ _not_ be compressed, as they are assumed to already be compressed as part of the
     saving. **Default:** `0`.
   - `deleteObsolete` [`<boolean>`] if `true`, existing compressed files which are no-longer relevant
     will be deleted. **Default:** `false`.
+  - `matchModifiedTime` [`<boolean>`] if `true`, the modified time of the compressed files will be
+    set to match the modified time of the input file. **Default:** `true`.
   - `filter` [`<Function>`] a function which decides which files to attempt to compress. Called with
     the full file path [`<string>`] and mime type [`<string>`], returns [`<boolean>`]. **Default:**
     a function which rejects known image, video, audio, and font mime types.
