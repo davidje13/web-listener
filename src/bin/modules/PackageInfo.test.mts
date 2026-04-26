@@ -177,6 +177,34 @@ describe('getResolvedExportMap', () => {
     );
   });
 
+  it('allows plain filenames in fallback fields', () => {
+    const input: PackageJson = {
+      name: 'foo',
+      browser: 'browser.js',
+      module: 'module.mjs',
+      main: 'main.js',
+    };
+
+    expect(getResolvedExportMap(input, new Set())).equals(
+      new Map([
+        ['.', './main.js'],
+        ['./*', './*'],
+      ]),
+    );
+    expect(getResolvedExportMap(input, new Set(['browser']))).equals(
+      new Map([
+        ['.', './browser.js'],
+        ['./*', './*'],
+      ]),
+    );
+    expect(getResolvedExportMap(input, new Set(['module']))).equals(
+      new Map([
+        ['.', './module.mjs'],
+        ['./*', './*'],
+      ]),
+    );
+  });
+
   it('falls back to index.js', () => {
     expect(getResolvedExportMap({ name: 'foo' }, new Set())).equals(
       new Map([

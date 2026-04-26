@@ -94,9 +94,9 @@ function getNormalisedExports(
   if (exp === undefined) {
     return {
       '.': {
-        browser: packageJson.browser,
-        module: packageJson.module,
-        default: packageJson.main ?? './index.js',
+        browser: ensureRelative(packageJson.browser),
+        module: ensureRelative(packageJson.module),
+        default: ensureRelative(packageJson.main) ?? './index.js',
       },
       './*': './*',
     };
@@ -111,6 +111,9 @@ function getNormalisedExports(
   }
   return { '.': exp };
 }
+
+const ensureRelative = (path: string | undefined) =>
+  path ? (path.startsWith('./') ? path : './' + path) : undefined;
 
 function resolveMappings(
   mappings: Record<string, MaybeArray<ImportMapping> | undefined>,
