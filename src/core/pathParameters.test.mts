@@ -153,9 +153,22 @@ describe('getPathParameters', () => {
     });
   });
 
-  it('allows URL encoded slashes in path parameters', { timeout: 3000 }, () => {
+  it('uses URL encoded slashes as path delimiters by default', { timeout: 3000 }, () => {
     let capturedParameters: unknown;
     const router = new Router().get('/foo/:id/*rest', (req, res) => {
+      capturedParameters = getPathParameters(req);
+      res.end();
+    });
+
+    return withServer(router, async (url) => {
+      await expect(fetch(url + '/foo/a%2fb/one%2f1/two%2f2'), responds());
+      expect(capturedParameters).equals({ id: 'a', rest: ['b', 'one/1', 'two/2'] });
+    });
+  });
+
+  it('allows URL encoded slashes in path parameters with the "%" flag', { timeout: 3000 }, () => {
+    let capturedParameters: unknown;
+    const router = new Router().get('%/foo/:id/*rest', (req, res) => {
       capturedParameters = getPathParameters(req);
       res.end();
     });

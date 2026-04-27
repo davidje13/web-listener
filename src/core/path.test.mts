@@ -93,11 +93,22 @@ describe('compilePathPattern', () => {
     expect(path._pattern.test('/a%b')).isFalse();
   });
 
-  it('does not match encoded / characters', () => {
+  it('matches encoded / characters by default', () => {
     const path = internalCompilePathPattern('/a/b', false);
+    expect(path._pattern.test('/a/b')).isTrue();
+    expect(path._pattern.test('/a%2fb')).isTrue();
+    expect(path._pattern.test('/a%2Fb')).isTrue();
+    expect(path._pattern.test('/a%20b')).isFalse();
+    expect(path._pattern.test('/a%1fb')).isFalse();
+  });
+
+  it('does not match encoded / characters if "%" is specified', () => {
+    const path = internalCompilePathPattern('%/a/b', false);
     expect(path._pattern.test('/a/b')).isTrue();
     expect(path._pattern.test('/a%2fb')).isFalse();
     expect(path._pattern.test('/a%2Fb')).isFalse();
+    expect(path._pattern.test('/a%20b')).isFalse();
+    expect(path._pattern.test('/a%1fb')).isFalse();
   });
 
   it('allows sub-routes after optional trailing slashes', () => {

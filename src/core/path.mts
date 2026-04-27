@@ -65,7 +65,8 @@ export function internalCompilePathPattern(
   const patternParts = ['^'];
   const parameters: NamedPathParameter[] = [];
   const part = /[{}]|\/+|%|\\(.)|[:*]([a-zA-Z0-9_]*)/g;
-  const [{ _caseInsensitive, _noMergeSlashes }, path] = internalPathFlags(flagsAndPath);
+  const [{ _caseInsensitive, _noMergeSlashes, _noEncodedSlashes }, path] =
+    internalPathFlags(flagsAndPath);
   if (path[0] !== '/') {
     throw new TypeError("path must begin with '/' or flags");
   }
@@ -80,6 +81,8 @@ export function internalCompilePathPattern(
     patternParts.push(fragment);
   };
   let hasMultiParam = false;
+  const sep = _noEncodedSlashes ? '/' : '(?:/|%2[fF])';
+  const notSep = _noEncodedSlashes ? '[^/]' : '(?:[^/%]|%[^2].|%2[^fF])';
   for (const match of path.matchAll(part)) {
     if (match.index > p) {
       addLiteral(internalRegExpEscape(path.substring(p, match.index)));
@@ -109,14 +112,16 @@ export function internalCompilePathPattern(
       patternParts.push(')?');
     } else if (token[0] === '/') {
       cur._interParam = null;
-      patternParts.push(token);
-      if (!_noMergeSlashes) {
+      patternParts.push(sep);
+      if (token.length > 1) {
+        patternParts.push(`{${token.length}${_noMergeSlashes ? '' : ','}}`);
+      } else if (!_noMergeSlashes) {
         patternParts.push('+');
       }
-    } else if (token[0] === '%' || (token[0] === '\\' && match[1] === '%')) {
+    } else if (token[0] === '%') {
       addLiteral('%25');
     } else if (token[0] === '\\') {
-      addLiteral(internalRegExpEscape(match[1]!));
+      addLiteral(match[1] === '%' ? '%25' : internalRegExpEscape(match[1]!));
     } else {
       const type = token[0];
       const name = match[2];
@@ -136,7 +141,7 @@ export function internalCompilePathPattern(
         }
         hasMultiParam = true;
         if (cur._interParam !== null) {
-          patternParts.push(`((?:(?!${cur._interParam})[^/])*?(?:/.*?)?)`);
+          patternParts.push(`((?:(?!${cur._interParam})${notSep})*?(?:${sep}.*?)?)`);
         } else {
           patternParts.push('(.*?)');
         }
@@ -146,9 +151,9 @@ export function internalCompilePathPattern(
         });
       } else {
         if (cur._interParam !== null) {
-          patternParts.push(`((?:(?!${cur._interParam})[^/])+?)`);
+          patternParts.push(`((?:(?!${cur._interParam})${notSep})+?)`);
         } else {
-          patternParts.push('([^/]+?)');
+          patternParts.push(`(${notSep}+?)`);
         }
         parameters.push({ _name: name, _reader: READ_SINGLE_PARAM });
       }
@@ -167,9 +172,9 @@ export function internalCompilePathPattern(
     // always require a slash before sub-routes, but this may have been consumed by a part of the pattern already, so allow a lookbehind
     patternParts.push('(?:');
     if (_noMergeSlashes) {
-      patternParts.push('(?:(?<=/)|/)');
+      patternParts.push(`(?:(?<=${sep})|${sep})`);
     } else {
-      patternParts.push('(?:/+|(?<=/))');
+      patternParts.push(`(?:${sep}+|(?<=${sep}))`);
     }
     patternParts.push('(?<rest>.*))?');
   }
@@ -202,5 +207,9 @@ const internalPathFlags = /*@__PURE__*/ internalFlagExtractor(
     // perform exact matching of slashes. By default, sequences of / match n *or more* slashes
     // (merging is on by default for security; see NGINX's rationale https://nginx.org/en/docs/http/ngx_http_core_module.html#merge_slashes)
     ['!', /*@__KEY__*/ '_noMergeSlashes' as const],
+
+    // do not consider %2f encoded slashes when matching slashes in the path
+    // (matching includes encoded slashes by default for best compatibility with other servers and proxies)
+    ['%', /*@__KEY__*/ '_noEncodedSlashes' as const],
   ]),
 );

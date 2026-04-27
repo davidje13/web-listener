@@ -3803,11 +3803,6 @@ as numbers or other types).
 URL decoding is applied to path parameters automatically (in the example above, requesting
 `/objects/foo%21` will set `id` to `'foo!'`).
 
-If a user requests a path with `%2f` (which decodes to `/`), the `/` will be part of the path
-parameter (e.g. `/objects/foo%2fbar` will set `id` to `'foo/bar'`). Encoded slashes will not match
-any literal `/`s in the pattern. Note, however, that intermediary proxies (such as NGINX) may
-rewrite the request, converting `%2f` to `/`.
-
 These can also be fragments of a path component:
 
 ```
@@ -3849,11 +3844,6 @@ element per path component).
 
 URL decoding is applied to path parameters automatically (in the example above, requesting
 `/go/foo%21` will set `path` to `['foo!']`).
-
-If a user requests a path with `%2f` (which decodes to `/`), the `/` will be part of a path
-component (e.g. `/go/foo%2fbar/baz` will set `path` to `['foo/bar', 'baz']`). Encoded slashes will
-not match any literal `/`s in the pattern. Note, however, that intermediary proxies (such as NGINX)
-may rewrite the request, converting `%2f` to `/`.
 
 `*` wildcards also accept empty matches: `/go/` will match the example above, setting `path` to
 `[]`. But note that the preceeding `/` is not optional, so `/go` will _not_ match. Use `/go{/*path}`
@@ -3959,6 +3949,30 @@ To disable this and enforce exact matching on slashes, use the `!` flag:
 ```
 
 This will match `/foo//bar`, but not `/foo///bar`
+
+## Enabling percent-encoded slashes in parameters
+
+By default, if a user requests a path with `%2f`, it will be decoded to `/` and matched against the
+pattern as if it were an unencoded `/`. This default behaviour matches NGINX and (as with slash
+merging) helps to avoid path confusion vulnerabilities (where a proxy interprets a malicious path
+one way but the server interprets it a different way, potentially bypassing access controls).
+
+For example, the path pattern `/:id/*rest` will match requests for `/one%2ftwo/three%2ffour` by
+setting `id` to `'one'` and `rest` to `['two', 'three/four']`.
+
+If you need a path parameter to be able to accept encoded slashes, and you are confident that it
+will not introduce path confusion vulnerabilities with your setup, you can set the `%` flag:
+
+```
+%/:id/*rest
+```
+
+This will match requests for `/one%2ftwo/three%2ffour` by setting `id` to `'one/two'` and `rest` to
+`['three/four']`.
+
+Note that reverse proxies or load balancers may rewrite the request, converting `%2f` to `/` before
+it reaches Web Listener. Be sure to test paths which need this flag in a representative production
+environment.
 
 # Examples
 
