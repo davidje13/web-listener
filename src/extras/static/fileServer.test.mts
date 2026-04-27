@@ -12,6 +12,7 @@ describe('fileServer', () => {
     'file.txt': 'Content',
     'file.txt.gz': 'Compressed',
     'index.htm': 'Root Index',
+    'special%char.txt': 'Special',
     sub: {
       'index.html': 'Sub Index',
     },
@@ -64,6 +65,56 @@ describe('fileServer', () => {
       });
     },
   );
+
+  it(
+    'serves files with special characters in dynamic mode',
+    { timeout: 3000 },
+    async ({ getTyped }) => {
+      const handler = await fileServer(getTyped(TEST_DIR));
+
+      return withServer(handler, async (url) => {
+        const res = await fetch(url + '/special%25char.txt');
+        expect(res.status).equals(200);
+        expect(await res.text()).equals('Special');
+      });
+    },
+  );
+
+  it(
+    'serves files with special characters in static paths mode',
+    { timeout: 3000 },
+    async ({ getTyped }) => {
+      const handler = await fileServer(getTyped(TEST_DIR), { mode: 'static-paths' });
+
+      return withServer(handler, async (url) => {
+        const res = await fetch(url + '/special%25char.txt');
+        expect(res.status).equals(200);
+        expect(await res.text()).equals('Special');
+      });
+    },
+  );
+
+  it('rejects requests with %2f in dynamic mode', { timeout: 3000 }, async ({ getTyped }) => {
+    const handler = await fileServer(getTyped(TEST_DIR));
+
+    return withServer(handler, async (url, { expectError }) => {
+      const res = await fetch(url + '/sub%2f');
+      expect(res.status).equals(400);
+      expect(await res.text()).equals('invalid path');
+      expectError('handling request /sub%2f: HTTPError(400 Bad Request): invalid path');
+    });
+  });
+
+  it('rejects requests with %2f in static paths mode', { timeout: 3000 }, async ({ getTyped }) => {
+    const handler = await fileServer(getTyped(TEST_DIR), { mode: 'static-paths' });
+
+    return withServer(handler, async (url, { expectError }) => {
+      const res = await fetch(url + '/sub%2f');
+      expect(res.status).equals(404);
+      expect(await res.text()).equals('');
+      expectError('handling request /sub%2f: HTTPError(404 Not Found)');
+    });
+  });
 
   it('supports content negotiation', { timeout: 3000 }, async ({ getTyped }) => {
     const handler = await fileServer(getTyped(TEST_DIR), {

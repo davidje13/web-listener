@@ -1,4 +1,5 @@
 import { internalRegExpEscape } from '../polyfill/regExpEscape.mts';
+import { decodeSlashes } from '../util/parseURL.mts';
 
 type ParameterPrefixes = [':', '*'];
 type ParameterTerminators = ['/', '-', '.', ...ParameterPrefixes];
@@ -44,11 +45,10 @@ export interface NamedPathParameter {
   _reader: (value: string | undefined) => unknown;
 }
 
-const READ_SINGLE_PARAM = (v: string | undefined) => v;
+const READ_SINGLE_PARAM = (v: string | undefined) => v && decodeSlashes(v);
 const READ_MULTI_PARAM = (v: string | undefined) =>
-  v === undefined ? undefined : v === '' ? [] : v.split('/');
-const READ_MULTI_PARAM_MERGE = (v: string | undefined) =>
-  v === undefined ? undefined : v === '' ? [] : v.split('/').filter((o) => o);
+  v === undefined ? undefined : v === '' ? [] : v.split('/').map(decodeSlashes);
+const READ_MULTI_PARAM_MERGE = (v: string | undefined) => READ_MULTI_PARAM(v)?.filter((o) => o);
 
 interface NestState {
   _interParam: string | null;
@@ -64,7 +64,7 @@ export function internalCompilePathPattern(
 } {
   const patternParts = ['^'];
   const parameters: NamedPathParameter[] = [];
-  const part = /[{}]|\/+|\\(.)|[:*]([a-zA-Z0-9_]*)/g;
+  const part = /[{}]|\/+|%|\\(.)|[:*]([a-zA-Z0-9_]*)/g;
   const [{ _caseInsensitive, _noMergeSlashes }, path] = internalPathFlags(flagsAndPath);
   if (path[0] !== '/') {
     throw new TypeError("path must begin with '/' or flags");
@@ -72,15 +72,17 @@ export function internalCompilePathPattern(
   let p = 0;
   let cur: NestState = { _interParam: null, _interParamEmpty: false };
   const nesting: NestState[] = [cur];
+  const addLiteral = (fragment: string) => {
+    if (cur._interParam !== null) {
+      cur._interParam += fragment;
+      cur._interParamEmpty = false;
+    }
+    patternParts.push(fragment);
+  };
   let hasMultiParam = false;
   for (const match of path.matchAll(part)) {
     if (match.index > p) {
-      const fragment = internalRegExpEscape(path.substring(p, match.index));
-      if (cur._interParam !== null) {
-        cur._interParam += fragment;
-        cur._interParamEmpty = false;
-      }
-      patternParts.push(fragment);
+      addLiteral(internalRegExpEscape(path.substring(p, match.index)));
     }
     const token = match[0];
     if (token === '{') {
@@ -111,13 +113,10 @@ export function internalCompilePathPattern(
       if (!_noMergeSlashes) {
         patternParts.push('+');
       }
+    } else if (token[0] === '%' || (token[0] === '\\' && match[1] === '%')) {
+      addLiteral('%25');
     } else if (token[0] === '\\') {
-      const fragment = internalRegExpEscape(match[1]!);
-      if (cur._interParam !== null) {
-        cur._interParam += fragment;
-        cur._interParamEmpty = false;
-      }
-      patternParts.push(fragment);
+      addLiteral(internalRegExpEscape(match[1]!));
     } else {
       const type = token[0];
       const name = match[2];

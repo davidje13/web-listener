@@ -3801,9 +3801,12 @@ This defines a string path parameter named `id`. It will match `/objects/abc`, s
 as numbers or other types).
 
 URL decoding is applied to path parameters automatically (in the example above, requesting
-`/objects/foo%21` will set `id` to `'foo!'`). Currently `%2f` (`/`) is decoded _before_ pattern
-matching and therefore a `/` can never appear in a path parameter's value, but this may change in a
-future version.
+`/objects/foo%21` will set `id` to `'foo!'`).
+
+If a user requests a path with `%2f` (which decodes to `/`), the `/` will be part of the path
+parameter (e.g. `/objects/foo%2fbar` will set `id` to `'foo/bar'`). Encoded slashes will not match
+any literal `/`s in the pattern. Note, however, that intermediary proxies (such as NGINX) may
+rewrite the request, converting `%2f` to `/`.
 
 These can also be fragments of a path component:
 
@@ -3845,9 +3848,12 @@ This defines a list path parameter named `path`. It will match `/go/here/there`,
 element per path component).
 
 URL decoding is applied to path parameters automatically (in the example above, requesting
-`/go/foo%21` will set `path` to `['foo!']`). Currently `%2f` (`/`) is decoded _before_ pattern
-matching and therefore a `/` can never appear in a path parameter's value (it will instead be
-handled as a separator like a regular `/`), but this may change in a future version.
+`/go/foo%21` will set `path` to `['foo!']`).
+
+If a user requests a path with `%2f` (which decodes to `/`), the `/` will be part of a path
+component (e.g. `/go/foo%2fbar/baz` will set `path` to `['foo/bar', 'baz']`). Encoded slashes will
+not match any literal `/`s in the pattern. Note, however, that intermediary proxies (such as NGINX)
+may rewrite the request, converting `%2f` to `/`.
 
 `*` wildcards also accept empty matches: `/go/` will match the example above, setting `path` to
 `[]`. But note that the preceeding `/` is not optional, so `/go` will _not_ match. Use `/go{/*path}`

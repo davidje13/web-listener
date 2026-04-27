@@ -153,8 +153,7 @@ describe('getPathParameters', () => {
     });
   });
 
-  // TODO
-  it.ignore('allows URL encoded slashes in path parameters', { timeout: 3000 }, () => {
+  it('allows URL encoded slashes in path parameters', { timeout: 3000 }, () => {
     let capturedParameters: unknown;
     const router = new Router().get('/foo/:id/*rest', (req, res) => {
       capturedParameters = getPathParameters(req);

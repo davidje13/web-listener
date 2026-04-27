@@ -1,7 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { Duplex } from 'node:stream';
 import type { MaybePromise } from '../util/MaybePromise.mts';
-import { internalParseURL } from '../util/parseURL.mts';
+import { internalParseURL, makeDecodedCache } from '../util/parseURL.mts';
 import { ErrorAccumulator } from '../util/ErrorAccumulator.mts';
 
 export type TeardownFn = () => MaybePromise<void>;
@@ -63,7 +63,7 @@ export function internalBeginRequest(
   const props: MessageProps = {
     _request: req,
     _originalURL: url,
-    _decodedPathname: decodeURIComponent(url.pathname), // must decode URI upfront to avoid path confusion vulnerabilities
+    _decodedPathname: makeDecodedCache(url.pathname), // must decode URI upfront to avoid path confusion vulnerabilities
     _ac: new AbortController(),
     _errorCallback: errorCallback,
     _deferred: [],

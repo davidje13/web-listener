@@ -50,6 +50,7 @@ describe('getRemainingPathComponents', () => {
       if (platform() === 'win32') {
         expect(await fetchJSON(url + '/CON1')).equals('HTTPError(400 Bad Request): invalid path');
       } else {
+        expect(await fetchJSON(url + '/a%2fb')).equals('HTTPError(400 Bad Request): invalid path');
         expect(await fetchJSON(url + '/~')).equals('HTTPError(400 Bad Request): invalid path');
       }
     });

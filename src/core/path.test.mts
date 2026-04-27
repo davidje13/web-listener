@@ -84,6 +84,22 @@ describe('compilePathPattern', () => {
     expect(path._pattern.test('/foo.')).isFalse();
   });
 
+  it('matches encoded % characters', () => {
+    const path = internalCompilePathPattern('/a%b', false);
+    expect(path._pattern.test('/a%25b')).isTrue();
+    expect(path._pattern.test('/a%2fb')).isFalse();
+    expect(path._pattern.test('/a%20b')).isFalse();
+    expect(path._pattern.test('/ab')).isFalse();
+    expect(path._pattern.test('/a%b')).isFalse();
+  });
+
+  it('does not match encoded / characters', () => {
+    const path = internalCompilePathPattern('/a/b', false);
+    expect(path._pattern.test('/a/b')).isTrue();
+    expect(path._pattern.test('/a%2fb')).isFalse();
+    expect(path._pattern.test('/a%2Fb')).isFalse();
+  });
+
   it('allows sub-routes after optional trailing slashes', () => {
     const path = internalCompilePathPattern('/foo/bar{/}', true);
     expect(path._pattern.test('/foo/bar')).isTrue();
