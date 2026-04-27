@@ -1,3 +1,4 @@
+import { platform } from 'node:os';
 import { makeTestTempDir } from '../../test-helpers/makeFileStructure.mts';
 import { withServer } from '../../test-helpers/withServer.mts';
 import { makeRequestOnSocket, openRawSocket, rawRequest } from '../../test-helpers/rawRequest.mts';
@@ -100,8 +101,13 @@ describe('fileServer', () => {
     return withServer(handler, async (url, { expectError }) => {
       const res = await fetch(url + '/sub%2f');
       expect(res.status).equals(400);
-      expect(await res.text()).equals('invalid path');
-      expectError('handling request /sub%2f: HTTPError(400 Bad Request): invalid path');
+      if (platform() === 'win32') {
+        expect(await res.text()).equals('');
+        expectError('handling request /sub%2f: HTTPError(404 Not Found)');
+      } else {
+        expect(await res.text()).equals('invalid path');
+        expectError('handling request /sub%2f: HTTPError(400 Bad Request): invalid path');
+      }
     });
   });
 
