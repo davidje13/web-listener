@@ -13,13 +13,13 @@ export function getRemainingPathComponents(
 ): string[] {
   let components: string[] = [];
   const props = internalGetProps(req);
-  if (props) {
+  if (props && !props._encodedPathname) {
     if (props._decodedPathname === '/') {
       return [];
     }
-    components = props._decodedPathname.split('/'); // TODO: ideally decode after splitting
+    components = props._decodedPathname.split('/');
   } else {
-    const path = internalParseURL(req).pathname;
+    const path = props?._encodedPathname ?? internalParseURL(req).pathname;
     if (path === '/') {
       return [];
     }

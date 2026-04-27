@@ -47,10 +47,6 @@ describe('getRemainingPathComponents', () => {
       );
       expect(await fetchJSON(url + '/%10')).equals('HTTPError(400 Bad Request): invalid path');
 
-      // TODO: this gets filtered out before reaching getRemainingPathComponents
-      //const res = await rawRequest(url + '/a/%2e%2e/b');
-      //expect(res).contains('HTTPError(400 Bad Request): invalid path');
-
       if (platform() === 'win32') {
         expect(await fetchJSON(url + '/CON1')).equals('HTTPError(400 Bad Request): invalid path');
       } else {
@@ -82,14 +78,25 @@ describe('getRemainingPathComponents', () => {
     },
   );
 
-  // TODO: slashes are currently decoded before splitting
-  it.ignore('preserves url-encoded slashes', { timeout: 3000 }, () => {
+  it('preserves url-encoded slashes', { timeout: 3000 }, () => {
     const handler = requestHandler((req, res) => {
       res.end(JSON.stringify(getRemainingPathComponents(req, { rejectPotentiallyUnsafe: false })));
     });
 
     return withServer(handler, async (url) => {
       expect(await fetchJSON(url + '/foo%2fbar')).equals(['foo/bar']);
+    });
+  });
+
+  it('preserves url-encoded slashes in sub-routes', { timeout: 3000 }, () => {
+    const router = new Router();
+    router.mount('/a', (req, res) => {
+      res.end(JSON.stringify(getRemainingPathComponents(req, { rejectPotentiallyUnsafe: false })));
+    });
+
+    return withServer(router, async (url) => {
+      expect(await fetchJSON(url + '/a/foo%2fbar')).equals(['foo/bar']);
+      expect(await fetchJSON(url + '/%61/foo%2fbar')).equals(['foo/bar']);
     });
   });
 });

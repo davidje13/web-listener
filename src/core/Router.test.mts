@@ -90,10 +90,71 @@ describe('router', () => {
     });
   });
 
+  it('preserves URL encoding of remaining path', { timeout: 3000 }, () => {
+    const router = new Router();
+    router.mount('/foo', testHandler);
+
+    return withServer(router, async (url) => {
+      await expect(
+        fetch(url + '/foo/a%61b'),
+        responds({ status: 200, body: 'request - method: GET, handler URL: /a%61b' }),
+      );
+
+      await expect(
+        fetch(url + '/%66oo/a%61b'),
+        responds({ status: 200, body: 'request - method: GET, handler URL: /a%61b' }),
+      );
+
+      await expect(
+        fetch(url + '/foo/a%2fb'),
+        responds({ status: 200, body: 'request - method: GET, handler URL: /a%2fb' }),
+      );
+
+      await expect(
+        fetch(url + '/foo/a%2Fb'),
+        responds({ status: 200, body: 'request - method: GET, handler URL: /a%2Fb' }),
+      );
+
+      await expect(
+        fetch(url + '/foo/a+b'),
+        responds({ status: 200, body: 'request - method: GET, handler URL: /a+b' }),
+      );
+    });
+  });
+
   it('rejects malformed paths', { timeout: 3000 }, () => {
     return withServer(new Router(), async (url, { expectError }) => {
+      // naked %
       await expect(fetch(url + '/fo%o'), responds({ status: 400, body: '' }));
       expectError('parsing request /fo%o: URIError: URI malformed');
+
+      // fragment of utf-8 multibyte sequence
+      await expect(fetch(url + '/%80'), responds({ status: 400, body: '' }));
+      expectError('parsing request /%80: URIError: URI malformed');
+
+      await expect(fetch(url + '/%C0'), responds({ status: 400, body: '' }));
+      expectError('parsing request /%C0: URIError: URI malformed');
+
+      // interrupted utf-8 multibyte sequence
+      await expect(fetch(url + '/%80a'), responds({ status: 400, body: '' }));
+      expectError('parsing request /%80a: URIError: URI malformed');
+
+      await expect(fetch(url + '/%80%20'), responds({ status: 400, body: '' }));
+      expectError('parsing request /%80%20: URIError: URI malformed');
+
+      // utf-16 surrogate pair encoded as utf-8
+      await expect(fetch(url + '/%ED%A1%81%ED%B1%81'), responds({ status: 400, body: '' }));
+      expectError('parsing request /%ED%A1%81%ED%B1%81: URIError: URI malformed');
+
+      // overlong encoding
+      await expect(fetch(url + '/%C0%9F'), responds({ status: 400, body: '' }));
+      expectError('parsing request /%C0%9F: URIError: URI malformed');
+
+      await expect(fetch(url + '/%F0%80%80%80'), responds({ status: 400, body: '' }));
+      expectError('parsing request /%F0%80%80%80: URIError: URI malformed');
+
+      await expect(fetch(url + '/%F0%8F%BF%BF'), responds({ status: 400, body: '' }));
+      expectError('parsing request /%F0%8F%BF%BF: URIError: URI malformed');
     });
   });
 

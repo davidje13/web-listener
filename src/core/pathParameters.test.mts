@@ -316,7 +316,7 @@ describe('restoreAbsolutePath', () => {
 
     return withServer(router, async (url) => {
       await expect(fetch(url + '/f%6f%6f/bar/b%61z'), responds());
-      expect(initial).equals('/baz'); // TODO: would be nice if this could be '/b%61z'
+      expect(initial).equals('/b%61z');
       expect(restored).equals('/f%6f%6f/bar/b%61z');
     });
   });

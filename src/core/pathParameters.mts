@@ -1,5 +1,6 @@
 import type { IncomingMessage } from 'node:http';
 import { accessProperty } from '../util/safeAccess.mts';
+import { posEncoded } from '../util/parseURL.mts';
 import { internalGetProps, type MessageProps } from './messages.mts';
 
 const PATH_PARAMETERS = Symbol();
@@ -19,12 +20,22 @@ export function internalBeginPathScope(
   scopedPathParameters: [string, unknown][],
 ) {
   const oldURL = props._request.url;
-  const oldPathname = props._decodedPathname;
+  const oldDecodedPathname = props._decodedPathname;
+  const oldEncodedPathname = props._encodedPathname;
   const oldPathParameters = props._pathParams ?? EMPTY;
 
-  // re-encode the scoped path so that native handlers (which expect to have to decode it themselves) work without modification
-  props._request.url =
-    encodeURIComponent(scopedPathname).replaceAll('%2F', '/') + props._originalURL.search;
+  if (props._encodedPathname) {
+    // re-encode the scoped path so that native handlers (which expect to have to decode it themselves) work without modification
+    const cut = posEncoded(
+      props._encodedPathname,
+      props._decodedPathname.length - scopedPathname.length,
+    );
+    const newEncodedPathname = props._encodedPathname.substring(cut);
+    props._request.url = newEncodedPathname + props._originalURL.search;
+    props._encodedPathname = newEncodedPathname.includes('%') ? newEncodedPathname : undefined;
+  } else {
+    props._request.url = scopedPathname + props._originalURL.search;
+  }
   props._decodedPathname = scopedPathname;
   if (scopedPathParameters.length > 0) {
     props._pathParams = Object.freeze(
@@ -34,7 +45,10 @@ export function internalBeginPathScope(
 
   return () => {
     props._request.url = oldURL;
-    props._decodedPathname = oldPathname;
+    props._decodedPathname = oldDecodedPathname;
+    if (oldEncodedPathname) {
+      props._encodedPathname = oldEncodedPathname;
+    }
     props._pathParams = oldPathParameters;
   };
 }

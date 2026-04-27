@@ -35,6 +35,7 @@ export type MessageProps = {
   _request: IncomingMessage;
   _originalURL: URL;
   _decodedPathname: string;
+  _encodedPathname?: string | undefined; // undefined = same as _decodedPathname (i.e. no encoded chars)
   _hasUpgraded?: number;
   _upgradeErrorHandler?: UpgradeErrorHandler | undefined;
   _ac: AbortController;
@@ -69,6 +70,9 @@ export function internalBeginRequest(
     _teardowns: [],
     _upgradeProtocols: isUpgrade ? internalReadUpgradeProtocols(req) : null,
   };
+  if (url.pathname.includes('%')) {
+    props._encodedPathname = url.pathname;
+  }
   REQUESTS.set(req, props);
   return props;
 }
