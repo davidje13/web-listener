@@ -1,6 +1,16 @@
 import { internalRegExpEscape } from '../polyfill/regExpEscape.mts';
 import { decodeSlashes } from '../util/parseURL.mts';
 
+type Perm2<A extends string, B extends string> = '' | A | B | `${A}${B}` | `${B}${A}`;
+type Perm3<A extends string, B extends string, C extends string> =
+  | ''
+  | `${A}${Perm2<B, C>}`
+  | `${B}${Perm2<A, C>}`
+  | `${C}${Perm2<A, B>}`;
+type PathFlags = Perm3<'~', '!', '%'>;
+export type ValidPath<Path extends string> = Path &
+  (string extends Path ? string : `${PathFlags}/${string}`);
+
 type ParameterPrefixes = [':', '*'];
 type ParameterTerminators = ['/', '-', '.', ...ParameterPrefixes];
 

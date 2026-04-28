@@ -195,6 +195,22 @@ r.mount('/no-params', subRouter);
 // @ts-expect-error
 r.mount('/:foo', new Router<WithPathParameters<{ foo: string; bar: string }>>());
 
+r.mount('~/foo', () => {});
+r.mount('!/foo', () => {});
+r.mount('%/foo', () => {});
+r.mount('~!%/foo', () => {});
+const path: string = '/foo';
+r.mount(path, () => {});
+
+// @ts-expect-error
+r.mount('foo', () => {});
+
+// @ts-expect-error
+r.mount('*/foo', () => {});
+
+// @ts-expect-error
+r.mount('!!/foo', () => {});
+
 const subRouterNoParams = new Router();
 subRouterNoParams.get('/:p', (req) => {
   assertType(getPathParameters(req))<Readonly<{ p: string }>>();

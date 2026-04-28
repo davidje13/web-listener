@@ -4,6 +4,7 @@ import {
   internalCompilePathPattern,
   type NamedPathParameter,
   type ParametersFromPath,
+  type ValidPath,
 } from './path.mts';
 import {
   CONTINUE,
@@ -57,12 +58,12 @@ type RelaxedUpgradeHandler<Req = {}> =
   | ErrorHandler<Req>;
 
 type MethodWrapper<Req, This> = <Path extends string>(
-  path: Path,
+  path: ValidPath<Path>,
   ...handlers: RelaxedRequestHandler<Req & WithPathParameters<ParametersFromPath<Path>>>[]
 ) => This;
 
 type UpgradeWrapper<Req, This> = <Path extends string>(
-  path: Path,
+  path: ValidPath<Path>,
   ...handlers: RelaxedUpgradeHandler<Req & WithPathParameters<ParametersFromPath<Path>>>[]
 ) => This;
 
@@ -123,7 +124,7 @@ export class Router<Req = {}> implements Handler<Req> {
    * To register handlers at the path but not subpaths, use `.at` instead.
    */
   mount<Path extends string>(
-    path: Path,
+    path: ValidPath<Path>,
     ...handlers: RelaxedRequestHandlerOrExplicitUpgrade<
       Req & WithPathParameters<ParametersFromPath<Path>>
     >[]
@@ -135,7 +136,7 @@ export class Router<Req = {}> implements Handler<Req> {
    * Create a new router mounted at the path.
    */
   within<Path extends string>(
-    path: Path,
+    path: ValidPath<Path>,
   ): Router<Req & WithPathParameters<ParametersFromPath<Path>>> {
     const subRouter = new Router<Req & WithPathParameters<ParametersFromPath<Path>>>();
     this.mount(path, subRouter);
@@ -149,7 +150,7 @@ export class Router<Req = {}> implements Handler<Req> {
    * To register handlers at the path and all subpaths, use `.mount` instead.
    */
   at<Path extends string>(
-    path: Path,
+    path: ValidPath<Path>,
     ...handlers: RelaxedRequestHandlerOrExplicitUpgrade<
       Req & WithPathParameters<ParametersFromPath<Path>>
     >[]
@@ -163,7 +164,7 @@ export class Router<Req = {}> implements Handler<Req> {
    */
   onRequest<Path extends string, Method extends string = CommonMethod>(
     method: Method | Iterable<Method>,
-    path: Path,
+    path: ValidPath<Path>,
     ...handlers: RelaxedRequestHandler<Req & WithPathParameters<ParametersFromPath<Path>>>[]
   ): this {
     return this._add(
@@ -186,7 +187,7 @@ export class Router<Req = {}> implements Handler<Req> {
   >(
     method: Method | Iterable<Method> | null,
     protocol: Protocol,
-    path: Path,
+    path: ValidPath<Path>,
     ...handlers: RelaxedUpgradeHandler<Req & WithPathParameters<ParametersFromPath<Path>>>[]
   ) {
     return this._add(wrapMethods(method), protocol, path, false, handlers.map(wrapHandlerUpgrade));

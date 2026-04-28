@@ -43,7 +43,7 @@ export {
 } from './core/handler.mts';
 export { HTTPError, type HTTPErrorOptions } from './core/HTTPError.mts';
 export type { ServerErrorCallback, UpgradeErrorHandler } from './core/messages.mts';
-export type { ParametersFromPath } from './core/path.mts';
+export type { ParametersFromPath, ValidPath } from './core/path.mts';
 export {
   getPathParameter,
   getPathParameters,
