@@ -6,7 +6,6 @@ import { getAddressURL } from '../util/getAddressURL.mts';
 import { requestHandler, upgradeHandler } from './handler.mts';
 import { setSoftCloseHandler } from './close.mts';
 import { WebListener, type RequestErrorDetail } from './WebListener.mts';
-import '../polyfill/fetch.mts';
 import 'lean-test';
 
 describe('WebListener', () => {

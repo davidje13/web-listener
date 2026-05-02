@@ -5,6 +5,7 @@
     "test": "./commonjs.cjs && ./es6modules.mjs && tsc --noEmit && lean-test && ./treeshake/run.sh"
   },
   "devDependencies": {
+    "@types/node": "22.x",
     "@types/ws": "8.x",
     "typescript": "6.0.x",
     "web-listener": "file:web-listener.tgz"

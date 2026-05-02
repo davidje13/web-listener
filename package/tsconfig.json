@@ -1,5 +1,11 @@
 {
-  "compilerOptions": { "strict": true, "target": "es6", "module": "nodenext" },
+  "compilerOptions": {
+    "strict": true,
+    "target": "es6",
+    "module": "nodenext",
+    "lib": ["es2024"],
+    "types": ["node"]
+  },
   "include": ["typescript.ts"],
   "exclude": ["node_modules"]
 }

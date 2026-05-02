@@ -1,4 +1,4 @@
-import { WebSocket, WebSocketServer } from 'ws';
+import { WebSocketServer } from 'ws';
 import { withServer } from '../../test-helpers/withServer.mts';
 import { rawRequest } from '../../test-helpers/rawRequest.mts';
 import { makeWebSocketConnection } from '../../test-helpers/makeWebSocketConnection.mts';
@@ -26,7 +26,7 @@ describe('isWebSocketRequest', () => {
     );
 
     return withServer(handler, async (url) => {
-      const ws = new WebSocket(url); // for now we use 'ws' for this, but in Node.js 21.0+ we can use the native WebSocket
+      const ws = new WebSocket(url);
       ws.addEventListener('error', () => {}); // expected
       await new Promise((resolve) => ws.addEventListener('close', resolve));
       expect(result).equals(true);

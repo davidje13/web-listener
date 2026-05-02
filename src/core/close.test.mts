@@ -13,7 +13,6 @@ import {
   scheduleClose,
   setSoftCloseHandler,
 } from './close.mts';
-import '../polyfill/fetch.mts';
 import 'lean-test';
 
 describe('soft close', () => {

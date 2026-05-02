@@ -1092,7 +1092,7 @@ Supported encodings:
 - `deflate`
 - `gzip` / `x-gzip`
 - `br` (Brotli)
-- `zstd` (Node.js 22.15+)
+- `zstd`
 
 ### `getBodyText(req[, options])`
 

@@ -10,7 +10,6 @@ import {
   type FormField,
   type GetFormFieldsOptions,
 } from './formData.mts';
-import '../../polyfill/fetch.mts';
 import 'lean-test';
 
 describe('getFormFields', () => {

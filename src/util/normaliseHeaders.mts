@@ -2,7 +2,8 @@ import type { OutgoingHttpHeaders } from 'node:http';
 import { internalNormaliseHeaderValue } from '../polyfill/SocketServerResponse.mts';
 
 export type AnyHeaders =
-  | HeadersInit
+  | Headers
+  | [string, string][]
   | OutgoingHttpHeaders
   | Map<string, string | number | Readonly<string[]>>
   | undefined;

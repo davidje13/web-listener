@@ -47,7 +47,7 @@ export class ServerSentEvents {
     setSoftCloseHandler(req, () => this.close(softCloseReconnectDelay, softCloseReconnectStagger));
   }
 
-  get signal() {
+  get signal(): AbortSignal {
     return this._ac.signal;
   }
 

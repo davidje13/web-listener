@@ -12,7 +12,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { node: '20' }
           - { node: '22' }
           - { node: '24' }
           - { node: '25' }

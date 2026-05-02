@@ -192,7 +192,7 @@ async function internalSendJSONPart(options: JSONPartOptions, entity: unknown, i
     entity instanceof Function ||
     entity instanceof Symbol ||
     entity instanceof BigInt ||
-    isRawJSON(entity)
+    JSON.isRawJSON(entity)
   ) {
     if (!options._send(JSON.stringify(entity) ?? 'null')) {
       await internalDrainUncorked(options._target);
@@ -263,10 +263,12 @@ const isSkip = (x: unknown) =>
   typeof x === 'symbol' ||
   x instanceof Function ||
   x instanceof Symbol;
-const isRawJSON = (x: {}): x is RawJSON => (JSON as any).isRawJSON?.(x) ?? false; // JSON.rawJSON / JSON.isRawJSON available in Node.js 21+
 const isIterable = (x: {}): x is Iterable<unknown> => Symbol.iterator in x;
 const isAsyncIterable = (x: {}): x is AsyncIterable<unknown> => Symbol.asyncIterator in x;
 
-interface RawJSON {
-  rawJSON: string;
+// waiting on https://github.com/microsoft/TypeScript/pull/63248
+declare global {
+  interface JSON {
+    isRawJSON(x: unknown): x is { rawJSON: string };
+  }
 }

@@ -11,10 +11,6 @@ variables:
   script:
     - npm install-test
 
-node:20:
-  <<: *build_and_test
-  image: node:20
-
 node:22:
   <<: *build_and_test
   image: node:22

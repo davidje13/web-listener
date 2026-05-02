@@ -173,4 +173,5 @@ export const addTeardown = (req: IncomingMessage, fn: () => MaybePromise<void>) 
   }
 };
 
-export const getAbortSignal = (req: IncomingMessage) => internalMustGetProps(req)._ac.signal;
+export const getAbortSignal = (req: IncomingMessage): AbortSignal =>
+  internalMustGetProps(req)._ac.signal;

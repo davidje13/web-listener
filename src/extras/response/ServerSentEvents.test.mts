@@ -1,7 +1,7 @@
 import { EventSource } from 'eventsource';
 import { withServer } from '../../test-helpers/withServer.mts';
 import { makeStreamSearch } from '../../test-helpers/streamSearch.mts';
-import { rawRequest, rawRequestStream, unchunk } from '../../test-helpers/rawRequest.mts';
+import { rawRequest, rawRequestStream } from '../../test-helpers/rawRequest.mts';
 import { versionIsGreaterOrEqual } from '../../test-helpers/versionIsGreaterOrEqual.mts';
 import { BlockingQueue } from '../../util/BlockingQueue.mts';
 import { requestHandler, type Handler } from '../../core/handler.mts';
@@ -87,7 +87,7 @@ describe('ServerSentEvents', () => {
 
     return withServer(handler, async (url) => {
       const res = await rawRequest(url);
-      expect(unchunk(res)).contains(
+      expect(res).contains(
         'data:one\ndata:two\rdata:three\r\ndata:four\r\ndata:\r\ndata:\rdata:\n\n',
       );
     });
@@ -108,7 +108,7 @@ describe('ServerSentEvents', () => {
         // response corking is not supported in earlier versions
         expect(res).endsWith('data:one\n\n\r\n3\r\n:\n\n\r\na\r\ndata:two\n\n\r\n0\r\n\r\n');
       } else {
-        expect(unchunk(res)).endsWith('data:one\n\n:\n\ndata:two\n\n');
+        expect(res).endsWith('data:one\n\n:\n\ndata:two\n\n');
       }
     });
   });
@@ -138,7 +138,7 @@ describe('ServerSentEvents', () => {
             closePacket,
         );
       } else {
-        expect(unchunk(res)).endsWith('data:one\n\n:\n\ndata:two\n\ndata:three\n\n');
+        expect(res).endsWith('data:one\n\n:\n\ndata:two\n\ndata:three\n\n');
       }
     });
   });
@@ -185,7 +185,7 @@ describe('ServerSentEvents', () => {
 
 function withEventSource(
   handler: Handler,
-  test: (props: { source: EventSource; queue: BlockingQueue<MessageEvent<any>> }) => Promise<void>,
+  test: (props: { source: EventSource; queue: BlockingQueue<MessageEvent> }) => Promise<void>,
 ) {
   return withServer(handler, async (url) => {
     const { source, queue } = queueEventSource(url);
@@ -201,7 +201,7 @@ function withEventSource(
 }
 
 function queueEventSource(url: string) {
-  const queue = new BlockingQueue<MessageEvent<any>>();
+  const queue = new BlockingQueue<MessageEvent>();
   const source = new EventSource(url);
   source.addEventListener('message', (ev) => {
     queue.push(ev);

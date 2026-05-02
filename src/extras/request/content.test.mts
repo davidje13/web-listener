@@ -8,7 +8,6 @@ import { makeStreamSearch } from '../../test-helpers/streamSearch.mts';
 import { rawRequest, rawRequestStream } from '../../test-helpers/rawRequest.mts';
 import { requestHandler } from '../../core/handler.mts';
 import { getBodyJSON, getBodyStream, getBodyText, getBodyTextStream } from './content.mts';
-import '../../polyfill/fetch.mts';
 import 'lean-test';
 
 describe('getBodyStream', () => {

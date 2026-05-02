@@ -9,7 +9,7 @@ const internalGetURL = (req: IncomingMessage) =>
 export const getSearch = (req: IncomingMessage) => internalGetURL(req).search;
 
 /** get the query string for the URL as a URLSearchParams object */
-export const getSearchParams = (req: IncomingMessage) =>
+export const getSearchParams = (req: IncomingMessage): URLSearchParams =>
   new URLSearchParams(internalGetURL(req).searchParams); // make a copy to prevent mutating the shared value
 
 /** get a specific query parameter from the URL */

@@ -1,3 +1,17 @@
+interface EventListener {
+  (evt: Event): void;
+}
+
+interface EventListenerObject {
+  handleEvent(object: Event): void;
+}
+
+interface AddEventListenerOptions extends EventListenerOptions {
+  once?: boolean;
+  passive?: boolean;
+  signal?: AbortSignal;
+}
+
 interface TypedEventTargetInstance<This, Mapping> extends EventTarget {
   addEventListener<K extends keyof Mapping>(
     type: K,
@@ -6,7 +20,7 @@ interface TypedEventTargetInstance<This, Mapping> extends EventTarget {
 
   addEventListener(
     type: string,
-    callback: EventListenerOrEventListenerObject | null,
+    listener: EventListener | EventListenerObject | null,
     options?: EventListenerOptions | boolean,
   ): void;
 }
