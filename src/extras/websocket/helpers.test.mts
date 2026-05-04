@@ -27,8 +27,12 @@ describe('isWebSocketRequest', () => {
 
     return withServer(handler, async (url) => {
       const ws = new WebSocket(url);
-      ws.addEventListener('error', () => {}); // expected
-      await new Promise((resolve) => ws.addEventListener('close', resolve));
+      await new Promise((resolve) => {
+        // An error event is expected since we close without accepting the connection.
+        // Note that Node.js 22 does not emit a close event. 24+ emits error AND close.
+        ws.addEventListener('error', resolve);
+        ws.addEventListener('close', resolve);
+      });
       expect(result).equals(true);
     });
   });

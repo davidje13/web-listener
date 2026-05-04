@@ -1,7 +1,6 @@
 import { Readable } from 'node:stream';
 import { withServer } from '../../test-helpers/withServer.mts';
 import { rawRequest } from '../../test-helpers/rawRequest.mts';
-import { versionIsGreaterOrEqual } from '../../test-helpers/versionIsGreaterOrEqual.mts';
 import { writableString } from '../../test-helpers/writableString.mts';
 import { requestHandler } from '../../core/handler.mts';
 import { loadOnDemand } from './LoadOnDemand.mts';
@@ -270,8 +269,6 @@ describe('sendJSONStream', () => {
   });
 
   it('sends data on the wire efficiently', { timeout: 3000 }, async () => {
-    assume(process.version, versionIsGreaterOrEqual('21.0')); // response corking is not supported in earlier versions
-
     const handler = requestHandler(async (_, res) => {
       await sendJSONStream(res, { foo: 'bar' });
     });
@@ -305,8 +302,6 @@ describe('sendJSONStream', () => {
   });
 
   it('flushes to the wire if a large value is written', { timeout: 3000 }, async () => {
-    assume(process.version, versionIsGreaterOrEqual('21.0')); // response corking is not supported in earlier versions
-
     const large = 'x'.repeat(100000);
     const handler = requestHandler(async (_, res) => {
       await sendJSONStream(res, ['before', large, 'after1', 'after2']);

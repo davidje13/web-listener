@@ -2,7 +2,6 @@ import { EventSource } from 'eventsource';
 import { withServer } from '../../test-helpers/withServer.mts';
 import { makeStreamSearch } from '../../test-helpers/streamSearch.mts';
 import { rawRequest, rawRequestStream } from '../../test-helpers/rawRequest.mts';
-import { versionIsGreaterOrEqual } from '../../test-helpers/versionIsGreaterOrEqual.mts';
 import { BlockingQueue } from '../../util/BlockingQueue.mts';
 import { requestHandler, type Handler } from '../../core/handler.mts';
 import { ServerSentEvents } from './ServerSentEvents.mts';
@@ -64,8 +63,6 @@ describe('ServerSentEvents', () => {
   });
 
   it('sends data on the wire efficiently', { timeout: 3000 }, () => {
-    assume(process.version, versionIsGreaterOrEqual('21.0')); // response corking is not supported in earlier versions
-
     const handler = requestHandler(async (req, res) => {
       const sse = new ServerSentEvents(req, res);
       await sse.send({ data: 'this is my\nmultiline message', id: '123' });
@@ -104,12 +101,7 @@ describe('ServerSentEvents', () => {
 
     return withServer(handler, async (url) => {
       const res = await rawRequest(url);
-      if (versionIsGreaterOrEqual('21.0')(process.version).pass) {
-        // response corking is not supported in earlier versions
-        expect(res).endsWith('data:one\n\n\r\n3\r\n:\n\n\r\na\r\ndata:two\n\n\r\n0\r\n\r\n');
-      } else {
-        expect(res).endsWith('data:one\n\n:\n\ndata:two\n\n');
-      }
+      expect(res).endsWith('data:one\n\n\r\n3\r\n:\n\n\r\na\r\ndata:two\n\n\r\n0\r\n\r\n');
     });
   });
 
@@ -127,19 +119,15 @@ describe('ServerSentEvents', () => {
 
     return withServer(handler, async (url) => {
       const res = await rawRequest(url);
-      if (versionIsGreaterOrEqual('21.0')(process.version).pass) {
-        const pingPacket = '3\r\n:\n\n\r\n';
-        const closePacket = '0\r\n\r\n';
-        expect(res).endsWith(
-          'data:one\n\n\r\n' +
-            pingPacket +
-            'a\r\ndata:two\n\n\r\n' +
-            'c\r\ndata:three\n\n\r\n' +
-            closePacket,
-        );
-      } else {
-        expect(res).endsWith('data:one\n\n:\n\ndata:two\n\ndata:three\n\n');
-      }
+      const pingPacket = '3\r\n:\n\n\r\n';
+      const closePacket = '0\r\n\r\n';
+      expect(res).endsWith(
+        'data:one\n\n\r\n' +
+          pingPacket +
+          'a\r\ndata:two\n\n\r\n' +
+          'c\r\ndata:three\n\n\r\n' +
+          closePacket,
+      );
     });
   });
 
