@@ -92,7 +92,7 @@ export function internalCompilePathPattern(
   };
   let hasMultiParam = false;
   const sep = _noEncodedSlashes ? '/' : '(?:/|%2[fF])';
-  const notSep = _noEncodedSlashes ? '[^/]' : '(?:[^/%]|%[^2].|%2[^fF])';
+  const notSep = _noEncodedSlashes ? '[^/]' : '(?:[^/%]|%25)'; // only %2f and %25 can apear in the input
   for (const match of path.matchAll(part)) {
     if (match.index > p) {
       addLiteral(internalRegExpEscape(path.substring(p, match.index)));
