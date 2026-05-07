@@ -15,6 +15,7 @@ jobs:
           - { node: '22' }
           - { node: '24' }
           - { node: '25' }
+          - { node: '26' }
     steps:
       - name: Checkout
         uses: actions/checkout@v5
