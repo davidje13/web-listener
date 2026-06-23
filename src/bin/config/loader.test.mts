@@ -287,13 +287,13 @@ describe('loadConfig', () => {
               {
                 ...DEFAULT_SERVER,
                 mount: [
-                  DEFAULT_FILES,
                   {
                     type: 'redirect-map',
                     mapping: './redirects.map',
                     status: 307,
                     options: { caseSensitive: false },
                   },
+                  DEFAULT_FILES,
                 ],
               },
             ],

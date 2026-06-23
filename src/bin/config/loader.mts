@@ -212,7 +212,7 @@ export async function loadConfig(
   if (redirectMap.length > 0) {
     for (const server of config.servers) {
       for (const filePath of redirectMap) {
-        server.mount.push({
+        server.mount.unshift({
           type: 'redirect-map',
           mapping: filePath,
           status: 307,
