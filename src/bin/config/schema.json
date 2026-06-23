@@ -84,7 +84,14 @@
           "items": {
             "title": "Service to mount on the server",
             "defaultSnippets": [
-              { "label": "files", "body": { "type": "files", "path": "${1:/}", "dir": "${2:.}" } },
+              {
+                "label": "files",
+                "body": {
+                  "type": "files",
+                  "path": "${1:/}",
+                  "dir": "${2:.}"
+                }
+              },
               {
                 "label": "proxy",
                 "body": {
@@ -102,6 +109,32 @@
                   "status": "^${3:200}",
                   "body": "$4"
                 }
+              },
+              {
+                "label": "redirect",
+                "body": {
+                  "type": "redirect",
+                  "path": "$1",
+                  "target": "$2",
+                  "status": "^${3:307}"
+                }
+              },
+              {
+                "label": "redirect-map",
+                "body": {
+                  "type": "redirect-map",
+                  "mapping": "^${1:{}}",
+                  "status": "^${2:307}",
+                  "options": { "caseSensitive": "^${3:false}" }
+                }
+              },
+              {
+                "label": "mount-dependencies",
+                "body": {
+                  "type": "dependencies",
+                  "path": "${1:/node_modules}",
+                  "package": "${2:./package.json}"
+                }
               }
             ],
             "anyOf": [
@@ -109,6 +142,7 @@
               { "$ref": "#/$defs/mount-proxy" },
               { "$ref": "#/$defs/mount-fixture" },
               { "$ref": "#/$defs/mount-redirect" },
+              { "$ref": "#/$defs/mount-redirect-map" },
               { "$ref": "#/$defs/mount-dependencies" }
             ]
           }
@@ -275,6 +309,29 @@
         "path": { "type": "string" },
         "status": { "$ref": "#/$defs/status", "default": 307 },
         "target": { "type": "string" }
+      }
+    },
+    "mount-redirect-map": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "mapping"],
+      "properties": {
+        "type": { "const": "redirect-map" },
+        "mapping": {
+          "anyOf": [
+            { "type": "object", "additionalProperties": { "type": "string" } },
+            { "type": "string", "format": "uri-reference" }
+          ]
+        },
+        "status": { "$ref": "#/$defs/status", "default": 307 },
+        "options": {
+          "type": "object",
+          "default": {},
+          "additionalProperties": false,
+          "properties": {
+            "caseSensitive": { "type": "boolean", "default": false }
+          }
+        }
       }
     },
     "mount-dependencies": {

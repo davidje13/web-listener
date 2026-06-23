@@ -242,6 +242,19 @@ Defaults to
 This can be combined with JSON configuration provided only a single server is
 defined.
 .
+.It Fl -redirect-map Ar path
+Add redirects from an NGINX .map file.
+This format is loosely one redirect per line, with the requested URL first,
+then a space, then the redirect URL, and finally a semicolon.
+URLs can be quoted.
+Comments can be included using the # character.
+A full explanation can be found at
+.Lk https://nginx.org/en/docs/http/ngx_http_map_module.html .
+Note that matching is case insensitive.
+See
+.Sx REDIRECTING
+for the corresponding NGINX configuration.
+.
 .It Fl -spa Ar file
 Path to a file
 .Po
@@ -479,6 +492,28 @@ May include templates in target.
 }
 .Ed
 .
+.It Qq redirect-map
+Assign multiple static redirects
+.Po
+no templating
+.Pc .
+.Bd -literal -offset 2n
+{
+  "type": "redirect",
+  "mapping": {
+    "<path-1>": "<target-1>",
+    "<path-2>": "<target-2>"
+    <etc.>
+  },
+  "status": 307,
+  "options": {
+    "caseSensitive": false
+  }
+}
+.Ed
+.Pp
+The mapping can also be a path to a .map file.
+.
 .It Qq proxy
 Proxy requests to another server.
 .Bd -literal -offset 2n
@@ -654,6 +689,36 @@ templating, such as redirects and simple testing stubs; it is not intended to
 be comprehensive.
 If you have more demanding needs you should use a dedicated templating library
 and build an application, rather than configuring endpoints using the CLI.
+.
+.\"======================================================================
+.Sh REDIRECTING
+.Fl -redirect-map
+accepts mapping files which are compatible with NGINX.
+.Pp
+The equivalent NGINX configuration is:
+.Bd -literal -offset 2n
+# map_hash_max_size 2048; # optionally set an explicit hashtable size
+map $request_uri $redirected {
+  include ./my-redirect-file.map;
+}
+
+server {
+  if ($redirected == $request_uri) {
+    # do not redirect if we are already at the target URL
+    # (e.g. if redirects are being used to normalise case)
+    set $redirected "";
+  }
+  if ($redirected) {
+    return 301 $redirected;
+  }
+}
+.Ed
+.Pp
+An example file:
+.Bd -literal -offset 2n
+/old-url /new-url;
+/another-old-url "/and-its-new-url"; # a comment
+.Ed
 .
 .\"======================================================================
 .Sh MIME DEFINITIONS

@@ -1,7 +1,8 @@
 import { requestHandler } from '../index.mts';
-import { makeTestTempDir } from '../test-helpers/makeFileStructure.mts';
+import { makeTestTempDir, makeTestTempFile } from '../test-helpers/makeFileStructure.mts';
 import { responds } from '../test-helpers/responds.mts';
 import { withServer } from '../test-helpers/withServer.mts';
+import type { ConfigMount } from './config/types.mts';
 import { buildRouter, type LogInfo } from './buildRouter.mts';
 import 'lean-test';
 
@@ -237,6 +238,138 @@ describe('buildRouter', () => {
     });
   });
 
+  describe('redirect-map', () => {
+    it('adds multiple redirects', { timeout: 3000 }, async () => {
+      const router = await buildRouter([
+        {
+          type: 'redirect-map',
+          mapping: { '/one': '/new-one', '/two': '/new-two' },
+          status: 307,
+          options: { caseSensitive: false },
+        },
+        FALLBACK_200,
+      ]);
+      return withServer(router, async (url) => {
+        await expect(
+          fetch(url + '/one', { redirect: 'manual' }),
+          responds({ status: 307, headers: { location: '/new-one' }, body: '' }),
+        );
+        await expect(
+          fetch(url + '/ONE', { redirect: 'manual' }),
+          responds({ status: 307, headers: { location: '/new-one' }, body: '' }),
+        );
+        await expect(
+          fetch(url + '/two', { redirect: 'manual' }),
+          responds({ status: 307, headers: { location: '/new-two' }, body: '' }),
+        );
+        await expect(fetch(url + '/other', { redirect: 'manual' }), responds({ status: 200 }));
+      });
+    });
+
+    it('can be case sensitive', { timeout: 3000 }, async () => {
+      const router = await buildRouter([
+        {
+          type: 'redirect-map',
+          mapping: { '/one': '/new-one' },
+          status: 307,
+          options: { caseSensitive: true },
+        },
+        FALLBACK_200,
+      ]);
+      return withServer(router, async (url) => {
+        await expect(
+          fetch(url + '/one', { redirect: 'manual' }),
+          responds({ status: 307, headers: { location: '/new-one' }, body: '' }),
+        );
+        await expect(fetch(url + '/ONE', { redirect: 'manual' }), responds({ status: 200 }));
+      });
+    });
+
+    it('allows routing paths to themselves to normalise case', { timeout: 3000 }, async () => {
+      const router = await buildRouter([
+        {
+          type: 'redirect-map',
+          mapping: { '/one': '/one' },
+          status: 307,
+          options: { caseSensitive: false },
+        },
+        FALLBACK_200,
+      ]);
+      return withServer(router, async (url) => {
+        await expect(
+          fetch(url + '/ONE', { redirect: 'manual' }),
+          responds({ status: 307, headers: { location: '/one' }, body: '' }),
+        );
+        await expect(
+          fetch(url + '/One', { redirect: 'manual' }),
+          responds({ status: 307, headers: { location: '/one' }, body: '' }),
+        );
+        await expect(fetch(url + '/one', { redirect: 'manual' }), responds({ status: 200 }));
+      });
+    });
+
+    const TEST_MAPPING_FILE = makeTestTempFile(
+      'map-',
+      'redirects.map',
+      `
+/foo /new-foo;
+# comment
+/bar\t/new-bar #comment
+;
+/baz
+/new-baz ;
+  /indented \t /new-indented
+;
+# /nope /new-nope; /nope /new-nope
+/s1 /escaped\\ space;
+/s2 "/quoted space";
+`,
+    );
+
+    it(
+      'loads mappings from an nginx-formatted mapping file',
+      { timeout: 3000 },
+      async ({ getTyped }) => {
+        const router = await buildRouter([
+          {
+            type: 'redirect-map',
+            mapping: getTyped(TEST_MAPPING_FILE),
+            status: 307,
+            options: { caseSensitive: false },
+          },
+          FALLBACK_200,
+        ]);
+        return withServer(router, async (url) => {
+          await expect(
+            fetch(url + '/foo', { redirect: 'manual' }),
+            responds({ status: 307, headers: { location: '/new-foo' }, body: '' }),
+          );
+          await expect(
+            fetch(url + '/bar', { redirect: 'manual' }),
+            responds({ status: 307, headers: { location: '/new-bar' }, body: '' }),
+          );
+          await expect(
+            fetch(url + '/baz', { redirect: 'manual' }),
+            responds({ status: 307, headers: { location: '/new-baz' }, body: '' }),
+          );
+          await expect(
+            fetch(url + '/indented', { redirect: 'manual' }),
+            responds({ status: 307, headers: { location: '/new-indented' }, body: '' }),
+          );
+          await expect(
+            fetch(url + '/s1', { redirect: 'manual' }),
+            responds({ status: 307, headers: { location: '/escaped space' }, body: '' }),
+          );
+          await expect(
+            fetch(url + '/s2', { redirect: 'manual' }),
+            responds({ status: 307, headers: { location: '/quoted space' }, body: '' }),
+          );
+          await expect(fetch(url + '/nope', { redirect: 'manual' }), responds({ status: 200 }));
+        });
+      },
+    );
+  });
+
   it('logs requests', { timeout: 3000 }, async () => {
     const events: Omit<LogInfo, 'duration'>[] = [];
     const router = await buildRouter(
@@ -270,3 +403,12 @@ describe('buildRouter', () => {
     });
   });
 });
+
+const FALLBACK_200: ConfigMount = {
+  type: 'fixture',
+  method: 'GET',
+  path: '/*any',
+  body: '',
+  status: 200,
+  headers: {},
+};

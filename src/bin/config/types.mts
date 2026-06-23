@@ -46,6 +46,15 @@ interface ConfigMountRedirect {
   target: string;
 }
 
+interface ConfigMountRedirectMap {
+  type: 'redirect-map';
+  mapping: string | Record<string, string>;
+  status: number;
+  options: {
+    caseSensitive: boolean;
+  };
+}
+
 interface ConfigMountDependencies {
   type: 'dependencies';
   path: string;
@@ -60,6 +69,7 @@ export type ConfigMount =
   | ConfigMountProxy
   | ConfigMountFixture
   | ConfigMountRedirect
+  | ConfigMountRedirectMap
   | ConfigMountDependencies;
 
 export interface ConfigServerOptions extends CombinedServerOptions {

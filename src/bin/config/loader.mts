@@ -40,6 +40,7 @@ const params = new Map<string, { type: 'string' | 'number' | 'boolean'; multi?: 
   ['dependencies', { type: 'string' }],
   ['mime', { type: 'string', multi: true }],
   ['mime-types', { type: 'string', multi: true }],
+  ['redirect-map', { type: 'string', multi: true }],
   ['write-compressed', { type: 'boolean' }],
   ['min-compress', { type: 'number' }],
   ['no-serve', { type: 'boolean' }],
@@ -151,6 +152,7 @@ export async function loadConfig(
   const minCompress = numberParam('min-compress');
   const mime = stringListParam('mime');
   const mimeTypes = stringListParam('mime-types');
+  const redirectMap = stringListParam('redirect-map');
   const log = stringParam('log');
 
   if (Number(Boolean(file)) + Number(Boolean(json)) + Number(Boolean(proxy)) > 1) {
@@ -205,6 +207,18 @@ export async function loadConfig(
   if (host !== undefined) {
     for (const server of config.servers) {
       server.host = host;
+    }
+  }
+  if (redirectMap.length > 0) {
+    for (const server of config.servers) {
+      for (const filePath of redirectMap) {
+        server.mount.push({
+          type: 'redirect-map',
+          mapping: filePath,
+          status: 307,
+          options: { caseSensitive: false },
+        });
+      }
     }
   }
   if (dependencies !== undefined) {

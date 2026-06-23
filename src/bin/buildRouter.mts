@@ -1,4 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { readFile } from 'node:fs/promises';
 import {
   addTeardown,
   CONTINUE,
@@ -98,6 +99,33 @@ export async function buildRouter(mount: ConfigMount[], log: (info: LogInfo) => 
           }),
         );
         break;
+      case 'redirect-map':
+        const norm = item.options.caseSensitive ? (v: string) => v : (v: string) => v.toLowerCase();
+        const mapping = new Map<string, string>();
+        if (typeof item.mapping === 'string') {
+          for (const statement of nginxTokenise(await readFile(item.mapping, 'utf-8'))) {
+            if (statement.length !== 2 || statement[0]![0] !== '/') {
+              throw new Error(
+                `unexpected statement in mapping file: ${statement.map((p) => JSON.stringify(p)).join(' ')}`,
+              );
+            }
+            mapping.set(norm(statement[0]!), statement[1]!);
+          }
+        } else {
+          for (const [k, v] of Object.entries(item.mapping)) {
+            mapping.set(norm(k), v);
+          }
+        }
+        router.use((req, res) => {
+          const redirect = mapping.get(norm(req.url ?? '/'));
+          if (redirect !== undefined && redirect !== (req.url ?? '/')) {
+            res.setHeader('location', redirect);
+            res.statusCode = item.status;
+            return res.end();
+          }
+          return CONTINUE;
+        });
+        break;
       case 'dependencies':
         router.mount(
           item.path,
@@ -115,3 +143,32 @@ const getParam = (req: IncomingMessage) => (key: string) =>
     : key[0] === '?'
       ? { _value: getQuery(req, key.substring(1)), _encoding: 'raw' }
       : { _value: getPathParameter(req, key), _encoding: 'raw' };
+
+function* nginxTokenise(source: string) {
+  let statement: string[] = [];
+  const token =
+    /(\s+|#[^\n]*)|(;)|(?:"((?:[^"\\]+|\\.)*)")|(?:'((?:[^'\\]+|\\.)*)')|((?:[^#;\s\\"']+|\\.)+)/y;
+  while (token.lastIndex < source.length) {
+    const m = token.exec(source);
+    if (!m) {
+      throw new Error('invalid nginx syntax');
+    }
+    const [, separator, semicolon, dquot, squot, nquot] = m;
+    if (separator) {
+      continue;
+    }
+    if (semicolon) {
+      yield statement;
+      statement = [];
+      continue;
+    }
+    const part = dquot ?? squot ?? nquot;
+    if (part === undefined) {
+      throw new Error('nginx tokenisation error');
+    }
+    statement.push(part.replaceAll(/\\(.)/g, '$1'));
+  }
+  if (statement.length) {
+    yield statement;
+  }
+}

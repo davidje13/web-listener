@@ -258,6 +258,48 @@ describe('loadConfig', () => {
           },
         },
         {
+          name: 'dependencies',
+          args: ['--dependencies', './package.json'],
+          expected: {
+            ...DEFAULT_CONFIG,
+            servers: [
+              {
+                ...DEFAULT_SERVER,
+                mount: [
+                  DEFAULT_FILES,
+                  {
+                    type: 'dependencies',
+                    path: '/node_modules',
+                    package: './package.json',
+                    options: {},
+                  },
+                ],
+              },
+            ],
+          },
+        },
+        {
+          name: 'redirect-map',
+          args: ['--redirect-map', './redirects.map'],
+          expected: {
+            ...DEFAULT_CONFIG,
+            servers: [
+              {
+                ...DEFAULT_SERVER,
+                mount: [
+                  DEFAULT_FILES,
+                  {
+                    type: 'redirect-map',
+                    mapping: './redirects.map',
+                    status: 307,
+                    options: { caseSensitive: false },
+                  },
+                ],
+              },
+            ],
+          },
+        },
+        {
           name: 'no-serve',
           args: ['--no-serve'],
           expected: { ...DEFAULT_CONFIG, noServe: true },
