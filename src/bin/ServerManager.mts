@@ -5,6 +5,7 @@ import { findCause, HTTPError, WebListener, type ListenOptions } from '../index.
 import type { ConfigServer, ConfigServerOptions, ConfigBackgroundTask } from './config/types.mts';
 import { buildRouter } from './buildRouter.mts';
 import type { Logger, AddColour } from './log.mts';
+import { TransientError } from './TransientError.mts';
 
 export class ServerManager {
   declare private _started: boolean;
@@ -14,6 +15,7 @@ export class ServerManager {
   declare private readonly _colour: AddColour;
   declare private readonly _servers: Map<number, ServerState>;
   declare private _backgroundTasks: Set<BackgroundTaskState>;
+  declare private _autoRetry: NodeJS.Timeout | undefined;
 
   constructor(log: Logger, colour: AddColour) {
     this._started = false;
@@ -25,26 +27,35 @@ export class ServerManager {
     this._backgroundTasks = new Set();
   }
 
-  async set(servers: ConfigServer[], backgroundTasks: ConfigBackgroundTask[]) {
+  async set(
+    servers: ConfigServer[],
+    backgroundTasks: ConfigBackgroundTask[],
+    errorHandler: (error: unknown) => void,
+  ) {
     if (this._building || this._stopping) {
       return;
     }
+    clearTimeout(this._autoRetry);
+    this._autoRetry = undefined;
     try {
       this._building = true;
       const preTasks: (() => Promise<void>)[] = [];
       const tasks: (() => Promise<void>)[] = [];
 
+      let canRetry = false;
       const previousBackgroundTasks = this._backgroundTasks;
       this._backgroundTasks = new Set();
       tasksLoop: for (let i = 0; i < backgroundTasks.length; ++i) {
         const taskConfig = backgroundTasks[i]!;
         for (const taskState of previousBackgroundTasks) {
           if (backgroundTaskConfigEqual(taskState.config, taskConfig)) {
+            canRetry ||= taskState.isRunning();
             this._backgroundTasks.add(taskState);
             previousBackgroundTasks.delete(taskState);
             continue tasksLoop;
           }
         }
+        canRetry = true;
         tasks.push(async () => {
           this._backgroundTasks.add(await this._startBackgroundTask(taskConfig));
         });
@@ -83,14 +94,20 @@ export class ServerManager {
         }
       }
 
+      let doRetry = false;
       const runTasks = async (tasks: (() => Promise<void>)[]) => {
         let failures: unknown[] = [];
         await Promise.all(
           tasks.map(async (task) => {
             try {
               await task();
-            } catch (err) {
-              failures.push(err);
+            } catch (error: unknown) {
+              if (canRetry && !this._stopping && error instanceof TransientError) {
+                this._log(1, `${error.message} (retrying)`);
+                doRetry = true;
+              } else {
+                failures.push(error);
+              }
             }
           }),
         );
@@ -105,11 +122,15 @@ export class ServerManager {
 
       if (this._stopping) {
         this._shutdown();
+      } else if (doRetry) {
+        this._autoRetry = setTimeout(() => this.set(servers, backgroundTasks, errorHandler), 1000);
       } else if (this._servers.size) {
         this._log(1, 'all servers ready');
       } else {
         this._log(1, 'no servers configured');
       }
+    } catch (error: unknown) {
+      errorHandler(error);
     } finally {
       this._building = false;
     }
@@ -122,6 +143,7 @@ export class ServerManager {
 
     return new Promise((resolve, reject) => {
       this._log(2, `${name} ${this._colour('2', 'starting')}`);
+      let running = true;
       const proc = spawn(config.command, config.arguments, {
         cwd: config.cwd,
         env: { ...process.env, TERM: '', COLORTERM: '', NO_COLOR: '1', ...config.environment },
@@ -143,6 +165,7 @@ export class ServerManager {
       }
       proc.addListener('error', (err) => {
         this._log(0, `${name} startup failed: ${err.message}`);
+        running = false;
         reject(err);
       });
       proc.addListener('exit', (code, signal) => {
@@ -151,10 +174,12 @@ export class ServerManager {
         } else {
           this._log(2, `${name} closed ${this._colour('2', `(exit signal ${signal})`)}`);
         }
+        running = false;
       });
       proc.addListener('spawn', () =>
         resolve({
           config,
+          isRunning: () => running,
           close: () =>
             new Promise((closeResolve) => {
               if (proc.signalCode !== null || proc.exitCode !== null) {
@@ -272,6 +297,8 @@ export class ServerManager {
     if (this._stopping) {
       return;
     }
+    clearTimeout(this._autoRetry);
+    this._autoRetry = undefined;
     this._stopping = true;
     if (!this._building) {
       this._shutdown();
@@ -328,7 +355,8 @@ interface ServerState {
 
 interface BackgroundTaskState {
   config: ConfigBackgroundTask;
-  close: () => Promise<void>;
+  close(): Promise<void>;
+  isRunning(): boolean;
 }
 
 function backgroundTaskConfigEqual(a: ConfigBackgroundTask, b: ConfigBackgroundTask) {

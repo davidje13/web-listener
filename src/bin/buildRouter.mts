@@ -17,6 +17,7 @@ import type { ConfigMount } from './config/types.mts';
 import { dependencies } from './modules/dependencies.mts';
 import { Mapper, nginxTokenise } from './nginx.mts';
 import { render } from './template.mts';
+import { TransientError } from './TransientError.mts';
 
 export interface LogInfo {
   method: string;
@@ -50,7 +51,15 @@ export async function buildRouter(mount: ConfigMount[], log: (info: LogInfo) => 
             item.options.negotiation && item.options.negotiation.length > 0
               ? new Negotiator(item.options.negotiation)
               : undefined;
-          router.mount(item.path, await fileServer(item.dir, { ...item.options, negotiator }));
+          try {
+            router.mount(item.path, await fileServer(item.dir, { ...item.options, negotiator }));
+          } catch (error: unknown) {
+            if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
+              throw new TransientError(`directory to serve not found at ${item.dir}`);
+            } else {
+              throw error;
+            }
+          }
         }
         break;
       case 'proxy':
@@ -103,7 +112,16 @@ export async function buildRouter(mount: ConfigMount[], log: (info: LogInfo) => 
       case 'redirect-map':
         const mapper = new Mapper(item.options.caseSensitive);
         if (typeof item.mapping === 'string') {
-          const content = await readFile(item.mapping, 'utf-8');
+          let content: string;
+          try {
+            content = await readFile(item.mapping, 'utf-8');
+          } catch (error: unknown) {
+            if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
+              throw new TransientError(`redirect-map file not found at ${item.mapping}`);
+            } else {
+              throw error;
+            }
+          }
           tokens: for (const statement of nginxTokenise(content)) {
             const key = statement[0]!;
             if (key.literal) {

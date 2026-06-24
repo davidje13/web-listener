@@ -71,7 +71,7 @@ async function run() {
     if (config.noServe) {
       stop();
     } else {
-      manager.set(config.servers, config.backgroundTasks).catch((error) => {
+      manager.set(config.servers, config.backgroundTasks, (error) => {
         if (error instanceof AggregateError) {
           for (const subError of error.errors) {
             log(0, subError instanceof Error ? subError.message : String(subError));

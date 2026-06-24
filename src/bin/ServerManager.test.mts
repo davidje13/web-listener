@@ -1,4 +1,7 @@
+import { join } from 'node:path';
+import { mkdir } from 'node:fs/promises';
 import { findAvailablePort } from '../test-helpers/findAvailablePort.mts';
+import { makeTestTempDir } from '../test-helpers/makeFileStructure.mts';
 import type { ConfigServer } from './config/types.mts';
 import type { AddColour } from './log.mts';
 import { ServerManager } from './ServerManager.mts';
@@ -11,7 +14,7 @@ describe('ServerManager', () => {
     const logs: string[] = [];
     const manager = new ServerManager((_, msg) => logs.push(msg), NO_COLOUR);
     try {
-      await manager.set([fixtureServer(port, 'content')], []);
+      await manager.set([fixtureServer(port, 'content')], [], () => fail());
       expect(logs).equals([
         `http://localhost:${port} starting`,
         `http://localhost:${port} ready`,
@@ -34,7 +37,11 @@ describe('ServerManager', () => {
     const logs: string[] = [];
     const manager = new ServerManager((_, msg) => logs.push(msg), NO_COLOUR);
     try {
-      await manager.set([fixtureServer(port1, 'content 1'), fixtureServer(port2, 'content 2')], []);
+      await manager.set(
+        [fixtureServer(port1, 'content 1'), fixtureServer(port2, 'content 2')],
+        [],
+        () => fail(),
+      );
       expect(logs[logs.length - 1]).equals('all servers ready');
 
       const res1 = await fetch(`http://localhost:${port1}`);
@@ -53,7 +60,11 @@ describe('ServerManager', () => {
     const logs: string[] = [];
     const manager = new ServerManager((_, msg) => logs.push(msg), NO_COLOUR);
     try {
-      await manager.set([fixtureServer(port, 'content 1'), fixtureServer(port, 'content 2')], []);
+      await manager.set(
+        [fixtureServer(port, 'content 1'), fixtureServer(port, 'content 2')],
+        [],
+        () => fail(),
+      );
       expect(logs).equals([
         `skipping servers[1] because port ${port} has already been defined`,
         `http://localhost:${port} starting`,
@@ -72,7 +83,11 @@ describe('ServerManager', () => {
     const logs: string[] = [];
     const manager = new ServerManager((_, msg) => logs.push(msg), NO_COLOUR);
     try {
-      await manager.set([fixtureServer(0, 'content 1'), fixtureServer(65536, 'content 2')], []);
+      await manager.set(
+        [fixtureServer(0, 'content 1'), fixtureServer(65536, 'content 2')],
+        [],
+        () => fail(),
+      );
       expect(logs).equals([
         'servers[0] must have a specific port from 1 to 65535',
         'servers[1] must have a specific port from 1 to 65535',
@@ -89,7 +104,7 @@ describe('ServerManager', () => {
     const logs: string[] = [];
     const manager = new ServerManager((_, msg) => logs.push(msg), NO_COLOUR);
     try {
-      await manager.set([fixtureServer(port, 'content')], []);
+      await manager.set([fixtureServer(port, 'content')], [], () => fail());
       expect(logs).equals([
         `http://localhost:${port} starting`,
         `http://localhost:${port} ready`,
@@ -100,7 +115,7 @@ describe('ServerManager', () => {
       expect(await res1.text()).equals('content');
 
       logs.length = 0;
-      await manager.set([fixtureServer(port, 'updated content')], []);
+      await manager.set([fixtureServer(port, 'updated content')], [], () => fail());
       expect(logs).equals([`http://localhost:${port} updated`, 'all servers ready']);
 
       const res2 = await fetch(`http://localhost:${port}`);
@@ -116,7 +131,7 @@ describe('ServerManager', () => {
     const logs: string[] = [];
     const manager = new ServerManager((_, msg) => logs.push(msg), NO_COLOUR);
     try {
-      await manager.set([fixtureServer(port, 'content')], []);
+      await manager.set([fixtureServer(port, 'content')], [], () => fail());
       expect(logs).equals([
         `http://localhost:${port} starting`,
         `http://localhost:${port} ready`,
@@ -135,6 +150,7 @@ describe('ServerManager', () => {
           },
         ],
         [],
+        () => fail(),
       );
       expect(logs).equals([
         `http://localhost:${port} restarting (step 1: shutdown)`,
@@ -161,6 +177,7 @@ describe('ServerManager', () => {
         await manager.set(
           [fixtureServer(port1, 'content 1'), fixtureServer(port2, 'content 2')],
           [],
+          () => fail(),
         );
         manager.shutdown();
         await expect.poll(() => logs[logs.length - 1], equals('shutdown complete'), {
@@ -180,7 +197,11 @@ describe('ServerManager', () => {
       const logs: string[] = [];
       const manager = new ServerManager((_, msg) => logs.push(msg), NO_COLOUR);
       try {
-        manager.set([fixtureServer(port1, 'content 1'), fixtureServer(port2, 'content 2')], []);
+        manager.set(
+          [fixtureServer(port1, 'content 1'), fixtureServer(port2, 'content 2')],
+          [],
+          () => fail(),
+        );
         manager.shutdown();
         await expect.poll(() => logs[logs.length - 1], equals('shutdown complete'), {
           timeout: 500,
@@ -193,6 +214,100 @@ describe('ServerManager', () => {
       }
     });
   });
+
+  const TEST_DIR = makeTestTempDir('sm-');
+
+  it(
+    'retries transient errors if an executable is running',
+    { timeout: 3000 },
+    async ({ getTyped }) => {
+      const port = await findAvailablePort();
+
+      const logs: string[] = [];
+      const manager = new ServerManager((_, msg) => logs.push(msg), NO_COLOUR);
+      try {
+        await manager.set(
+          [
+            {
+              port,
+              host: 'localhost',
+              mount: [
+                { type: 'files', path: '/', dir: join(getTyped(TEST_DIR), 'sub'), options: {} },
+              ],
+              options: DEFAULT_SERVER_OPTIONS,
+            },
+          ],
+          [
+            {
+              command: 'true',
+              arguments: [],
+              cwd: '.',
+              environment: {},
+              options: { killSignal: 'SIGTERM', displayStdout: true, displayStderr: true },
+            },
+          ],
+          () => fail(),
+        );
+        expect(logs).contains(matches(/directory to serve not found/));
+        expect(logs).not(contains(`http://localhost:${port} ready`));
+        expect(logs).not(contains('all servers ready'));
+
+        await mkdir(join(getTyped(TEST_DIR), 'sub'));
+
+        await expect.poll(() => logs, contains('all servers ready'));
+        expect(logs).contains(`http://localhost:${port} ready`);
+      } finally {
+        manager.shutdown();
+      }
+    },
+  );
+
+  it(
+    'does not retry transient errors if no executables are running',
+    { timeout: 3000 },
+    async ({ getTyped }) => {
+      const port = await findAvailablePort();
+
+      const logs: string[] = [];
+      const manager = new ServerManager((_, msg) => logs.push(msg), NO_COLOUR);
+      try {
+        let errorCaptor = (_: unknown) => {};
+        const awaitError = new Promise<unknown>((resolve) => {
+          errorCaptor = resolve;
+        });
+        await manager.set(
+          [
+            {
+              port,
+              host: 'localhost',
+              mount: [
+                { type: 'files', path: '/', dir: join(getTyped(TEST_DIR), 'nope'), options: {} },
+              ],
+              options: DEFAULT_SERVER_OPTIONS,
+            },
+          ],
+          [
+            {
+              command: 'true',
+              arguments: [],
+              cwd: '.',
+              environment: {},
+              options: { killSignal: 'SIGTERM', displayStdout: true, displayStderr: true },
+            },
+          ],
+          errorCaptor,
+        );
+        const capturedError = await awaitError;
+        expect(capturedError).isInstanceOf(Error);
+        expect((capturedError as Error).message).contains('directory to serve not found');
+        expect(logs).contains(matches(/directory to serve not found/));
+        expect(logs).not(contains(`http://localhost:${port} ready`));
+        expect(logs).not(contains('all servers ready'));
+      } finally {
+        manager.shutdown();
+      }
+    },
+  );
 });
 
 const NO_COLOUR: AddColour = (_, message) => message;
