@@ -246,11 +246,17 @@ defined.
 Add redirects from an NGINX .map file.
 This format is loosely one redirect per line, with the requested URL first,
 then a space, then the redirect URL, and finally a semicolon.
-URLs can be quoted.
+Matching is case insensitive.
+URLs can be quoted, and regular expression syntax is supported by prefixing the
+URL with ~.
 Comments can be included using the # character.
 A full explanation can be found at
 .Lk https://nginx.org/en/docs/http/ngx_http_map_module.html .
-Note that matching is case insensitive.
+Note that regular expressions are parsed using native Javascript regular
+expression syntax rather than PCRE, as used by NGINX
+.Po
+the differences are usually not important
+.Pc .
 See
 .Sx REDIRECTING
 for the corresponding NGINX configuration.
@@ -699,18 +705,20 @@ The equivalent NGINX configuration is:
 .Bd -literal -offset 2n
 # map_hash_max_size 2048; # optionally set an explicit hashtable size
 map $request_uri $redirected {
-  include ./my-redirect-file.map;
+  include /path/to/my-redirect-file.map;
 }
 
 server {
-  if ($redirected == $request_uri) {
+  if ($redirected = $request_uri) {
     # do not redirect if we are already at the target URL
     # (e.g. if redirects are being used to normalise case)
     set $redirected "";
   }
   if ($redirected) {
-    return 301 $redirected;
+    return 307 $redirected;
   }
+
+  # (rest of configuration)
 }
 .Ed
 .Pp
@@ -718,6 +726,7 @@ An example file:
 .Bd -literal -offset 2n
 /old-url /new-url;
 /another-old-url "/and-its-new-url"; # a comment
+"~*^/regex/(.*)$" /updated/$1;
 .Ed
 .
 .\"======================================================================

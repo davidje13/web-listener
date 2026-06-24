@@ -1,5 +1,6 @@
+import { join } from 'node:path';
 import { requestHandler } from '../index.mts';
-import { makeTestTempDir, makeTestTempFile } from '../test-helpers/makeFileStructure.mts';
+import { makeTestTempDir } from '../test-helpers/makeFileStructure.mts';
 import { responds } from '../test-helpers/responds.mts';
 import { withServer } from '../test-helpers/withServer.mts';
 import type { ConfigMount } from './config/types.mts';
@@ -308,10 +309,8 @@ describe('buildRouter', () => {
       });
     });
 
-    const TEST_MAPPING_FILE = makeTestTempFile(
-      'map-',
-      'redirects.map',
-      `
+    const NGINX_MAPS = makeTestTempDir('map-', {
+      'syntax.map': `
 /foo /new-foo;
 # comment
 /bar\t/new-bar #comment
@@ -324,7 +323,15 @@ describe('buildRouter', () => {
 /s1 /escaped\\ space;
 /s2 "/quoted space";
 `,
-    );
+      'with-default.map': `
+/foo /one;
+default /other;
+`,
+      'regex.map': `
+~*^/one/(.+)/end.(?<ext>.+)$ /new/$1.$ext;
+~^/case/(.+)/end.(?<ext>.+)$ /new/$1.$ext;
+`,
+    });
 
     it(
       'loads mappings from an nginx-formatted mapping file',
@@ -333,7 +340,7 @@ describe('buildRouter', () => {
         const router = await buildRouter([
           {
             type: 'redirect-map',
-            mapping: getTyped(TEST_MAPPING_FILE),
+            mapping: join(getTyped(NGINX_MAPS), 'syntax.map'),
             status: 307,
             options: { caseSensitive: false },
           },
@@ -365,6 +372,69 @@ describe('buildRouter', () => {
             responds({ status: 307, headers: { location: '/quoted space' }, body: '' }),
           );
           await expect(fetch(url + '/nope', { redirect: 'manual' }), responds({ status: 200 }));
+        });
+      },
+    );
+
+    it(
+      'supports "default" in nginx-formatted mapping files',
+      { timeout: 3000 },
+      async ({ getTyped }) => {
+        const router = await buildRouter([
+          {
+            type: 'redirect-map',
+            mapping: join(getTyped(NGINX_MAPS), 'with-default.map'),
+            status: 307,
+            options: { caseSensitive: false },
+          },
+        ]);
+        return withServer(router, async (url) => {
+          await expect(
+            fetch(url + '/foo', { redirect: 'manual' }),
+            responds({ status: 307, headers: { location: '/one' }, body: '' }),
+          );
+          await expect(
+            fetch(url + '/nope', { redirect: 'manual' }),
+            responds({ status: 307, headers: { location: '/other' }, body: '' }),
+          );
+        });
+      },
+    );
+
+    it(
+      'supports regular expressions in nginx-formatted mapping files',
+      { timeout: 3000 },
+      async ({ getTyped }) => {
+        const router = await buildRouter([
+          {
+            type: 'redirect-map',
+            mapping: join(getTyped(NGINX_MAPS), 'regex.map'),
+            status: 307,
+            options: { caseSensitive: false },
+          },
+          FALLBACK_200,
+        ]);
+        return withServer(router, async (url) => {
+          await expect(
+            fetch(url + '/one/a/end.xyz', { redirect: 'manual' }),
+            responds({ status: 307, headers: { location: '/new/a.xyz' }, body: '' }),
+          );
+          await expect(
+            fetch(url + '/one/a/END.xyz', { redirect: 'manual' }),
+            responds({ status: 307, headers: { location: '/new/a.xyz' }, body: '' }),
+          );
+          await expect(
+            fetch(url + '/nope/one/a/end.xyz', { redirect: 'manual' }),
+            responds({ status: 200 }),
+          );
+          await expect(
+            fetch(url + '/case/b/end.w', { redirect: 'manual' }),
+            responds({ status: 307, headers: { location: '/new/b.w' }, body: '' }),
+          );
+          await expect(
+            fetch(url + '/case/b/END.w', { redirect: 'manual' }),
+            responds({ status: 200 }),
+          );
         });
       },
     );

@@ -15,6 +15,7 @@ import {
 } from '../index.mts';
 import type { ConfigMount } from './config/types.mts';
 import { dependencies } from './modules/dependencies.mts';
+import { Mapper, nginxTokenise } from './nginx.mts';
 import { render } from './template.mts';
 
 export interface LogInfo {
@@ -100,25 +101,44 @@ export async function buildRouter(mount: ConfigMount[], log: (info: LogInfo) => 
         );
         break;
       case 'redirect-map':
-        const norm = item.options.caseSensitive ? (v: string) => v : (v: string) => v.toLowerCase();
-        const mapping = new Map<string, string>();
+        const mapper = new Mapper(item.options.caseSensitive);
         if (typeof item.mapping === 'string') {
-          for (const statement of nginxTokenise(await readFile(item.mapping, 'utf-8'))) {
-            if (statement.length !== 2 || statement[0]![0] !== '/') {
+          const content = await readFile(item.mapping, 'utf-8');
+          tokens: for (const statement of nginxTokenise(content)) {
+            const key = statement[0]!;
+            if (key.literal) {
+              switch (key.token) {
+                case 'default':
+                  if (statement.length === 2) {
+                    mapper.setDefault(statement[1]!.token);
+                    continue tokens;
+                  }
+                  break;
+                case 'hostnames':
+                  throw new Error('redirect-map does not support hostnames');
+                case 'include':
+                  throw new Error('redirect-map does not support nested mapping files');
+                case 'volatile':
+                  // ignore
+                  break;
+              }
+            }
+            if (statement.length === 2) {
+              mapper.add(key.token, statement[1]!.token);
+            } else {
               throw new Error(
-                `unexpected statement in mapping file: ${statement.map((p) => JSON.stringify(p)).join(' ')}`,
+                `unknown statement in mapping file: ${statement.map((p) => JSON.stringify(p)).join(' ')}`,
               );
             }
-            mapping.set(norm(statement[0]!), statement[1]!);
           }
         } else {
           for (const [k, v] of Object.entries(item.mapping)) {
-            mapping.set(norm(k), v);
+            mapper.add(k, v);
           }
         }
         router.use((req, res) => {
-          const redirect = mapping.get(norm(req.url ?? '/'));
-          if (redirect !== undefined && redirect !== (req.url ?? '/')) {
+          const redirect = mapper.get(req.url ?? '/');
+          if (redirect && redirect !== (req.url ?? '/')) {
             res.setHeader('location', redirect);
             res.statusCode = item.status;
             return res.end();
@@ -143,32 +163,3 @@ const getParam = (req: IncomingMessage) => (key: string) =>
     : key[0] === '?'
       ? { _value: getQuery(req, key.substring(1)), _encoding: 'raw' }
       : { _value: getPathParameter(req, key), _encoding: 'raw' };
-
-function* nginxTokenise(source: string) {
-  let statement: string[] = [];
-  const token =
-    /(\s+|#[^\n]*)|(;)|(?:"((?:[^"\\]+|\\.)*)")|(?:'((?:[^'\\]+|\\.)*)')|((?:[^#;\s\\"']+|\\.)+)/y;
-  while (token.lastIndex < source.length) {
-    const m = token.exec(source);
-    if (!m) {
-      throw new Error('invalid nginx syntax');
-    }
-    const [, separator, semicolon, dquot, squot, nquot] = m;
-    if (separator) {
-      continue;
-    }
-    if (semicolon) {
-      yield statement;
-      statement = [];
-      continue;
-    }
-    const part = dquot ?? squot ?? nquot;
-    if (part === undefined) {
-      throw new Error('nginx tokenisation error');
-    }
-    statement.push(part.replaceAll(/\\(.)/g, '$1'));
-  }
-  if (statement.length) {
-    yield statement;
-  }
-}
