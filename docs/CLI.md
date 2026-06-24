@@ -17,6 +17,12 @@ This tool supports:
 
 Simple servers can be configured via CLI flags. Complex servers can be configured via JSON.
 
+For full documentation, view the manual page with:
+
+```sh
+npx web-listener --help
+```
+
 ## Simple Usage
 
 ```sh

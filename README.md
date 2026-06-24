@@ -1,16 +1,18 @@
 # Web Listener
 
-A small, dependency-free server abstraction for serving static files, proxying, and creating API
-endpoints with middleware. Supports HTTP/1.1 and upgrade requests (such as WebSockets). Also
-includes a CLI utility for launching simple webservers (e.g. to serve static files).
+Need to serve some files on localhost?
 
-`web-listener` is designed to be tree-shakable so that it provides a minimal framework for those who
-want something simple, while still being able to deliver advanced capabilities for those who need
-them. By removing unused features at build time, `web-listener` is able to have a much smaller
-memory footprint at runtime than alternatives which provide features via object methods.
+```sh
+npx web-listener
+```
 
-The core API shares concepts with `express`, but uses helper functions rather than adding methods to
-the request and response objects. For example, to define a route with a path parameter:
+[[CLI docs](docs/CLI.md)]
+
+Need to write an API?
+
+```sh
+npm install --save web-listener
+```
 
 ```js
 import { WebListener, Router, getPathParameter } from 'web-listener';
@@ -25,17 +27,25 @@ router.get('/things/:id', (req, res) => {
 new WebListener(router).listen(3000);
 ```
 
-## Install dependency
+[[API docs](docs/API.md)]
 
-```sh
-npm install --save web-listener
-```
+## Introduction
 
-### API Documentation
+`web-listener` is a dependency-free server abstraction for serving static files, proxying, and
+creating API endpoints with middleware. It supports HTTP/1.1 and upgrade requests (such as
+WebSockets), and includes a CLI utility for launching simple webservers (e.g. to serve static files
+during development).
 
-The full API documentation can be found in [docs/API.md](docs/API.md).
+The core API shares concepts with `express`, but uses helper functions rather than adding methods to
+the request and response objects. This makes it tree-shakable at build time for a reduced size and
+runtime memory footprint.
 
-### TypeScript
+## Documentation
+
+The full API documentation can be found in [docs/API.md](docs/API.md), and the CLI documentation at
+[docs/CLI.md](docs/CLI.md).
+
+## TypeScript
 
 Types are included in the library. Note that for full type safety (particularly path parameters),
 you must set `"strict": true` (or at least `"strictFunctionTypes": true`) in your `tsconfig.json`.
@@ -67,16 +77,6 @@ When using `--dependencies`, you can inject an importmap into your page with:
 
 Note that browsers do not currently support importmaps inside web workers.
 
-### CLI Documentation
-
-You can view the `web-listener` manual page with:
-
-```sh
-npx web-listener --help
-```
-
-Additional CLI documentation can be found in [docs/CLI.md](docs/CLI.md).
-
 ## Production Considerations
 
 This library is designed for production use and mitigates various security vulnerabilities
@@ -89,4 +89,4 @@ and
 
 Note that this library does not implement rate limiting of any kind, so if you have an endpoint
 which is vulnerable to rapid requests (e.g. a password checking endpoint), you should set up your
-own rate limiting or use a proxy such as NGINX and configure rate limiting there.
+own rate limiting or use a reverse proxy such as NGINX and configure rate limiting there.
