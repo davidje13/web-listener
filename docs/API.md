@@ -132,10 +132,15 @@ path parameters from a parent, which can be typed with
   - [`<ServerSentEvents>`]
   - [`router.onReturn`] (templating)
 - Static files and content
+  - [`assetServer`]
   - [`fileServer`]
   - [`staticContent`]
   - [`staticJSON`]
   - [`sendFile`]
+  - [`dynamicFileFinder`]
+  - [`staticFileFinder`]
+  - [`zipFileFinder`]
+  - [`readZip`]
   - [`<Negotiator>`]
   - [`negotiateEncoding`]
   - Cache
@@ -186,7 +191,6 @@ path parameters from a parent, which can be typed with
 - Lower-level access
   - [`toListeners`]
   - [`<NativeListeners>`]
-  - [`<FileFinder>`]
   - [`sendRanges`]
 - Utilities
   - [`mergePermissionsPolicy`]
@@ -332,6 +336,36 @@ Wraps the given request or upgrade handling function in a `Handler`. Equivalent 
   shouldUpgrade: shouldUpgrade ?? () => false,
 }
 ```
+
+### `assetServer(fileFinder[, options])`
+
+[`assetServer`]: #assetserverfilefinder-options
+
+- `fileFinder` [`<FileFinder>`] an instance returned by [`dynamicFileFinder`], [`staticFileFinder`],
+  or [`zipFileFinder`]
+- `options` [`<Object>`]
+  - `fallback` [`<Object>`] | [`<undefined>`] if set, sets a fallback file to serve if the requested
+    path is not found
+    - `statusCode` [`<number>`] **Default:** `200`.
+    - `filePath` [`<string>`] path to the file to serve, relative to `baseDir`. Note that this
+      should use `/` separators, even on Windows.
+  - `verbose` [`<boolean>`] emit verbose error messages when a file is not found. This can be
+    helpful for debugging why a file is not being served. **Default:** `false`.
+  - `headers` [`<Headers>`] | [`<Object>`] | [`<string[]>`][`<string>`] additional headers to set on
+    the response.
+  - `dynamicHeaders` [`<string[]>`][`<string>`] a list of headers to set dynamically. Can contain
+    [`ETag`] (which will be set using [`generateWeakETag`]) and [`Last-Modified`] (set from the
+    requested file's `mtime`). **Default:** `['etag', 'last-modified']`.
+  - `callback` [`<Function>`] a (possibly asynchronous) function to call when a file is being
+    served. Can modify headers in the response. The function is called with:
+    - `req` [`<http.IncomingMessage>`]
+    - `res` [`<http.ServerResponse>`]
+    - `file` [`<ResolvedFileInfo>`] details of the file which will be sent
+    - `isFallback` [`<boolean>`] `true` if the `fallback.filePath` file is being served due to a
+      requested path not being found.
+- Returns: [`<Handler>`].
+
+Creates a request handler for serving files from the filesystem. Uses [`sendFile`] internally.
 
 ### `AugmentedServer`
 
@@ -640,6 +674,57 @@ Can only be called for upgrade requests (i.e. from an upgrade handler).
 Alternatively, use [`acceptUpgrade`] to configure custom error handling, rather than disabling it
 completely.
 
+### `dynamicFileFinder(baseDir[, options])`
+
+[`dynamicFileFinder`]: #dynamicfilefinderbasedir-options
+
+- `baseDir` [`<string>`] the base directory to serve files from. Only content within this directory
+  (or sub-directories) will be served. This should be an absolute path.
+- `options` [`<Object>`] A set of options controlling how files are matched, and which files are
+  visible
+  - `subDirectories` [`<boolean>`] | [`<number>`] `true` to allow access to all sub-directories,
+    `false` to only allow access to files directly inside the base directory. If this is set to a
+    number, it is the depth of sub-directories which can be traversed (`0` is equivalent to
+    `false`). **Default:** `true`.
+  - `caseSensitive` `'exact'` | `'filesystem'` | `'force-lowercase'`. **Default:** `'exact'`.
+  - `allowAllDotfiles` [`<boolean>`] **Default:** `false`.
+  - `allowAllTildefiles` [`<boolean>`] **Default:** `false`.
+  - `allowDirectIndexAccess` [`<boolean>`] **Default:** `false`.
+  - `allow` [`<string[]>`][`<string>`] list of files and directories to explicitly allow access to
+    (which may otherwise be blocked by another rule). **Default:** `['.well-known']`.
+  - `hide` [`<string[]>`][`<string>`] | [`<RegExp[]>`][`<RegExp>`] list of files and directories to
+    hide. This is not a security guarantee, as the files may still be served by other means (e.g.
+    content negotiation or directory index), but can be used to provide a cleaner API. **Default:**
+    `[]`.
+  - `indexFiles` [`<string[]>`][`<string>`] list of filenames which should be used as index files if
+    a directory is requested. **Default:** `['index.htm', 'index.html']`.
+  - `implicitSuffixes` [`<string[]>`][`<string>`] list of implicit suffixes to add to requested
+    filenames. For example, specifying `['.html']` will serve `foo.html` at `/foo`. **Default:**
+    `[]`.
+  - `negotiator` [`<Negotiator>`] | [`<undefined>`] Content negotiation rules to apply to files (see
+    description below for details).
+- Returns: [`<Promise>`] Fulfills with [`<FileFinder>`].
+
+`negotiator` can be used to respond to the [`Accept`], [`Accept-Language`], and [`Accept-Encoding`]
+headers. For example: on a server with `foo.txt`, `foo.txt.gz`, and a negotiation rule mapping
+`gzip` &rarr; `{name}.gz`:
+
+- users requesting `foo.txt` may get `foo.txt.gz` with
+  [`Content-Encoding: gzip`][`Content-Encoding`] if their client supports gzip encoding
+- users requesting `foo.txt` may get `foo.txt` with no [`Content-Encoding`] if their client does not
+  support gzip encoding
+
+Note that file access is checked _before_ content negotiation, so you must still provide a base
+"un-negotiated" file for each file you wish to serve (which will also be used in cases where users
+do not send any `Accept-*` headers, and where no match is found).
+
+Multiple rules can match simultaneously, if a specific enough file exists (for example you might
+have `foo-en.txt.gz` for [`Accept-Language: en`][`Accept-Language`] and
+[`Accept-Encoding: gzip`][`Accept-Encoding`]).
+
+In the case of conflicting rules, earlier rules take priority (so `encoding` rules should typically
+be specified last)
+
 ### `emitError(req, error[, context])`
 
 [`emitError`]: #emiterrorreq-error-context
@@ -682,66 +767,16 @@ Wraps the given error handling function in a `Handler`. Equivalent to:
 
 [`<FileFinder>`]: #filefinder
 
-This class is used by [`fileServer`] internally. It is responsible for finding files in a directory
-for a given path, and includes various safety checks.
-
-#### `FileFinder.build(baseDir[, options])`
-
-- `baseDir` [`<string>`] the base directory to serve files from. Only content within this directory
-  (or sub-directories) will be served. This should be an absolute path.
-- `options` [`<Object>`] A set of options controlling how files are matched, and which files are
-  visible
-  - `subDirectories` [`<boolean>`] | [`<number>`] `true` to allow access to all sub-directories,
-    `false` to only allow access to files directly inside the base directory. If this is set to a
-    number, it is the depth of sub-directories which can be traversed (`0` is equivalent to
-    `false`). **Default:** `true`.
-  - `caseSensitive` `'exact'` | `'filesystem'` | `'force-lowercase'`. **Default:** `'exact'`.
-  - `allowAllDotfiles` [`<boolean>`] **Default:** `false`.
-  - `allowAllTildefiles` [`<boolean>`] **Default:** `false`.
-  - `allowDirectIndexAccess` [`<boolean>`] **Default:** `false`.
-  - `allow` [`<string[]>`][`<string>`] list of files and directories to explicitly allow access to
-    (which may otherwise be blocked by another rule). **Default:** `['.well-known']`.
-  - `hide` [`<string[]>`][`<string>`] | [`<RegExp[]>`][`<RegExp>`] list of files and directories to
-    hide. This is not a security guarantee, as the files may still be served by other means (e.g.
-    content negotiation or directory index), but can be used to provide a cleaner API. **Default:**
-    `[]`.
-  - `indexFiles` [`<string[]>`][`<string>`] list of filenames which should be used as index files if
-    a directory is requested. **Default:** `['index.htm', 'index.html']`.
-  - `implicitSuffixes` [`<string[]>`][`<string>`] list of implicit suffixes to add to requested
-    filenames. For example, specifying `['.html']` will serve `foo.html` at `/foo`. **Default:**
-    `[]`.
-  - `negotiator` [`<Negotiator>`] | [`<undefined>`] Content negotiation rules to apply to files (see
-    description below for details).
-- Returns: [`<Promise>`] Fulfills with [`<FileFinder>`].
-
-Static method. Returns a `Promise` which resolves with a new `FileFinder` instance. This is the way
-to construct new instances.
-
-`negotiator` can be used to respond to the [`Accept`], [`Accept-Language`], and [`Accept-Encoding`]
-headers. For example: on a server with `foo.txt`, `foo.txt.gz`, and a negotiation rule mapping
-`gzip` &rarr; `{name}.gz`:
-
-- users requesting `foo.txt` may get `foo.txt.gz` with
-  [`Content-Encoding: gzip`][`Content-Encoding`] if their client supports gzip encoding
-- users requesting `foo.txt` may get `foo.txt` with no [`Content-Encoding`] if their client does not
-  support gzip encoding
-
-Note that file access is checked _before_ content negotiation, so you must still provide a base
-"un-negotiated" file for each file you wish to serve (which will also be used in cases where users
-do not send any `Accept-*` headers, and where no match is found).
-
-Multiple rules can match simultaneously, if a specific enough file exists (for example you might
-have `foo-en.txt.gz` for [`Accept-Language: en`][`Accept-Language`] and
-[`Accept-Encoding: gzip`][`Accept-Encoding`]).
-
-In the case of conflicting rules, earlier rules take priority (so `encoding` rules should typically
-be specified last)
+This interface is used by [`assetServer`], and returned by [`dynamicFileFinder`],
+[`staticFileFinder`], and [`zipFileFinder`]. It is responsible for finding files in a directory for
+a given path, and includes various safety checks.
 
 #### `filefinder.debugAllPaths()`
 
 - Returns: [`<Promise>`] Fulfills with [`<string[]>`][`<string>`].
 
-A debug function which returns a list of all request paths that can be served by this object.
+A debug function which returns a list of all request paths that can be served by this object. Note
+that this method is not defined if the `FileFinder` was created by [`dynamicFileFinder`].
 
 #### `filefinder.find(pathParts[, reqHeaders[, warnings]])`
 
@@ -759,16 +794,6 @@ Identify the file which should be served for a particular request.
 
 Note that the returned [`<ResolvedFileInfo>`] contains an open file handle which must be closed by
 the caller.
-
-#### `filefinder.precompute()`
-
-[`filefinder.precompute`]: #filefinderprecompute
-
-- Returns: [`<Promise>`] Fulfills with a [`<FileFinder>`]-compatible object.
-
-The returned object contains pre-fetched path information for the available files. This can be used
-for improved performance in production (as long as the available file paths are not expected to
-change). This is used internally by the `'static-paths'` `mode` of [`fileServer`].
 
 #### `filefinder.toNormalisedPath(pathParts)`
 
@@ -901,15 +926,15 @@ Value to send in the corresponding `Content-*` response header for the [`fileneg
     - `file` [`<ResolvedFileInfo>`] details of the file which will be sent
     - `isFallback` [`<boolean>`] `true` if the `fallback.filePath` file is being served due to a
       requested path not being found.
-  - additional options are passed to [`<FileFinder>`].
+  - additional options are passed to [`dynamicFileFinder`] or [`staticFileFinder`].
 - Returns: [`<Promise>`] Fulfills with [`<Handler>`].
 
-Creates a request handler for serving files from the filesystem. Uses [`<FileFinder>`] and
-[`sendFile`] internally.
+Creates a request handler for serving files from the filesystem. Uses [`assetServer`] and
+[`dynamicFileFinder`] or [`staticFileFinder`] internally.
 
 If `mode` is `'dynamic'`, the filesystem will be checked for each request. This means files can be
 dynamically added and removed, but adds some latency to each request. If `mode` is `'static-paths'`,
-[`filefinder.precompute`] is called at startup to pre-calculate the available paths. This means that
+[`staticFileFinder`] is called at startup to pre-calculate the available paths. This means that
 files created after startup will not be visible, but modifications to existing files will be served
 as expected. The behaviour is otherwise identical. `'static-paths'` is usually the best choice for
 serving static files in production.
@@ -953,7 +978,8 @@ if (httperror) {
 
 [`generateStrongETag`]: #generatestrongetagfile
 
-- `file` [`<string>`] | [`<fs.FileHandle>`]
+- `file` [`<string>`] | [`<fs.FileHandle>`] (also accepts custom objects conforming to the
+  `FileHandle.createReadStream` interface).
 - Returns: [`<string>`]
 
 Generates a strong [`ETag`] header value for the given file (using a SHA-256 hash of the entire
@@ -2510,6 +2536,31 @@ Read an
 [Apache .types](https://svn.apache.org/repos/asf/httpd/httpd/trunk/docs/conf/mime.types)-formatted
 file. Can be combined with [`registerMime`] to register the result.
 
+### `readZip(path)`
+
+[`readZip`]: #readzippath
+
+- `path` [`<string>`] path to the zip file to read.
+- Returns: [`<Promise>`] Fulfills with [`<ZipDirectory>`].
+
+Reads the structure of a `.zip` file and returns the root directory. This can be used to navigate to
+and open any file in the zip.
+
+Compressed files in the zip are represented by "virtual" sibling files with `.deflate` suffixes. For
+example, a zip containing:
+
+- `foo/file1.txt` (compressed)
+- `foo/file2.txt` (stored)
+
+will be returned as:
+
+- `foo`
+  - `file1.txt`
+  - `file1.txt.deflate`
+  - `file2.txt`
+
+Example usage: [Serving zip assets]
+
 ### `registerCharset(charsetName, definition)`
 
 [`registerCharset`]: #registercharsetcharsetname-definition
@@ -2691,11 +2742,21 @@ leaking from old configuration.
 Structure returned by [`filefinder.find`]. This structure contains an open [`<fs.FileHandle>`] which
 must be closed by the caller.
 
-#### `resolvedfileinfo.canonicalPath`
+#### `resolvedfileinfo.canonicalFilename`
 
 - Type: [`<string>`]
 
-The full path of the requested file (after adding implicit extensions and index files).
+The file name of the requested file (after adding implicit extensions and index files, but without
+content negotiation variations such as `.gz`).
+
+#### `resolvedfileinfo.filesystemPath`
+
+- Type: [`<string>`]
+
+The full path of the file being served from the filesystem (includes negotiated variations such as
+`.gz`).
+
+Note for files inside zips, this will be of the form `/path/to/file.zip/path/within/zip`.
 
 #### `resolvedfileinfo.handle`
 
@@ -2718,13 +2779,6 @@ This can include:
 
 You can assign these directly (e.g. `res.setHeaders(new Headers(resolvedfileinfo.headers))`), or
 merge them with existing headers manually.
-
-#### `resolvedfileinfo.negotiatedPath`
-
-- Type: [`<string>`]
-
-The full path of the resolved file (which may differ from canonicalPath by including e.g. `.gz` if
-gzip encoding was negotiated).
 
 #### `resolvedfileinfo.stats`
 
@@ -3155,7 +3209,9 @@ always be quoted.
 
 - `req` [`<http.IncomingMessage>`]
 - `res` [`<http.ServerResponse>`]
-- `source` [`<string>`] | [`<fs.FileHandle>`] | [`<stream.Readable>`] | [`<ReadableStream>`]
+- `source` [`<string>`] | [`<fs.FileHandle>`] | [`<stream.Readable>`] | [`<ReadableStream>`] (also
+  accepts custom objects conforming to the `FileHandle.createReadStream` and optionally
+  `FileHandle.stat` interface)
 - `fileStats` [`<fs.Stats>`] | [`<null>`] the stats for the file referenced by `source`. If this is
   `null` and `source` is a path or a file handle, the stats will be fetched internally.
 - `options` [`<Object>`] options which are passed to [`getRange`] and [`simplifyRange`] (called
@@ -3243,7 +3299,8 @@ Example usage: [Streaming JSON responses].
 
 - `req` [`<http.IncomingMessage>`]
 - `res` [`<http.ServerResponse>`]
-- `source` [`<string>`] | [`<fs.FileHandle>`] | [`<stream.Readable>`] | [`<ReadableStream>`]
+- `source` [`<string>`] | [`<fs.FileHandle>`] | [`<stream.Readable>`] | [`<ReadableStream>`] (also
+  accepts custom objects conforming to the `FileHandle.createReadStream` interface)
 - `httpRange` [`<HTTPRange>`]
 
 Send a specific range or ranges of a file, according to
@@ -3435,6 +3492,43 @@ lifetime of the server. This does not set a [`Cache-Control`] header, so you sho
 this via the `headers` parameter.
 
 Example usage: [Serving static content]
+
+### `staticFileFinder(baseDir[, options])`
+
+[`staticFileFinder`]: #staticfilefinderbasedir-options
+
+- `baseDir` [`<string>`] the base directory to serve files from. Only content within this directory
+  (or sub-directories) will be served. This should be an absolute path.
+- `options` [`<Object>`] A set of options controlling how files are matched, and which files are
+  visible
+  - `subDirectories` [`<boolean>`] | [`<number>`] `true` to allow access to all sub-directories,
+    `false` to only allow access to files directly inside the base directory. If this is set to a
+    number, it is the depth of sub-directories which can be traversed (`0` is equivalent to
+    `false`). **Default:** `true`.
+  - `caseSensitive` `'exact'` | `'force-lowercase'`. **Default:** `'exact'`.
+  - `allowAllDotfiles` [`<boolean>`] **Default:** `false`.
+  - `allowAllTildefiles` [`<boolean>`] **Default:** `false`.
+  - `allowDirectIndexAccess` [`<boolean>`] **Default:** `false`.
+  - `allow` [`<string[]>`][`<string>`] list of files and directories to explicitly allow access to
+    (which may otherwise be blocked by another rule). **Default:** `['.well-known']`.
+  - `hide` [`<string[]>`][`<string>`] | [`<RegExp[]>`][`<RegExp>`] list of files and directories to
+    hide. This is not a security guarantee, as the files may still be served by other means (e.g.
+    content negotiation or directory index), but can be used to provide a cleaner API. **Default:**
+    `[]`.
+  - `indexFiles` [`<string[]>`][`<string>`] list of filenames which should be used as index files if
+    a directory is requested. **Default:** `['index.htm', 'index.html']`.
+  - `implicitSuffixes` [`<string[]>`][`<string>`] list of implicit suffixes to add to requested
+    filenames. For example, specifying `['.html']` will serve `foo.html` at `/foo`. **Default:**
+    `[]`.
+  - `negotiator` [`<Negotiator>`] | [`<undefined>`] Content negotiation rules to apply to files (see
+    description below for details).
+- Returns: [`<Promise>`] Fulfills with [`<FileFinder>`].
+
+Equivalent to [`dynamicFileFinder`], but preloads the directory structure into memory. This can be
+used for improved performance in production (as long as the available file paths are not expected to
+change). This is used internally by the `'static-paths'` `mode` of [`fileServer`].
+
+See [`dynamicFileFinder`] for parameter details.
 
 ### `staticJSON(content[, options])`
 
@@ -3775,6 +3869,154 @@ listener was set on the [`<http.Server>`]), this will return `false` until [`acc
 This can be useful in error handling: if a request with a body fails precondition checks, its
 connection can be reused _without_ needing to consume the body if `willSendBody` returns `false`.
 
+### `zipFileFinder(zipDirectory[, options])`
+
+[`zipFileFinder`]: #zipfilefinderzipdirectory-options
+
+- `zipDirectory` [`<ZipDirectory>`] the base directory to serve files from. Only content within this
+  directory (or sub-directories) in the zip be served. See [`readZip`] and [`ZipDirectory.find`].
+- `options` [`<Object>`] A set of options controlling how files are matched, and which files are
+  visible
+  - `subDirectories` [`<boolean>`] | [`<number>`] `true` to allow access to all sub-directories,
+    `false` to only allow access to files directly inside the base directory. If this is set to a
+    number, it is the depth of sub-directories which can be traversed (`0` is equivalent to
+    `false`). **Default:** `true`.
+  - `caseSensitive` `'exact'` | `'force-lowercase'`. **Default:** `'exact'`.
+  - `allowAllDotfiles` [`<boolean>`] **Default:** `false`.
+  - `allowAllTildefiles` [`<boolean>`] **Default:** `false`.
+  - `allowDirectIndexAccess` [`<boolean>`] **Default:** `false`.
+  - `allow` [`<string[]>`][`<string>`] list of files and directories to explicitly allow access to
+    (which may otherwise be blocked by another rule). **Default:** `['.well-known']`.
+  - `hide` [`<string[]>`][`<string>`] | [`<RegExp[]>`][`<RegExp>`] list of files and directories to
+    hide. This is not a security guarantee, as the files may still be served by other means (e.g.
+    content negotiation or directory index), but can be used to provide a cleaner API. **Default:**
+    `[]`.
+  - `indexFiles` [`<string[]>`][`<string>`] list of filenames which should be used as index files if
+    a directory is requested. **Default:** `['index.htm', 'index.html']`.
+  - `implicitSuffixes` [`<string[]>`][`<string>`] list of implicit suffixes to add to requested
+    filenames. For example, specifying `['.html']` will serve `foo.html` at `/foo`. **Default:**
+    `[]`.
+  - `negotiator` [`<Negotiator>`] | [`<undefined>`] Content negotiation rules to apply to files (see
+    description below for details).
+- Returns: [`<Promise>`] Fulfills with [`<FileFinder>`].
+
+Serves files directly from a `.zip`. This can be used for improved performance in production. Note
+that `.deflate` files are implicitly available for compressed files.
+
+See [`dynamicFileFinder`] for parameter details.
+
+Example usage: [Serving zip assets]
+
+### `ZipDirectory`
+
+[`<ZipDirectory>`]: #zipdirectory
+
+- Extends: [`<ZipNode>`]
+
+A representation of a directory in a zip file.
+
+#### `zipdirectory.allFiles()`
+
+[`zipdirectory.allFiles`]: #zipdirectoryallfiles
+
+- Returns: [`<Generator>`] of [`<Object>`]
+
+Iterates through all descendents of the directory recursively. Currently the order is "depth-first",
+but this could change in a future version.
+
+Each returned [`<Object>`] contains:
+
+- `path` [`<string[]>`][`<string>`] the path to the file within the zip.
+- `node` [`<ZipFile>`].
+
+#### `zipdirectory.find(path)`
+
+[`zipdirectory.find`]: #zipdirectoryfind
+
+- `path` [`<string[]>`][`<string>`] the path to resolve
+- Returns: [`<ZipNode>`] | [`<undefined>`]
+
+Returns the child node at the requested path, or returns `undefined` if the path does not exist.
+
+### `ZipFile`
+
+[`<ZipFile>`]: #zipfile
+
+- Extends: [`<ZipNode>`]
+
+A representation of a file in a zip file.
+
+#### `zipfile.virtual`
+
+[`zipfile.virtual`]: #zipfilevirtual
+
+- Type: [`<boolean>`].
+
+This is `true` for implicit `.deflate` files, and `false` for regular files.
+
+#### `zipfile.crc32`
+
+[`zipfile.crc32`]: #zipfilecrc32
+
+- Type: [`<number>`].
+
+The 32-bit cyclic redundancy check for this file from the zip. This is a basic hash of the file
+contents, intended for use with error detection (but can also be used as a low-entropy versioning
+hash).
+
+#### `zipfile.stat(options)`
+
+[`zipfile.stat`]: #zipfilestatoptions
+
+- `options` [`<Object>`]
+  - `bigint` [`<boolean>`] if `true`, returns values as [`<bigint>`] instead of [`<number>`].
+    **Default:** `false`.
+- Returns: [`<fs.Stats>`]
+
+Synchronous shorthand for `zipfile.open().stat(options)`.
+
+#### `zipfile.open()`
+
+[`zipfile.open`]: #zipfileopen
+
+- Returns: [`<Promise>`] Fulfills with [`<fs.FileHandle>`]
+
+Opens a minimal `FileHandle` for the file. Note that this only supports read methods, specifically:
+
+- `createReadStream` (applies decompression automatically if needed, but in this case does not
+  support `start > 0` or `end`);
+- `stat`;
+- `close`;
+- `Symbol.asyncDispose`.
+
+Ensure the `FileHandle` is always `close`d when no-longer required.
+
+### `ZipNode`
+
+[`<ZipNode>`]: #zipnode
+
+A representation of a file ([`<ZipFile>`]) or directory ([`<ZipDirectory>`]) in a zip file.
+
+#### `zipnode.isDirectory`
+
+[`zipnode.isDirectory`]: #zipnodeisdirectory
+
+- Type: [`<boolean>`].
+
+This can be used to distinguish between [`<ZipDirectory>`] and [`<ZipFile>`] entries.
+
+#### `zipnode.filesystemPath`
+
+[`zipnode.filesystemPath`]: #zipnodefilesystempath
+
+- Type: [`<string>`].
+
+The full path to the current zip node. This is of the form:
+
+```
+/path/to/file.zip/path/within/zip
+```
+
 # Paths
 
 [Paths]: #paths
@@ -4062,6 +4304,46 @@ response can be cached for up to 60 seconds. After this time, clients will check
 changed by sending an [`If-None-Match`] header.
 
 Reference: [`staticJSON`], [`<Router>`]
+
+## Serving zip assets
+
+[Serving zip assets]: #serving-zip-assets
+
+Example of serving static content directly from a `.zip` file:
+
+```js
+import {
+  assetServer,
+  negotiateEncoding,
+  Negotiator,
+  readZip,
+  Router,
+  zipFileFinder,
+} from 'web-listener';
+
+const router = new Router();
+
+router.use(
+  assetServer(
+    zipFileFinder(await readZip('/path/to/content.zip'), {
+      negotiator: new Negotiator([negotiateEncoding(['deflate'])]),
+    }),
+  ),
+);
+```
+
+Reference: [`assetServer`], [`negotiateEncoding`], [`Negotiator`], [`readZip`], [`<Router>`],
+[`zipFileFinder`]
+
+The recommended way to generate a zip file for this purpose on MacOS and Unix is:
+
+```sh
+zip -9 -X -r -n .gz:.png:.jpg:.jpeg content.zip index.html style.css [...]
+```
+
+(`-9` sets maximum compression, `-X` skips additional file metadata such as user and group ID, `-r`
+enables recursive scanning of files, `-n .gz:.png:...` disables compression for specific filetypes
+which are unlikely to benefit from it).
 
 ## Proxy
 

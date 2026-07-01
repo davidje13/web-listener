@@ -2,11 +2,14 @@ export type { UpgradeListener } from './polyfill/serverTypes.mts';
 
 export { parseAddress, makeAddressTester, type Address } from './util/address.mts';
 export { BlockingQueue } from './util/BlockingQueue.mts';
+export { createSafeReadStream } from './util/createSafeReadStream.mts';
 export { findCause } from './util/findCause.mts';
 export { getAddressURL } from './util/getAddressURL.mts';
 export type { AnyHeaders } from './util/normaliseHeaders.mts';
 export { Queue } from './util/Queue.mts';
+export type { CloseableReadable, ReadOnlyFileHandle } from './util/ReadOnlyFileHandle.mts';
 export { stringPredicate } from './util/regexpFlags.mts';
+export { SharedFileHandle } from './util/SharedFileHandle.mts';
 
 export {
   acceptUpgrade,
@@ -83,13 +86,21 @@ export {
   type JSONErrorHandlerOptions,
 } from './extras/error/jsonErrorHandler.mts';
 
-export {
+export type {
   FileFinder,
-  type FileFinderCore,
-  type FileFinderOptions,
-  type ResolvedFileInfo,
+  FileFinderOptions,
+  ResolvedFileInfo,
 } from './extras/filesystem/FileFinder.mts';
+export { dynamicFileFinder } from './extras/filesystem/dynamicFileFinder.mts';
+export { staticFileFinder } from './extras/filesystem/staticFileFinder.mts';
+export { zipFileFinder } from './extras/filesystem/zipFileFinder.mts';
 export { makeTempFileStorage } from './extras/filesystem/tempFileStorage.mts';
+export {
+  readZip,
+  type ZipNode,
+  type ZipDirectory,
+  type ZipFile,
+} from './extras/filesystem/readZip.mts';
 
 export { proxy, type ProxyOptions } from './extras/proxy/proxy.mts';
 export {
@@ -174,10 +185,11 @@ export { sendRanges } from './extras/response/sendRanges.mts';
 export { ServerSentEvents, type ServerSentEvent } from './extras/response/ServerSentEvents.mts';
 
 export {
-  fileServer,
-  type FileServerOptions,
+  assetServer,
+  type AssetServerOptions,
   type FallbackOptions,
-} from './extras/static/fileServer.mts';
+} from './extras/static/assetServer.mts';
+export { fileServer, type FileServerOptions } from './extras/static/fileServer.mts';
 export {
   staticContent,
   staticJSON,

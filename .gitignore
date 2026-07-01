@@ -7,3 +7,4 @@
 *.tgz
 /package/treeshake/*.output.mjs
 /package/cli/sample/file.txt.gz
+test-zips/

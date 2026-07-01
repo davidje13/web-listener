@@ -1,16 +1,21 @@
 import { join, sep } from 'node:path';
-import {
-  makeFileStructure,
-  makeTestTempDir,
-  type FilesDefinition,
-} from '../../test-helpers/makeFileStructure.mts';
+import { type FilesDefinition } from '../../test-helpers/makeFileStructure.mts';
 import { Negotiator } from '../request/Negotiator.mts';
-import { FileFinder, type FileFinderCore, type FileFinderOptions } from './FileFinder.mts';
+import type { FileFinder, FileFinderOptions } from './FileFinder.mts';
+import type { TypedParameters } from 'lean-test';
 import 'lean-test';
 
-function fileFinderTestSuite(isPrecomputed: boolean) {
-  it('resolves files within a directory', async ({ getTyped }) => {
-    const fileFinder = await initialise(getTyped(TEST_DIR), {
+export function fileFinderTestSuite(
+  initialise: (
+    ctx: TypedParameters,
+    structure: FilesDefinition,
+    options?: FileFinderOptions,
+    relativePath?: string[],
+  ) => Promise<FileFinder>,
+  getRootDir: (ctx: TypedParameters) => string,
+) {
+  it('resolves files within a directory', async (ctx) => {
+    const fileFinder = await initialise(ctx, {
       'one.txt': 'Content',
       'two.txt': 'Other',
       sub: { 'three.txt': 'Nested Content' },
@@ -23,8 +28,8 @@ function fileFinderTestSuite(isPrecomputed: boolean) {
       expect(one!.headers['content-language']).isUndefined();
       expect(one!.headers['content-language']).isUndefined();
       expect(one!.headers['vary']).isUndefined();
-      expect(one!.canonicalPath).endsWith(sep + 'one.txt');
-      expect(one!.negotiatedPath).endsWith(sep + 'one.txt');
+      expect(one!.canonicalFilename).equals('one.txt');
+      expect(one!.filesystemPath).endsWith(sep + 'one.txt');
       expect(one!.stats.size).equals(7);
     } finally {
       one?.handle.close();
@@ -33,8 +38,8 @@ function fileFinderTestSuite(isPrecomputed: boolean) {
     const three = await fileFinder.find(['sub', 'three.txt']);
     expect(three).isTruthy();
     try {
-      expect(three!.canonicalPath).endsWith(sep + join('sub', 'three.txt'));
-      expect(three!.negotiatedPath).endsWith(sep + join('sub', 'three.txt'));
+      expect(three!.canonicalFilename).equals('three.txt');
+      expect(three!.filesystemPath).endsWith(sep + join('sub', 'three.txt'));
       expect(three!.stats.size).equals(14);
     } finally {
       three?.handle.close();
@@ -43,8 +48,8 @@ function fileFinderTestSuite(isPrecomputed: boolean) {
     expect(await fileExists(fileFinder, ['three.txt'])).isFalse();
   });
 
-  it('serves index files if a directory is requested', async ({ getTyped }) => {
-    const fileFinder = await initialise(getTyped(TEST_DIR), {
+  it('serves index files if a directory is requested', async (ctx) => {
+    const fileFinder = await initialise(ctx, {
       sub1: {
         'index.htm': 'Index Content',
         'foo.htm': 'Other Content',
@@ -55,8 +60,8 @@ function fileFinderTestSuite(isPrecomputed: boolean) {
     const index = await fileFinder.find(['sub1']);
     expect(index).isTruthy();
     try {
-      expect(index!.canonicalPath).endsWith(sep + join('sub1', 'index.htm'));
-      expect(index!.negotiatedPath).endsWith(sep + join('sub1', 'index.htm'));
+      expect(index!.canonicalFilename).equals('index.htm');
+      expect(index!.filesystemPath).endsWith(sep + join('sub1', 'index.htm'));
       expect(index!.stats.size).equals(13);
     } finally {
       index?.handle.close();
@@ -69,16 +74,16 @@ function fileFinderTestSuite(isPrecomputed: boolean) {
     expect(await fileExists(fileFinder, ['sub2'])).isFalse();
   });
 
-  it('serves the root index file if the root is requested', async ({ getTyped }) => {
-    const fileFinder = await initialise(getTyped(TEST_DIR), {
+  it('serves the root index file if the root is requested', async (ctx) => {
+    const fileFinder = await initialise(ctx, {
       'index.htm': 'Index Content',
     });
 
     const index = await fileFinder.find([]);
     expect(index).isTruthy();
     try {
-      expect(index!.canonicalPath).endsWith(sep + join('index.htm'));
-      expect(index!.negotiatedPath).endsWith(sep + join('index.htm'));
+      expect(index!.canonicalFilename).equals('index.htm');
+      expect(index!.filesystemPath).endsWith(sep + join('index.htm'));
       expect(index!.stats.size).equals(13);
     } finally {
       index?.handle.close();
@@ -88,9 +93,9 @@ function fileFinderTestSuite(isPrecomputed: boolean) {
     expect(await fileExists(fileFinder, ['index.htm'])).isFalse();
   });
 
-  it('uses configured index files', async ({ getTyped }) => {
+  it('uses configured index files', async (ctx) => {
     const fileFinder = await initialise(
-      getTyped(TEST_DIR),
+      ctx,
       { sub: { 'index.htm': 'Index Content', 'custom.thing': 'Custom Content' } },
       { indexFiles: ['custom.thing'] },
     );
@@ -98,8 +103,8 @@ function fileFinderTestSuite(isPrecomputed: boolean) {
     const index = await fileFinder.find(['sub']);
     expect(index).isTruthy();
     try {
-      expect(index!.canonicalPath).endsWith(sep + join('sub', 'custom.thing'));
-      expect(index!.negotiatedPath).endsWith(sep + join('sub', 'custom.thing'));
+      expect(index!.canonicalFilename).equals('custom.thing');
+      expect(index!.filesystemPath).endsWith(sep + join('sub', 'custom.thing'));
       expect(index!.stats.size).equals(14);
     } finally {
       index?.handle.close();
@@ -109,9 +114,9 @@ function fileFinderTestSuite(isPrecomputed: boolean) {
     expect(await fileExists(fileFinder, ['sub', 'custom.thing'])).isFalse();
   });
 
-  it('prioritises index files by their configured order', async ({ getTyped }) => {
+  it('prioritises index files by their configured order', async (ctx) => {
     const fileFinder = await initialise(
-      getTyped(TEST_DIR),
+      ctx,
       { a: 'nope', m: 'yep', z: 'nope' },
       { indexFiles: ['m', 'a', 'z'] },
     );
@@ -119,17 +124,17 @@ function fileFinderTestSuite(isPrecomputed: boolean) {
     const index = await fileFinder.find([]);
     expect(index).isTruthy();
     try {
-      expect(index!.canonicalPath).endsWith(sep + 'm');
-      expect(index!.negotiatedPath).endsWith(sep + 'm');
+      expect(index!.canonicalFilename).equals('m');
+      expect(index!.filesystemPath).endsWith(sep + 'm');
       expect(index!.stats.size).equals(3);
     } finally {
       index?.handle.close();
     }
   });
 
-  it('uses configured suffixes if the requested file does not exist', async ({ getTyped }) => {
+  it('uses configured suffixes if the requested file does not exist', async (ctx) => {
     const fileFinder = await initialise(
-      getTyped(TEST_DIR),
+      ctx,
       {
         'file.foo': 'Foo',
         'other.bar': 'Bar',
@@ -144,8 +149,8 @@ function fileFinderTestSuite(isPrecomputed: boolean) {
     const f1 = await fileFinder.find(['file']);
     expect(f1).isTruthy();
     try {
-      expect(f1!.canonicalPath).endsWith(sep + 'file.foo');
-      expect(f1!.negotiatedPath).endsWith(sep + 'file.foo');
+      expect(f1!.canonicalFilename).equals('file.foo');
+      expect(f1!.filesystemPath).endsWith(sep + 'file.foo');
       expect(f1!.stats.size).equals(3);
     } finally {
       f1?.handle.close();
@@ -154,8 +159,8 @@ function fileFinderTestSuite(isPrecomputed: boolean) {
     const f2 = await fileFinder.find(['other']);
     expect(f2).isTruthy();
     try {
-      expect(f2!.canonicalPath).endsWith(sep + 'other.bar');
-      expect(f2!.negotiatedPath).endsWith(sep + 'other.bar');
+      expect(f2!.canonicalFilename).equals('other.bar');
+      expect(f2!.filesystemPath).endsWith(sep + 'other.bar');
       expect(f2!.stats.size).equals(3);
     } finally {
       f2?.handle.close();
@@ -164,8 +169,8 @@ function fileFinderTestSuite(isPrecomputed: boolean) {
     const f3 = await fileFinder.find(['raw']);
     expect(f3).isTruthy();
     try {
-      expect(f3!.canonicalPath).endsWith(sep + 'raw');
-      expect(f3!.negotiatedPath).endsWith(sep + 'raw');
+      expect(f3!.canonicalFilename).equals('raw');
+      expect(f3!.filesystemPath).endsWith(sep + 'raw');
       expect(f3!.stats.size).equals(6);
     } finally {
       f3?.handle.close();
@@ -177,9 +182,9 @@ function fileFinderTestSuite(isPrecomputed: boolean) {
     expect(await fileExists(fileFinder, ['sub', 'custom.thing'])).isFalse();
   });
 
-  it('prioritises suffixes by their configured order', async ({ getTyped }) => {
+  it('prioritises suffixes by their configured order', async (ctx) => {
     const fileFinder = await initialise(
-      getTyped(TEST_DIR),
+      ctx,
       { aa: 'nope', am: 'yep', az: 'nope' },
       { implicitSuffixes: ['m', 'a', 'z'] },
     );
@@ -187,24 +192,24 @@ function fileFinderTestSuite(isPrecomputed: boolean) {
     const index = await fileFinder.find(['a']);
     expect(index).isTruthy();
     try {
-      expect(index!.canonicalPath).endsWith(sep + 'am');
-      expect(index!.negotiatedPath).endsWith(sep + 'am');
+      expect(index!.canonicalFilename).equals('am');
+      expect(index!.filesystemPath).endsWith(sep + 'am');
       expect(index!.stats.size).equals(3);
     } finally {
       index?.handle.close();
     }
   });
 
-  it('does not allow access to files outside the directory', async (props) => {
-    const dir = props.getTyped(TEST_DIR);
+  it('does not allow access to files outside the directory', async (ctx) => {
+    const dir = getRootDir(ctx);
     const fileFinder = await initialise(
-      dir,
+      ctx,
       {
         'one.txt': 'Blocked Content',
         sub: { 'ok.txt': 'Permitted Content' },
       },
       {},
-      'sub',
+      ['sub'],
     );
 
     expect(await fileExists(fileFinder, ['one.txt'])).isFalse();
@@ -221,9 +226,11 @@ function fileFinderTestSuite(isPrecomputed: boolean) {
     }
   });
 
-  it('does not disclose the root path', async (props) => {
-    const dir = props.getTyped(TEST_DIR);
-    const fileFinder = await initialise(dir, { sub: { 'ok.txt': 'Permitted Content' } }, {}, 'sub');
+  it('does not disclose the root path', async (ctx) => {
+    const dir = getRootDir(ctx);
+    const fileFinder = await initialise(ctx, { sub: { 'ok.txt': 'Permitted Content' } }, {}, [
+      'sub',
+    ]);
 
     expect(await fileExists(fileFinder, ['..', 'sub', 'ok.txt'])).isFalse();
     expect(await fileExists(fileFinder, ['../sub/ok.txt'])).isFalse();
@@ -233,8 +240,8 @@ function fileFinderTestSuite(isPrecomputed: boolean) {
     expect(await fileExists(fileFinder, [join(dir, 'sub', 'ok.txt')])).isFalse();
   });
 
-  it('does not allow access to special files by default', async ({ getTyped }) => {
-    const fileFinder = await initialise(getTyped(TEST_DIR), {
+  it('does not allow access to special files by default', async (ctx) => {
+    const fileFinder = await initialise(ctx, {
       '.dot': 'Blocked Content',
       '~tilde': 'Blocked Content',
       'tilde~': 'Blocked Content',
@@ -256,8 +263,8 @@ function fileFinderTestSuite(isPrecomputed: boolean) {
     }
   });
 
-  it('is case sensitive by default', async ({ getTyped }) => {
-    const fileFinder = await initialise(getTyped(TEST_DIR), {
+  it('is case sensitive by default', async (ctx) => {
+    const fileFinder = await initialise(ctx, {
       'one.txt': 'Content',
       'TWO.txt': 'Other',
       Sub: { 'three.txt': 'Nested Content' },
@@ -270,9 +277,9 @@ function fileFinderTestSuite(isPrecomputed: boolean) {
     expect(await fileExists(fileFinder, ['Sub', 'three.txt'])).isTrue();
   });
 
-  it('forces all paths lowercase if configured', async ({ getTyped }) => {
+  it('forces all paths lowercase if configured', async (ctx) => {
     const fileFinder = await initialise(
-      getTyped(TEST_DIR),
+      ctx,
       {
         'one.txt': 'Content',
         sub: { 'two.txt': 'Nested Content' },
@@ -286,9 +293,9 @@ function fileFinderTestSuite(isPrecomputed: boolean) {
     expect(await fileExists(fileFinder, ['Sub', 'two.TXT'])).isTrue();
   });
 
-  it('returns specific file variants if negotiated', async ({ getTyped }) => {
+  it('returns specific file variants if negotiated', async (ctx) => {
     const fileFinder = await initialise(
-      getTyped(TEST_DIR),
+      ctx,
       {
         'one.txt': 'Content',
         'one.txt.gz': 'Compressed Content',
@@ -308,8 +315,8 @@ function fileFinderTestSuite(isPrecomputed: boolean) {
       expect(withGzip!.headers['content-language']).isUndefined();
       expect(withGzip!.headers['content-encoding']).equals('gzip');
       expect(withGzip!.headers['vary']).equals('accept-encoding');
-      expect(withGzip!.canonicalPath).endsWith(sep + 'one.txt');
-      expect(withGzip!.negotiatedPath).endsWith(sep + 'one.txt.gz');
+      expect(withGzip!.canonicalFilename).equals('one.txt');
+      expect(withGzip!.filesystemPath).endsWith(sep + 'one.txt.gz');
       expect(withGzip!.stats.size).equals(18);
     } finally {
       withGzip?.handle.close();
@@ -322,8 +329,8 @@ function fileFinderTestSuite(isPrecomputed: boolean) {
       expect(withoutGzip!.headers['content-language']).isUndefined();
       expect(withoutGzip!.headers['content-encoding']).isUndefined();
       expect(withoutGzip!.headers['vary']).equals('accept-encoding');
-      expect(withoutGzip!.canonicalPath).endsWith(sep + 'one.txt');
-      expect(withoutGzip!.negotiatedPath).endsWith(sep + 'one.txt');
+      expect(withoutGzip!.canonicalFilename).equals('one.txt');
+      expect(withoutGzip!.filesystemPath).endsWith(sep + 'one.txt');
       expect(withoutGzip!.stats.size).equals(7);
     } finally {
       withoutGzip?.handle.close();
@@ -336,52 +343,16 @@ function fileFinderTestSuite(isPrecomputed: boolean) {
       expect(noGzip!.headers['content-language']).isUndefined();
       expect(noGzip!.headers['content-encoding']).isUndefined();
       expect(noGzip!.headers['vary']).equals('accept-encoding');
-      expect(noGzip!.canonicalPath).endsWith(sep + 'two.txt');
-      expect(noGzip!.negotiatedPath).endsWith(sep + 'two.txt');
+      expect(noGzip!.canonicalFilename).equals('two.txt');
+      expect(noGzip!.filesystemPath).endsWith(sep + 'two.txt');
       expect(noGzip!.stats.size).equals(7);
     } finally {
       noGzip?.handle.close();
     }
   });
-
-  describe('debugAllPaths', () => {
-    it('returns a set of all recognised paths', async ({ getTyped }) => {
-      const fileFinder = await initialise(getTyped(TEST_DIR), {
-        'foo.txt': 'Hello',
-        sub1: {
-          'index.htm': 'Index Content',
-          'foo.htm': 'Other Content',
-        },
-        sub2: { 'nope.htm': 'Nested Content' },
-      });
-
-      const paths = await fileFinder.debugAllPaths();
-      expect(paths).equals(new Set(['foo.txt', 'sub1', 'sub1/foo.htm', 'sub2/nope.htm']));
-    });
-  });
-
-  const TEST_DIR = makeTestTempDir('ff-');
-
-  async function initialise(
-    dir: string,
-    structure: FilesDefinition,
-    options: FileFinderOptions = {},
-    relativePath = '',
-  ) {
-    await makeFileStructure(dir, structure);
-    const fileFinder = await FileFinder.build(join(dir, relativePath), options);
-    if (isPrecomputed) {
-      return fileFinder.precompute();
-    } else {
-      return fileFinder;
-    }
-  }
 }
 
-describe('FileFinder (Dynamic)', () => fileFinderTestSuite(false));
-describe('FileFinder (Precomputed)', () => fileFinderTestSuite(true));
-
-async function fileExists(fileFinder: FileFinderCore, path: string[]) {
+async function fileExists(fileFinder: FileFinder, path: string[]) {
   const file = await fileFinder.find(path);
   const exists = Boolean(file);
   file?.handle.close();

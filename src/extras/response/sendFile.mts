@@ -1,11 +1,12 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { ReadableStream } from 'node:stream/web';
 import { pipeline } from 'node:stream/promises';
-import { stat, type FileHandle } from 'node:fs/promises';
+import { stat } from 'node:fs/promises';
 import type { Readable } from 'node:stream';
 import { createReadStream, type Stats } from 'node:fs';
-import { internalIsFileHandle } from '../../util/isFileHandle.mts';
 import { internalIsPrematureCloseError } from '../../util/isPrematureCloseError.mts';
+import { createSafeReadStream } from '../../util/createSafeReadStream.mts';
+import type { ReadOnlyFileHandle } from '../../util/ReadOnlyFileHandle.mts';
 import { STOP } from '../../core/RoutingInstruction.mts';
 import { getRange, type GetRangeOptions } from '../request/headers.mts';
 import { checkIfModified, checkIfRange } from '../request/conditional.mts';
@@ -15,7 +16,13 @@ import { simplifyRange, type SimplifyRangeOptions } from '../range.mts';
 export async function sendFile(
   req: IncomingMessage,
   res: ServerResponse,
-  source: string | FileHandle | Readable | ReadableStream<Uint8Array>,
+  source:
+    | string
+    | (Pick<ReadOnlyFileHandle, 'createReadStream'> & {
+        stat?: () => Promise<Pick<Stats, 'mtimeMs' | 'size'>>;
+      })
+    | Readable
+    | ReadableStream<Uint8Array>,
   fileStats: Pick<Stats, 'mtimeMs' | 'size'> | null = null,
   options?: GetRangeOptions & SimplifyRangeOptions,
 ) {
@@ -26,7 +33,7 @@ export async function sendFile(
   if (!fileStats) {
     if (typeof source === 'string') {
       fileStats = await stat(source);
-    } else if (internalIsFileHandle(source)) {
+    } else if ('stat' in source) {
       fileStats = await source.stat();
     }
     if (res.closed || !res.writable) {
@@ -56,8 +63,8 @@ export async function sendFile(
   }
   if (typeof source === 'string') {
     source = createReadStream(source);
-  } else if (internalIsFileHandle(source)) {
-    source = source.createReadStream({ start: 0, autoClose: false });
+  } else if ('createReadStream' in source) {
+    source = createSafeReadStream(source, { start: 0, autoClose: false });
   }
   try {
     await pipeline(source, res);

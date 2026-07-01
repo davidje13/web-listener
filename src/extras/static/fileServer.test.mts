@@ -1,26 +1,12 @@
-import { platform } from 'node:os';
 import { makeTestTempDir } from '../../test-helpers/makeFileStructure.mts';
 import { withServer } from '../../test-helpers/withServer.mts';
-import { makeRequestOnSocket, openRawSocket, rawRequest } from '../../test-helpers/rawRequest.mts';
-import { requestHandler } from '../../core/handler.mts';
-import { Router } from '../../core/Router.mts';
-import { negotiateEncoding, Negotiator } from '../request/Negotiator.mts';
 import { fileServer } from './fileServer.mts';
 import 'lean-test';
 
 describe('fileServer', () => {
-  const TEST_DIR = makeTestTempDir('ff-', {
-    'file.txt': 'Content',
-    'file.txt.gz': 'Compressed',
-    'index.htm': 'Root Index',
-    'special%char.txt': 'Special',
-    sub: {
-      'index.html': 'Sub Index',
-    },
-    none: {},
-  });
+  const TEST_DIR = makeTestTempDir('fs-', { 'file.txt': 'Content' });
 
-  it('serves files from the filesystem', { timeout: 3000 }, async ({ getTyped }) => {
+  it('wraps assetServer(dynamicFileFinder) by default', { timeout: 3000 }, async ({ getTyped }) => {
     const handler = await fileServer(getTyped(TEST_DIR));
 
     return withServer(handler, async (url) => {
@@ -30,224 +16,22 @@ describe('fileServer', () => {
       expect(res.headers.get('etag')!).startsWith('W/\"');
       expect(res.headers.get('last-modified')).not(isNull());
       expect(await res.text()).equals('Content');
-
-      const resHEAD = await fetch(url + '/file.txt', { method: 'HEAD' });
-      expect(resHEAD.status).equals(200);
-      expect(resHEAD.headers.get('content-type')).equals('text/plain; charset=utf-8');
-      expect(resHEAD.headers.get('etag')).equals(res.headers.get('etag'));
-      expect(resHEAD.headers.get('last-modified')).equals(res.headers.get('last-modified'));
-      expect(await resHEAD.text()).equals('');
     });
   });
 
   it(
-    'serves index pages when directories are requested',
-    { timeout: 3000 },
-    async ({ getTyped }) => {
-      const handler = await fileServer(getTyped(TEST_DIR));
-
-      return withServer(handler, async (url, { expectError }) => {
-        const res1 = await fetch(url);
-        expect(res1.status).equals(200);
-        expect(await res1.text()).equals('Root Index');
-
-        const res2 = await fetch(url + '/sub');
-        expect(res2.status).equals(200);
-        expect(await res2.text()).equals('Sub Index');
-
-        const res3 = await fetch(url + '/sub/');
-        expect(res3.status).equals(200);
-        expect(await res3.text()).equals('Sub Index');
-
-        const res4 = await fetch(url + '/none/');
-        expect(res4.status).equals(404);
-        expect(await res4.text()).equals('');
-        expectError('handling request /none/: HTTPError(404 Not Found)');
-      });
-    },
-  );
-
-  it(
-    'serves files with special characters in dynamic mode',
-    { timeout: 3000 },
-    async ({ getTyped }) => {
-      const handler = await fileServer(getTyped(TEST_DIR));
-
-      return withServer(handler, async (url) => {
-        const res = await fetch(url + '/special%25char.txt');
-        expect(res.status).equals(200);
-        expect(await res.text()).equals('Special');
-      });
-    },
-  );
-
-  it(
-    'serves files with special characters in static paths mode',
+    'wraps assetServer(staticFileFinder) if mode is static-paths',
     { timeout: 3000 },
     async ({ getTyped }) => {
       const handler = await fileServer(getTyped(TEST_DIR), { mode: 'static-paths' });
 
       return withServer(handler, async (url) => {
-        const res = await fetch(url + '/special%25char.txt');
+        const res = await fetch(url + '/file.txt');
         expect(res.status).equals(200);
-        expect(await res.text()).equals('Special');
-      });
-    },
-  );
-
-  it('rejects requests with %2f in dynamic mode', { timeout: 3000 }, async ({ getTyped }) => {
-    const handler = await fileServer(getTyped(TEST_DIR));
-
-    return withServer(handler, async (url, { expectError }) => {
-      const res = await fetch(url + '/sub%2f');
-      expect(res.status).equals(400);
-      if (platform() === 'win32') {
-        expect(await res.text()).equals('');
-        expectError('handling request /sub%2f: HTTPError(404 Not Found)');
-      } else {
-        expect(await res.text()).equals('invalid path');
-        expectError('handling request /sub%2f: HTTPError(400 Bad Request): invalid path');
-      }
-    });
-  });
-
-  it('rejects requests with %2f in static paths mode', { timeout: 3000 }, async ({ getTyped }) => {
-    const handler = await fileServer(getTyped(TEST_DIR), { mode: 'static-paths' });
-
-    return withServer(handler, async (url, { expectError }) => {
-      const res = await fetch(url + '/sub%2f');
-      expect(res.status).equals(404);
-      expect(await res.text()).equals('');
-      expectError('handling request /sub%2f: HTTPError(404 Not Found)');
-    });
-  });
-
-  it('supports content negotiation', { timeout: 3000 }, async ({ getTyped }) => {
-    const handler = await fileServer(getTyped(TEST_DIR), {
-      negotiator: new Negotiator([negotiateEncoding(['gzip'])]),
-    });
-
-    return withServer(handler, async (url) => {
-      const res1 = await rawRequest(url + '/file.txt');
-      expect(res1).contains('Content');
-      expect(res1).contains('vary: accept-encoding');
-
-      const res2 = await rawRequest(url + '/file.txt', { headers: { 'accept-encoding': 'gzip' } });
-      expect(res2).contains('Compressed');
-      expect(res2).contains('content-encoding: gzip');
-      expect(res2).contains('vary: accept-encoding');
-    });
-  });
-
-  it('continues to next route for unknown files', { timeout: 3000 }, async ({ getTyped }) => {
-    const router = new Router();
-    router.use(await fileServer(getTyped(TEST_DIR)));
-    router.use(requestHandler((_, res) => res.end('nope')));
-
-    return withServer(router, async (url) => {
-      const res = await fetch(url + '/missing');
-      expect(await res.text()).equals('nope');
-    });
-  });
-
-  it('reports verbose error information if configured', { timeout: 3000 }, async ({ getTyped }) => {
-    const router = new Router();
-    router.use(await fileServer(getTyped(TEST_DIR), { verbose: true }));
-    router.use(requestHandler((_, res) => res.end('nope')));
-
-    return withServer(router, async (url, { expectError }) => {
-      const res = await fetch(url + '/missing');
-      expect(await res.text()).equals('nope');
-      expectError(/serving static content \/missing: Error: file ".*" does not exist/);
-    });
-  });
-
-  it('ignores non-GET/HEAD requests', { timeout: 3000 }, async ({ getTyped }) => {
-    const router = new Router();
-    router.use(await fileServer(getTyped(TEST_DIR)));
-    router.use(requestHandler((req, res) => res.end(`fallback ${req.method}`)));
-
-    return withServer(router, async (url) => {
-      const res = await fetch(url + '/file.txt', { method: 'POST' });
-      expect(await res.text()).equals('fallback POST');
-    });
-  });
-
-  it('falls back to a specific file if configured', { timeout: 3000 }, async ({ getTyped }) => {
-    const router = new Router();
-    router.use(
-      await fileServer(getTyped(TEST_DIR), {
-        fallback: { filePath: 'file.txt', statusCode: 255 },
-        negotiator: new Negotiator([negotiateEncoding(['gzip'])]),
-      }),
-    );
-    router.use(requestHandler((_, res) => res.end('nope')));
-
-    return withServer(router, async (url) => {
-      const res1 = await fetch(url + '/missing', { headers: { 'accept-encoding': 'identity' } });
-      expect(res1.status).equals(255);
-      expect(await res1.text()).equals('Content');
-
-      const res2 = await rawRequest(url + '/missing', { headers: { 'accept-encoding': 'gzip' } });
-      expect(res2).contains('Compressed');
-    });
-  });
-
-  it('errors if the fallback file is not found', { timeout: 3000 }, async ({ getTyped }) => {
-    const router = new Router();
-    router.use(
-      await fileServer(getTyped(TEST_DIR), {
-        fallback: { filePath: 'nope.txt' },
-      }),
-    );
-
-    return withServer(router, async (url, { expectError }) => {
-      const res1 = await fetch(url + '/missing');
-      expect(res1.status).equals(500);
-      expect(await res1.text()).equals('');
-      expectError(
-        'handling request /missing: HTTPError(500 Internal Server Error): failed to find fallback file',
-      );
-    });
-  });
-
-  it('allows otherwise hidden paths as a fallback', { timeout: 3000 }, async ({ getTyped }) => {
-    const router = new Router();
-    router.use(await fileServer(getTyped(TEST_DIR), { fallback: { filePath: 'index.htm' } }));
-    router.use(requestHandler((_, res) => res.end('nope')));
-
-    return withServer(router, async (url) => {
-      const res1 = await fetch(url + '/missing');
-      expect(res1.status).equals(200);
-      expect(await res1.text()).equals('Root Index');
-    });
-  });
-});
-
-describe('fileServer with large content', () => {
-  const size = 70000; // must be larger than the 65k high water mark
-  const TEST_DIR = makeTestTempDir('ff-', { 'large.txt': 'a'.repeat(size) });
-
-  it(
-    'emits no error if the client disconnects before the file is sent',
-    { timeout: 3000 },
-    async ({ getTyped }) => {
-      const handler = await fileServer(getTyped(TEST_DIR));
-
-      return withServer(handler, async (url) => {
-        const urlObj = new URL(url);
-        const socket = await openRawSocket(urlObj);
-        makeRequestOnSocket(socket, urlObj.host, '/large.txt', {});
-        let seen = Number.POSITIVE_INFINITY;
-        socket.once('data', (data) => {
-          seen = data.length;
-          socket.destroy(); // close connection while data is being sent back
-        });
-
-        // wait a moment for send to finish and potentially error
-        await new Promise((resolve) => setTimeout(resolve, 100));
-
-        expect(seen).isLessThan(size);
+        expect(res.headers.get('content-type')).equals('text/plain; charset=utf-8');
+        expect(res.headers.get('etag')!).startsWith('W/\"');
+        expect(res.headers.get('last-modified')).not(isNull());
+        expect(await res.text()).equals('Content');
       });
     },
   );

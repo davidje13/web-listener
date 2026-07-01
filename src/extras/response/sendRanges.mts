@@ -1,13 +1,13 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import type { ReadStream } from 'node:fs';
-import { type FileHandle, open } from 'node:fs/promises';
+import { open } from 'node:fs/promises';
 import type { ReadableStream } from 'node:stream/web';
 import type { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { randomUUID } from 'node:crypto';
 import { internalEncodeHeaders } from '../../polyfill/SocketServerResponse.mts';
-import { internalIsFileHandle } from '../../util/isFileHandle.mts';
 import { internalIsPrematureCloseError } from '../../util/isPrematureCloseError.mts';
+import type { ReadOnlyFileHandle } from '../../util/ReadOnlyFileHandle.mts';
+import { createSafeReadStream } from '../../util/createSafeReadStream.mts';
 import { StreamSlicer } from '../../util/StreamSlicer.mts';
 import { STOP } from '../../core/RoutingInstruction.mts';
 import { simplifyRange, type HTTPRange } from '../range.mts';
@@ -17,14 +17,18 @@ import { simplifyRange, type HTTPRange } from '../range.mts';
 export async function sendRanges(
   req: IncomingMessage,
   res: ServerResponse,
-  source: string | FileHandle | Readable | ReadableStream<Uint8Array>,
+  source:
+    | string
+    | Pick<ReadOnlyFileHandle, 'createReadStream' | 'noRandomAccess'>
+    | Readable
+    | ReadableStream<Uint8Array>,
   httpRange: HTTPRange,
 ) {
   if (res.closed || !res.writable) {
     throw STOP; // client closed connection; don't bother loading file
   }
 
-  if (typeof source !== 'string' && !internalIsFileHandle(source)) {
+  if (typeof source !== 'string' && (!('createReadStream' in source) || source.noRandomAccess)) {
     httpRange = simplifyRange(httpRange, { mergeOverlapDistance: 0, forceSequential: true });
   }
   if (httpRange.ranges.length === 1) {
@@ -102,19 +106,34 @@ export async function sendRanges(
 }
 
 async function getSlicer(
-  file: string | FileHandle | Readable | ReadableStream<Uint8Array>,
+  file:
+    | string
+    | Pick<ReadOnlyFileHandle, 'createReadStream' | 'noRandomAccess'>
+    | Readable
+    | ReadableStream<Uint8Array>,
 ): Promise<{
-  _get: (start: number, end: number) => ReadStream | ReadableStream;
+  _get: (start: number, end: number) => Readable | ReadableStream;
   _end?: () => Promise<void>;
 }> {
   if (typeof file === 'string') {
     const handle = await open(file, 'r');
     return {
-      _get: (start, end) => handle.createReadStream({ start, end, autoClose: false }),
+      _get: (start, end) => createSafeReadStream(handle, { start, end, autoClose: false }),
       _end: () => handle.close(),
     };
-  } else if (internalIsFileHandle(file)) {
-    return { _get: (start, end) => file.createReadStream({ start, end, autoClose: false }) };
+  } else if ('createReadStream' in file) {
+    if (file.noRandomAccess) {
+      const stream = createSafeReadStream(file, { start: 0, autoClose: false });
+      const slicer = new StreamSlicer(stream);
+      return {
+        _get: (start, end) => slicer.getRange(start, end),
+        _end: async () => {
+          await slicer.close();
+          stream.close();
+        },
+      };
+    }
+    return { _get: (start, end) => createSafeReadStream(file, { start, end, autoClose: false }) };
   } else {
     const slicer = new StreamSlicer(file);
     return { _get: (start, end) => slicer.getRange(start, end), _end: () => slicer.close() };
