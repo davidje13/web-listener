@@ -139,7 +139,12 @@ describe('loadConfig', () => {
                 ...DEFAULT_SERVER,
                 mount: [
                   DEFAULT_FILES,
-                  { type: 'proxy', target: 'https://example.com', path: '/', options: {} },
+                  {
+                    type: 'proxy',
+                    target: 'https://example.com',
+                    path: '/',
+                    options: { headers: {} },
+                  },
                 ],
               },
             ],
@@ -219,12 +224,7 @@ describe('loadConfig', () => {
             servers: [
               {
                 ...DEFAULT_SERVER,
-                mount: [
-                  {
-                    ...DEFAULT_FILES,
-                    options: { ...DEFAULT_FILES_OPTIONS, headers: { foo: ['bar'] } },
-                  },
-                ],
+                mount: [{ type: 'headers', path: '/', headers: { foo: ['bar'] } }, DEFAULT_FILES],
               },
             ],
           },
@@ -246,12 +246,11 @@ describe('loadConfig', () => {
                 ...DEFAULT_SERVER,
                 mount: [
                   {
-                    ...DEFAULT_FILES,
-                    options: {
-                      ...DEFAULT_FILES_OPTIONS,
-                      headers: { foo: ['bar', 'two:with-colon'], baz: ['second'] },
-                    },
+                    type: 'headers',
+                    path: '/',
+                    headers: { foo: ['bar', 'two:with-colon'], baz: ['second'] },
                   },
+                  DEFAULT_FILES,
                 ],
               },
             ],
@@ -370,6 +369,7 @@ const DEFAULT_FILES_OPTIONS: ConfigMountFilesOptions = {
   indexFiles: ['index.htm', 'index.html'],
   implicitSuffixes: [],
   negotiation: [],
+  headers: {},
 };
 
 const DEFAULT_FILES: ConfigMount = {

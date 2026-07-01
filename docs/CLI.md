@@ -8,6 +8,7 @@ This tool supports:
 - [local file serving](#simple-usage) (including
   [single-page-app](#serve-static-files-for-a-single-page-app) support and
   [Content-Encoding negotiation](#content-encoding-and-pre-compressed-files))
+- [additional headers](#set-additional-headers)
 - [proxying to another server](#serve-static-files-and-proxy-api-requests-to-another-server)
 - [serving static fixtures](#serve-static-fixtures)
 - [static redirects](#redirect-requests)
@@ -204,6 +205,43 @@ npx web-listener . --spa index.html --port 8080
           "path": "/",
           "dir": ".",
           "options": { "fallback": { "filePath": "index.html" } }
+        }
+      ]
+    }
+  ]
+}
+```
+
+### Set Additional Headers
+
+Serves files with the `Cross-Origin-Opener-Policy` and `Cross-Origin-Embedder-Policy` headers (which
+allow access to various high-performance Javascript APIs):
+
+#### CLI Flags
+
+```sh
+npx web-listener . -H 'Cross-Origin-Opener-Policy: same-origin' -H 'Cross-Origin-Embedder-Policy: require-corp' --port 8080
+```
+
+#### Equivalent JSON Configuration
+
+```json
+{
+  "servers": [
+    {
+      "port": 8080,
+      "mount": [
+        {
+          "type": "headers",
+          "headers": {
+            "Cross-Origin-Opener-Policy": "same-origin",
+            "Cross-Origin-Embedder-Policy": "require-corp"
+          }
+        },
+        {
+          "type": "files",
+          "path": "/",
+          "dir": "."
         }
       ]
     }

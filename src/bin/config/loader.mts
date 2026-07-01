@@ -263,12 +263,9 @@ export async function loadConfig(
     }
   }
   if (headers.length) {
+    const headerMount: ConfigMount = { type: 'headers', path: '/', headers: toHeaders(headers) };
     for (const server of config.servers) {
-      for (const mount of server.mount) {
-        if (mount.type === 'files' || mount.type === 'proxy' || mount.type === 'dependencies') {
-          mount.options.headers = mergeHeaders(mount.options.headers, headers);
-        }
-      }
+      server.mount.unshift(headerMount);
     }
   }
   if (mime.length || mimeTypes.length) {
@@ -316,13 +313,8 @@ function splitFirst(v: string, sep: RegExp): [string, string?] {
   return m ? [v.substring(0, m.index!), v.substring(m.index! + m[0].length)] : [v];
 }
 
-function mergeHeaders(
-  existing: ConfigHeaders | undefined,
-  headers: [string, string?][],
-): ConfigHeaders {
-  const lookup = new Map<string, string[]>(
-    Object.entries(existing ?? {}).map(([k, v]) => [k, Array.isArray(v) ? [...v] : [v]]),
-  );
+function toHeaders(headers: [string, string?][]): ConfigHeaders {
+  const lookup = new Map<string, string[]>();
   for (const [header, value = ''] of headers) {
     const existing = lookup.get(header);
     if (existing) {

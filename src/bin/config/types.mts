@@ -7,12 +7,18 @@ import type {
 import type { DependencyHandlerOptions } from '../modules/dependencies.mts';
 import type { LogLevel } from '../log.mts';
 
-export type ConfigHeaders = Record<string, string | string[]>;
+export type ConfigHeaders = Record<string, string | number | string[]>;
 
 export type ConfigMountFilesOptions = Omit<FileServerOptions, 'negotiator'> & {
   negotiation?: FileNegotiation[];
   headers?: ConfigHeaders;
 };
+
+interface ConfigMountHeaders {
+  type: 'headers';
+  path: string;
+  headers: ConfigHeaders;
+}
 
 interface ConfigMountFiles {
   type: 'files';
@@ -35,7 +41,7 @@ interface ConfigMountFixture {
   path: string;
   method: string;
   status: number;
-  headers: Record<string, string | number | string[]>;
+  headers: ConfigHeaders;
   body: string;
 }
 
@@ -65,6 +71,7 @@ interface ConfigMountDependencies {
 }
 
 export type ConfigMount =
+  | ConfigMountHeaders
   | ConfigMountFiles
   | ConfigMountProxy
   | ConfigMountFixture

@@ -138,6 +138,7 @@
               }
             ],
             "anyOf": [
+              { "$ref": "#/$defs/mount-headers" },
               { "$ref": "#/$defs/mount-files" },
               { "$ref": "#/$defs/mount-proxy" },
               { "$ref": "#/$defs/mount-fixture" },
@@ -147,6 +148,16 @@
             ]
           }
         }
+      }
+    },
+    "mount-headers": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["headers"],
+      "properties": {
+        "type": { "const": "headers" },
+        "path": { "type": "string", "default": "/" },
+        "headers": { "$ref": "#/$defs/headers" }
       }
     },
     "mount-files": {
@@ -286,17 +297,7 @@
         "path": { "type": "string" },
         "method": { "type": "string", "default": "GET" },
         "status": { "$ref": "#/$defs/status", "default": 200 },
-        "headers": {
-          "type": "object",
-          "default": {},
-          "additionalProperties": {
-            "anyOf": [
-              { "type": "string" },
-              { "type": "number" },
-              { "type": "array", "items": { "type": "string" } }
-            ]
-          }
-        },
+        "headers": { "$ref": "#/$defs/headers" },
         "body": { "type": "string" }
       }
     },
@@ -389,8 +390,13 @@
     },
     "headers": {
       "type": "object",
+      "default": {},
       "additionalProperties": {
-        "anyOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" } }]
+        "anyOf": [
+          { "type": "string" },
+          { "type": "number" },
+          { "type": "array", "items": { "type": "string" } }
+        ]
       }
     },
     "task": {

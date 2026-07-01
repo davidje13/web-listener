@@ -472,6 +472,75 @@ default /other;
       expectError('handling request /nope: HTTPError(404 Not Found)');
     });
   });
+
+  describe('headers', () => {
+    it('adds headers to all responses', { timeout: 3000 }, async () => {
+      const router = await buildRouter([
+        {
+          type: 'headers',
+          path: '/',
+          headers: { foo: 'one', bar: 1, baz: ['one', 'two'] },
+        },
+        {
+          type: 'fixture',
+          method: 'GET',
+          path: '/fixture',
+          status: 200,
+          headers: { other: 'fixture' },
+          body: 'Hi',
+        },
+        { type: 'redirect', path: '/redirect', status: 307, target: '/target' },
+      ]);
+
+      return withServer(router, async (url) => {
+        await expect(
+          fetch(url + '/fixture'),
+          responds({
+            status: 200,
+            headers: { foo: 'one', bar: '1', baz: 'one, two', other: 'fixture' },
+            body: 'Hi',
+          }),
+        );
+        await expect(
+          fetch(url + '/redirect', { redirect: 'manual' }),
+          responds({
+            status: 307,
+            headers: { foo: 'one', bar: '1', baz: 'one, two', location: '/target' },
+          }),
+        );
+      });
+    });
+
+    it('is overridden by subsequent header definitions', { timeout: 3000 }, async () => {
+      const router = await buildRouter([
+        {
+          type: 'headers',
+          path: '/',
+          headers: { location: 'one' },
+        },
+        {
+          type: 'fixture',
+          method: 'GET',
+          path: '/fixture',
+          status: 200,
+          headers: { location: 'fixture' },
+          body: 'Hi',
+        },
+        { type: 'redirect', path: '/redirect', status: 307, target: '/target' },
+      ]);
+
+      return withServer(router, async (url) => {
+        await expect(
+          fetch(url + '/fixture'),
+          responds({ status: 200, headers: { location: 'fixture' } }),
+        );
+        await expect(
+          fetch(url + '/redirect', { redirect: 'manual' }),
+          responds({ status: 307, headers: { location: '/target' } }),
+        );
+      });
+    });
+  });
 });
 
 const FALLBACK_200: ConfigMount = {

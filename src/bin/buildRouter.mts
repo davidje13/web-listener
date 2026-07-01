@@ -45,6 +45,13 @@ export async function buildRouter(mount: ConfigMount[], log: (info: LogInfo) => 
   );
   for (const item of mount) {
     switch (item.type) {
+      case 'headers':
+        const headers = new Map(Object.entries(item.headers));
+        router.mount(item.path, (_, res) => {
+          res.setHeaders(headers);
+          return CONTINUE;
+        });
+        break;
       case 'files':
         if (item.dir !== '/dev/null') {
           const negotiator =
