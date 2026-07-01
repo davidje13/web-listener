@@ -80,6 +80,6 @@ export function* nginxTokenise(source: string) {
     }
   }
   if (statement.length) {
-    throw new Error('Unterminated statement - ensure all statements end with a semicolon');
+    throw new Error('unterminated statement - ensure all statements end with a semicolon');
   }
 }
