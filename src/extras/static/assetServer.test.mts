@@ -296,7 +296,7 @@ describe('assetServer with zipFileFinder', () => {
       expect(res.status).equals(200);
       expect(res.headers.get('content-type')).equals('text/plain; charset=utf-8');
       expect(res.headers.get('etag')!).startsWith('W/\"');
-      expect(res.headers.get('last-modified')).equals('Wed, 01 Jul 2026 09:20:46 GMT');
+      expect(res.headers.get('last-modified')).equals('Wed, 01 Jul 2026 10:20:46 GMT');
       expect(await res.text()).equals('Zipped Content CompressedCompressedCompressed');
     });
   });
@@ -314,7 +314,7 @@ describe('assetServer with zipFileFinder', () => {
       expect(res.headers.get('content-type')).equals('text/plain; charset=utf-8');
       expect(res.headers.get('content-encoding')).equals('deflate');
       expect(res.headers.get('etag')!).startsWith('W/\"');
-      expect(res.headers.get('last-modified')).equals('Wed, 01 Jul 2026 09:20:46 GMT');
+      expect(res.headers.get('last-modified')).equals('Wed, 01 Jul 2026 10:20:46 GMT');
       expect(await res.text()).equals('Zipped Content CompressedCompressedCompressed');
     });
   });
