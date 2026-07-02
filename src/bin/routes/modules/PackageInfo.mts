@@ -1,7 +1,7 @@
 import { access, constants, readdir, readFile, realpath, stat } from 'node:fs/promises';
 import { dirname, join, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { Queue } from '../../index.mts';
+import { Queue } from '../../../index.mts';
 
 export interface PackageInfo {
   isRoot: boolean;

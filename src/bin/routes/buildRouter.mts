@@ -2,8 +2,8 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import {
   addTeardown,
+  assetServer,
   CONTINUE,
-  fileServer,
   getPathParameter,
   getQuery,
   getSearch,
@@ -12,12 +12,13 @@ import {
   requestHandler,
   Router,
   getAbsolutePath,
-} from '../index.mts';
-import type { ConfigMount } from './config/types.mts';
+} from '../../index.mts';
+import type { ConfigMount } from '../config/types.mts';
+import { TransientError } from '../TransientError.mts';
 import { dependencies } from './modules/dependencies.mts';
+import { anyFileFinder } from './anyFileFinder.mts';
 import { Mapper, nginxTokenise } from './nginx.mts';
 import { render } from './template.mts';
-import { TransientError } from './TransientError.mts';
 
 export interface LogInfo {
   method: string;
@@ -58,15 +59,13 @@ export async function buildRouter(mount: ConfigMount[], log: (info: LogInfo) => 
             item.options.negotiation && item.options.negotiation.length > 0
               ? new Negotiator(item.options.negotiation)
               : undefined;
-          try {
-            router.mount(item.path, await fileServer(item.dir, { ...item.options, negotiator }));
-          } catch (error: unknown) {
-            if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
-              throw new TransientError(`directory to serve not found at ${item.dir}`);
-            } else {
-              throw error;
-            }
-          }
+          router.mount(
+            item.path,
+            assetServer(
+              await anyFileFinder(item.dir, { ...item.options, negotiator }),
+              item.options,
+            ),
+          );
         }
         break;
       case 'proxy':

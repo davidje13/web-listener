@@ -5,7 +5,7 @@ import {
   type FileServerOptions,
   type RequestHandler,
   type StaticContentOptions,
-} from '../../index.mts';
+} from '../../../index.mts';
 import { generateImportMap } from './generateImportMap.mts';
 import { readPackageGraph, type PackageJson } from './PackageInfo.mts';
 

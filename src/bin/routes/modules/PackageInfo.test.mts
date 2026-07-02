@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { makeTestTempDir } from '../../test-helpers/makeFileStructure.mts';
+import { makeTestTempDir } from '../../../test-helpers/makeFileStructure.mts';
 import { getResolvedExportMap, readPackageGraph, type PackageJson } from './PackageInfo.mts';
 import 'lean-test';
 

@@ -119,6 +119,10 @@ providing a newline to stdin.
 .
 .It Fl d Ar directory , Fl -dir Ar directory
 The directory to serve files from, relative to the current working directory.
+This can also be the path to a .zip file, or a path within a .zip file
+.Po "e.g. "
+.Qq "/path/to/file.zip/path/within/zip"
+.Pc .
 Can be specified multiple times to provide fall-backs.
 Defaults to
 .Qq "." .

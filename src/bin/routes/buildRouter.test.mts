@@ -1,9 +1,9 @@
 import { join } from 'node:path';
-import { requestHandler } from '../index.mts';
-import { makeTestTempDir } from '../test-helpers/makeFileStructure.mts';
-import { responds } from '../test-helpers/responds.mts';
-import { withServer } from '../test-helpers/withServer.mts';
-import type { ConfigMount } from './config/types.mts';
+import { requestHandler } from '../../index.mts';
+import { makeTestTempDir } from '../../test-helpers/makeFileStructure.mts';
+import { responds } from '../../test-helpers/responds.mts';
+import { withServer } from '../../test-helpers/withServer.mts';
+import type { ConfigMount } from '../config/types.mts';
 import { buildRouter, type LogInfo } from './buildRouter.mts';
 import 'lean-test';
 

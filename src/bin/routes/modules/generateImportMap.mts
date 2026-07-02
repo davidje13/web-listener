@@ -1,4 +1,4 @@
-import type { MaybePromise } from '../../util/MaybePromise.mts';
+import type { MaybePromise } from '../../../util/MaybePromise.mts';
 import {
   getResolvedExportMap,
   getResolvedImportMap,

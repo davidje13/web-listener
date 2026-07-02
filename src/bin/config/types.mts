@@ -4,7 +4,7 @@ import type {
   CombinedServerOptions,
   FileNegotiation,
 } from '../../index.mts';
-import type { DependencyHandlerOptions } from '../modules/dependencies.mts';
+import type { DependencyHandlerOptions } from '../routes/modules/dependencies.mts';
 import type { LogLevel } from '../log.mts';
 
 export type ConfigHeaders = Record<string, string | number | string[]>;

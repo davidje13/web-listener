@@ -248,7 +248,7 @@ describe('ServerManager', () => {
           ],
           () => fail(),
         );
-        expect(logs).contains(matches(/directory to serve not found/));
+        expect(logs).contains(matches(/content to serve not found/));
         expect(logs).not(contains(`http://localhost:${port} ready`));
         expect(logs).not(contains('all servers ready'));
 
@@ -299,8 +299,8 @@ describe('ServerManager', () => {
         );
         const capturedError = await awaitError;
         expect(capturedError).isInstanceOf(Error);
-        expect((capturedError as Error).message).contains('directory to serve not found');
-        expect(logs).contains(matches(/directory to serve not found/));
+        expect((capturedError as Error).message).contains('content to serve not found');
+        expect(logs).contains(matches(/content to serve not found/));
         expect(logs).not(contains(`http://localhost:${port} ready`));
         expect(logs).not(contains('all servers ready'));
       } finally {

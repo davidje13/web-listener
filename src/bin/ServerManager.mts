@@ -3,7 +3,7 @@ import { createServer, type Server, type ServerOptions } from 'node:http';
 import type { Readable, Writable } from 'node:stream';
 import { findCause, HTTPError, WebListener, type ListenOptions } from '../index.mts';
 import type { ConfigServer, ConfigServerOptions, ConfigBackgroundTask } from './config/types.mts';
-import { buildRouter } from './buildRouter.mts';
+import { buildRouter } from './routes/buildRouter.mts';
 import type { Logger, AddColour } from './log.mts';
 import { TransientError } from './TransientError.mts';
 
