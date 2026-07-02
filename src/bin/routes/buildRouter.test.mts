@@ -541,6 +541,148 @@ default /other;
       });
     });
   });
+
+  describe('custom', () => {
+    it('loads a custom Javascript handler', { timeout: 3000 }, async () => {
+      const router = await buildRouter([
+        {
+          type: 'custom',
+          method: 'GET',
+          path: '/custom',
+          import:
+            'data:text/javascript;base64,' +
+            btoa('export default (_, res) => res.end("My custom responder")'),
+        },
+      ]);
+
+      return withServer(router, async (url, { expectError }) => {
+        await expect(
+          fetch(url + '/custom'),
+          responds({ status: 200, body: 'My custom responder' }),
+        );
+
+        await expect(fetch(url + '/custom', { method: 'POST' }), responds({ status: 404 }));
+        await expect(fetch(url + '/custom', { method: 'HEAD' }), responds({ status: 200 }));
+        await expect(fetch(url + '/custom/sub'), responds({ status: 404 }));
+
+        expectError('handling request /custom: HTTPError(404 Not Found)');
+        expectError('handling request /custom/sub: HTTPError(404 Not Found)');
+      });
+    });
+
+    it(
+      'maps all verbs and subroutes to the handler if no method is specified',
+      { timeout: 3000 },
+      async () => {
+        const router = await buildRouter([
+          {
+            type: 'custom',
+            method: null,
+            path: '/custom',
+            import:
+              'data:text/javascript;base64,' +
+              btoa('export default (_, res) => res.end("My wildcard responder")'),
+          },
+        ]);
+
+        return withServer(router, async (url) => {
+          await expect(
+            fetch(url + '/custom'),
+            responds({ status: 200, body: 'My wildcard responder' }),
+          );
+          await expect(
+            fetch(url + '/custom', { method: 'POST' }),
+            responds({ status: 200, body: 'My wildcard responder' }),
+          );
+          await expect(
+            fetch(url + '/custom/sub'),
+            responds({ status: 200, body: 'My wildcard responder' }),
+          );
+        });
+      },
+    );
+
+    it(
+      'maps the requested verb and no sub-routes if a method is specified',
+      { timeout: 3000 },
+      async () => {
+        const router = await buildRouter([
+          {
+            type: 'custom',
+            method: 'POST',
+            path: '/custom',
+            import:
+              'data:text/javascript;base64,' +
+              btoa('export default (_, res) => res.end("My post responder")'),
+          },
+        ]);
+
+        return withServer(router, async (url, { expectError }) => {
+          await expect(
+            fetch(url + '/custom', { method: 'POST' }),
+            responds({ status: 200, body: 'My post responder' }),
+          );
+          await expect(fetch(url + '/custom'), responds({ status: 404 }));
+          await expect(fetch(url + '/custom/sub', { method: 'POST' }), responds({ status: 404 }));
+
+          expectError('handling request /custom: HTTPError(404 Not Found)');
+          expectError('handling request /custom/sub: HTTPError(404 Not Found)');
+        });
+      },
+    );
+
+    it(
+      'maps all requested verbs and no sub-routes if multiple methods are specified',
+      { timeout: 3000 },
+      async () => {
+        const router = await buildRouter([
+          {
+            type: 'custom',
+            method: ['POST', 'PUT'],
+            path: '/custom',
+            import:
+              'data:text/javascript;base64,' +
+              btoa('export default (_, res) => res.end("My post/put responder")'),
+          },
+        ]);
+
+        return withServer(router, async (url, { expectError }) => {
+          await expect(
+            fetch(url + '/custom', { method: 'POST' }),
+            responds({ status: 200, body: 'My post/put responder' }),
+          );
+          await expect(
+            fetch(url + '/custom', { method: 'PUT' }),
+            responds({ status: 200, body: 'My post/put responder' }),
+          );
+          await expect(fetch(url + '/custom'), responds({ status: 404 }));
+          await expect(fetch(url + '/custom/sub', { method: 'POST' }), responds({ status: 404 }));
+
+          expectError('handling request /custom: HTTPError(404 Not Found)');
+          expectError('handling request /custom/sub: HTTPError(404 Not Found)');
+        });
+      },
+    );
+
+    it('intercepts web-listener imports to avoid duplication', { timeout: 3000 }, async () => {
+      const router = await buildRouter([
+        {
+          type: 'custom',
+          method: null,
+          path: '/custom',
+          import:
+            'data:text/javascript;base64,' +
+            btoa(
+              'import { isIntercepted } from "web-listener"; export default (_, res) => res.end(`Got ${isIntercepted}`)',
+            ),
+        },
+      ]);
+
+      return withServer(router, async (url) => {
+        await expect(fetch(url + '/custom'), responds({ status: 200, body: 'Got true' }));
+      });
+    });
+  });
 });
 
 const FALLBACK_200: ConfigMount = {

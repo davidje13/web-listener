@@ -3,6 +3,7 @@ import { deflateRawSync } from 'node:zlib';
 import { constants, mkdir, mkdtemp, open, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { Queue } from '../util/Queue.mts';
+import { VOID_BUFFER } from '../util/voidBuffer.mts';
 import 'lean-test';
 
 export type FilesDefinition = { [k in string]: string | FilesDefinition };
@@ -60,7 +61,7 @@ export async function writeTestZip(path: string, structure: FilesDefinition) {
     for (const { path, structure } of queue) {
       for (const [name, content] of Object.entries(structure)) {
         const itemPath = [...path, name];
-        let compressed = VOID;
+        let compressed = VOID_BUFFER;
         let uncompressedSize = 0;
         let compression = 0;
         let filename: Buffer;
@@ -126,5 +127,3 @@ export async function writeTestZip(path: string, structure: FilesDefinition) {
     await handle.close();
   }
 }
-
-const VOID = Buffer.alloc(0);

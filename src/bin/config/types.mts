@@ -70,6 +70,13 @@ interface ConfigMountDependencies {
   };
 }
 
+interface ConfigMountCustom {
+  type: 'custom';
+  path: string;
+  method: string | string[] | null;
+  import: string;
+}
+
 export type ConfigMount =
   | ConfigMountHeaders
   | ConfigMountFiles
@@ -77,7 +84,8 @@ export type ConfigMount =
   | ConfigMountFixture
   | ConfigMountRedirect
   | ConfigMountRedirectMap
-  | ConfigMountDependencies;
+  | ConfigMountDependencies
+  | ConfigMountCustom;
 
 export interface ConfigServerOptions extends CombinedServerOptions {
   logRequests: boolean;

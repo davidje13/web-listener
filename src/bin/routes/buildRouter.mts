@@ -16,6 +16,7 @@ import {
 import type { ConfigMount } from '../config/types.mts';
 import { TransientError } from '../TransientError.mts';
 import { dependencies } from './modules/dependencies.mts';
+import { loadCustomHandler } from './custom/loadCustomHandler.mts';
 import { anyFileFinder } from './anyFileFinder.mts';
 import { Mapper, nginxTokenise } from './nginx.mts';
 import { render } from './template.mts';
@@ -27,7 +28,11 @@ export interface LogInfo {
   duration: number;
 }
 
-export async function buildRouter(mount: ConfigMount[], log: (info: LogInfo) => void = () => {}) {
+export async function buildRouter(
+  mount: ConfigMount[],
+  log: (info: LogInfo) => void = () => {},
+  warn: (message: string) => void = () => {},
+) {
   const router = new Router();
   router.use(
     requestHandler((req, res) => {
@@ -46,13 +51,14 @@ export async function buildRouter(mount: ConfigMount[], log: (info: LogInfo) => 
   );
   for (const item of mount) {
     switch (item.type) {
-      case 'headers':
+      case 'headers': {
         const headers = new Map(Object.entries(item.headers));
         router.mount(item.path, (_, res) => {
           res.setHeaders(headers);
           return CONTINUE;
         });
         break;
+      }
       case 'files':
         if (item.dir !== '/dev/null') {
           const negotiator =
@@ -115,7 +121,7 @@ export async function buildRouter(mount: ConfigMount[], log: (info: LogInfo) => 
           }),
         );
         break;
-      case 'redirect-map':
+      case 'redirect-map': {
         const mapper = new Mapper(item.options.caseSensitive);
         if (typeof item.mapping === 'string') {
           let content: string;
@@ -170,12 +176,24 @@ export async function buildRouter(mount: ConfigMount[], log: (info: LogInfo) => 
           return CONTINUE;
         });
         break;
+      }
       case 'dependencies':
         router.mount(
           item.path,
           await dependencies(item.package, { ...item.options, modulesBasePath: item.path }),
         );
         break;
+      case 'custom': {
+        const handler = await loadCustomHandler(item.import, warn);
+        if (typeof item.method === 'string' && item.method.toLowerCase() === 'get') {
+          router.get(item.path, handler);
+        } else if (item.method) {
+          router.onRequest(item.method, item.path, handler);
+        } else {
+          router.mount(item.path, handler);
+        }
+        break;
+      }
     }
   }
   return router;

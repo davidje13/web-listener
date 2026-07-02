@@ -511,8 +511,8 @@ no templating
 {
   "type": "redirect",
   "mapping": {
-    "<path-1>": "<target-1>",
-    "<path-2>": "<target-2>"
+    <path-1>: <target-1>,
+    <path-2>: <target-2>
     <etc.>
   },
   "status": 307,
@@ -581,6 +581,21 @@ Serve package dependencies and an importmap file.
     "hide": [],
     "allow": [".well-known"]
   }
+}
+.Ed
+.
+.It Qq custom
+Load arbitrary Javascript as a handler.
+The script must export a handler as its default export.
+Note that due to module caching, imported files will
+.Em not
+be reloaded when they change.
+.Bd -literal -offset 2n
+{
+  "type": "custom",
+  "method": null,
+  "path": "/",
+  "import": <filename>
 }
 .Ed
 .

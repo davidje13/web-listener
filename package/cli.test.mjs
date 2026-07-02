@@ -108,6 +108,10 @@ describe('cli', () => {
     const resRedirect = await fetch(`http://localhost:${port}/request`, { redirect: 'manual' });
     expect(resRedirect.status).equals(307);
     expect(resRedirect.headers.get('location')).equals('/other');
+
+    const resCustom = await fetch(`http://localhost:${port}/custom`);
+    expect(resCustom.status).equals(200);
+    expect(await resCustom.text()).equals('custom response');
   });
 
   it('runs background tasks if requested', { timeout: 3000 }, async ({ [TEARDOWN]: teardown }) => {

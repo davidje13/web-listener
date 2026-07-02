@@ -15,6 +15,7 @@ This tool supports:
 - [basic templating for fixtures and redirects](#templates)
 - [running multiple servers simultaneously](#run-multiple-servers)
 - [running background tasks](#run-background-tasks)
+- [registering custom Javascript handlers](#custom-handlers)
 
 Simple servers can be configured via CLI flags. Complex servers can be configured via JSON.
 
@@ -472,3 +473,55 @@ npx web-listener . --brotli --gzip
   ]
 }
 ```
+
+### Custom Handlers
+
+For advanced needs you can import an arbitrary Javascript module and map it to a path.
+
+This is intended for simple, stateless routes. Though it is possible to use it for more complicated
+scenarios, using `web-listener` as a library and building your own server is recommended in such
+cases, since that gives much greater control over how your code runs.
+
+#### JSON Configuration
+
+```json
+{
+  "servers": [
+    {
+      "port": 8080,
+      "mount": [
+        {
+          "type": "custom",
+          "method": "GET",
+          "path": "/",
+          "import": "./my-handler.mjs"
+        }
+      ]
+    }
+  ]
+}
+```
+
+#### `my-handler.mjs`
+
+```js
+export default (req, res) => {
+  res.end('a message from my custom handler');
+};
+```
+
+Notes:
+
+- if you `import 'web-listener'` in your handler script, it will automatically be deduplicated with
+  the copy powering the CLI tool. This avoids issues with duplicate classes or high memory usage,
+  but means you may get an unexpected version if you are using an old version of the CLI.
+
+- a `Router` is also a handler, so you can export a `Router` and have access to the full power of
+  the `web-listener` library. When doing this, it is best to leave `method` as `null` (the default)
+  so that your handler can act on all request types and sub-paths.
+
+- due to V8's module cache, it is not possible to reload a Javascript file after it has been loaded.
+  This means you will not see changes until you fully stop and re-run the `web-listener` command. It
+  is possible to add versioning strings to imported paths (e.g. `./my-handler.mjs?v1`) to work
+  around this, but doing so will lead to ever-increasing memory usage as old scripts remain in
+  memory, and is not suitable for production deployments or long-lived development servers.

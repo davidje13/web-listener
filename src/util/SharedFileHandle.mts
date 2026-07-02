@@ -19,6 +19,10 @@ export class SharedFileHandle {
     this._closeDelay = closeDelay;
   }
 
+  get path() {
+    return this._path;
+  }
+
   countActive() {
     return this._holders;
   }

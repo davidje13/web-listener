@@ -216,6 +216,7 @@ export class ServerManager {
             this._log(0, `${name} ${method} ${info.path} ${status} ${duration}`);
           }
         : () => {},
+      (warning) => this._log(1, `${name} ${this._colour('33', 'warning')}: ${warning}`),
     );
     const weblistener = new WebListener(router);
     weblistener.addEventListener('error', (evt) => {

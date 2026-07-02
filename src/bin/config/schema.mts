@@ -45,6 +45,8 @@ function makeValidator(
     return mAnyOf(part['anyOf'].map(convert));
   }
   switch (part['type']) {
+    case 'null':
+      return mNull;
     case 'array':
       return mArray(convert(part['items']));
     case 'boolean':
@@ -124,6 +126,13 @@ const mAnyOf =
     }
     throw errors.length === 1 ? errors[0] : new AggregateError(errors);
   };
+
+const mNull: Mapper<null> = (o, ctx) => {
+  if (o !== null) {
+    throw new ConfigError(`expected null, got ${typeof o}`, ctx);
+  }
+  return null;
+};
 
 const mArray =
   <T,>(itemMapper: Mapper<T>): Mapper<T[]> =>

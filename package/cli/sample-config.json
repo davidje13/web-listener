@@ -12,6 +12,7 @@
           "body": "{\"env\":\"local\"}"
         },
         { "type": "redirect", "path": "/request", "target": "/other" },
+        { "type": "custom", "path": "/custom", "import": "./custom-handler.mjs" },
         { "type": "files", "path": "/", "dir": "sample" }
       ]
     }

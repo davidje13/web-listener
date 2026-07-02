@@ -1,5 +1,6 @@
 import terser from '@rollup/plugin-terser';
 import typescript from '@rollup/plugin-typescript';
+import replace from '@rollup/plugin-replace';
 import { dts } from 'rollup-plugin-dts';
 
 const TERSER_OPTS = {
@@ -11,6 +12,11 @@ const TERSER_OPTS = {
     properties: { regex: /^_/ },
   },
 };
+
+const dropTsRelativeImportWrapper = replace({
+  preventAssignment: true,
+  values: { __rewriteRelativeImportExtension: '' },
+});
 
 export default [
   {
@@ -34,6 +40,7 @@ export default [
         tslib: {},
       }),
       terser(TERSER_OPTS),
+      dropTsRelativeImportWrapper,
     ],
   },
   {
@@ -53,6 +60,7 @@ export default [
         tslib: {},
       }),
       terser(TERSER_OPTS),
+      dropTsRelativeImportWrapper,
     ],
   },
   {

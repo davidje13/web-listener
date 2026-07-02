@@ -129,11 +129,20 @@
                 }
               },
               {
-                "label": "mount-dependencies",
+                "label": "dependencies",
                 "body": {
                   "type": "dependencies",
                   "path": "${1:/node_modules}",
                   "package": "${2:./package.json}"
+                }
+              },
+              {
+                "label": "custom",
+                "body": {
+                  "type": "custom",
+                  "path": "${1:/}",
+                  "method": "^${2:null}",
+                  "import": "$3"
                 }
               }
             ],
@@ -144,7 +153,8 @@
               { "$ref": "#/$defs/mount-fixture" },
               { "$ref": "#/$defs/mount-redirect" },
               { "$ref": "#/$defs/mount-redirect-map" },
-              { "$ref": "#/$defs/mount-dependencies" }
+              { "$ref": "#/$defs/mount-dependencies" },
+              { "$ref": "#/$defs/mount-custom" }
             ]
           }
         }
@@ -386,6 +396,24 @@
             }
           }
         }
+      }
+    },
+    "mount-custom": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "import"],
+      "properties": {
+        "type": { "const": "custom" },
+        "path": { "type": "string", "default": "/" },
+        "method": {
+          "anyOf": [
+            { "type": "string" },
+            { "type": "array", "items": { "type": "string" } },
+            { "type": "null" }
+          ],
+          "default": null
+        },
+        "import": { "type": "string", "format": "uri-reference" }
       }
     },
     "headers": {

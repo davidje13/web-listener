@@ -1,11 +1,11 @@
 import { constants } from 'node:fs/promises';
 import type { BigIntStats, StatOptions, Stats, StatsBase } from 'node:fs';
+import { join } from 'node:path';
 import { createInflateRaw } from 'node:zlib';
 import { Readable } from 'node:stream';
 import { SharedFileHandle } from '../../util/SharedFileHandle.mts';
 import type { CloseableReadable, ReadOnlyFileHandle } from '../../util/ReadOnlyFileHandle.mts';
 import { createSafeReadStream } from '../../util/createSafeReadStream.mts';
-import { join } from 'node:path';
 
 class ZipError extends Error {
   constructor(message: string) {
@@ -173,12 +173,12 @@ export async function readZip(source: string): Promise<ZipDirectory> {
       };
 
       if (compression === 8) {
-        root._append(new ZipFile(source, path, sharedHandle, details, true, false));
+        root._append(new ZipFile(sharedHandle, path, details, true, false));
         const deflatePath = [...path];
         deflatePath[deflatePath.length - 1] += '.deflate';
-        root._append(new ZipFile(source, deflatePath, sharedHandle, details, false, true));
+        root._append(new ZipFile(sharedHandle, deflatePath, details, false, true));
       } else {
-        root._append(new ZipFile(source, path, sharedHandle, details, false, false));
+        root._append(new ZipFile(sharedHandle, path, details, false, false));
       }
     }
     return root;
@@ -279,23 +279,20 @@ interface ZipFileDetails {
 }
 
 class ZipFile {
-  /** @internal */ declare private readonly _zipFilePath: string;
+  /** @internal */ declare readonly _source: SharedFileHandle;
   /** @internal */ declare readonly _path: string[];
-  /** @internal */ declare private readonly _source: SharedFileHandle;
-  /** @internal */ declare private readonly _details: ZipFileDetails;
-  /** @internal */ declare private readonly _inflate: boolean;
+  /** @internal */ declare readonly _details: ZipFileDetails;
+  /** @internal */ declare readonly _inflate: boolean;
   /** @internal */ declare private readonly _stats: Stats & BigIntStats;
   declare public readonly virtual: boolean;
 
   /** @internal */ constructor(
-    zipFilePath: string,
-    path: string[],
     source: SharedFileHandle,
+    path: string[],
     details: ZipFileDetails,
     inflate: boolean,
     virtual: boolean,
   ) {
-    this._zipFilePath = zipFilePath;
     this._path = path;
     this._source = source;
     this._details = details;
@@ -308,7 +305,7 @@ class ZipFile {
   }
 
   get filesystemPath(): string {
-    return join(this._zipFilePath, ...this._path);
+    return join(this._source.path, ...this._path);
   }
 
   get crc32(): number {
