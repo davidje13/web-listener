@@ -151,6 +151,9 @@ export async function readZip(source: string): Promise<ZipDirectory> {
         continue;
       }
       const localHeader = await getFilePart(localHeaderOffset, 30);
+      if (read32BE(localHeader, 0) !== 0x504b0304) {
+        throw new ZipError(`invalid local header for ${fileName}`);
+      }
       const localNameLength = read16LE(localHeader, 26);
       const localExraLength = read16LE(localHeader, 28);
       const localHeaderSize = 30 + localNameLength + localExraLength;

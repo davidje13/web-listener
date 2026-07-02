@@ -1,9 +1,7 @@
-import { spawn } from 'node:child_process';
-import { rm } from 'node:fs/promises';
 import { join, sep } from 'node:path';
 import {
-  makeFileStructure,
   makeTestTempDir,
+  writeTestZip,
   type FilesDefinition,
 } from '../../test-helpers/makeFileStructure.mts';
 import { Negotiator } from '../request/Negotiator.mts';
@@ -23,24 +21,9 @@ describe('zipFileFinder', () => {
     options: FileFinderOptions = {},
     relativePath: string[] = [],
   ) => {
-    const dir = ctx.getTyped(TEST_DIR);
-    await makeFileStructure(dir, { content: structure });
-    await new Promise<void>((resolve, reject) => {
-      const p = spawn('zip', ['-X', '-r', '-n', '.gz:.deflate', join('..', 'all.zip'), '.'], {
-        cwd: join(dir, 'content'),
-        stdio: ['ignore', 'ignore', 'inherit'],
-      });
-      p.once('error', reject);
-      p.once('exit', (code, signal) => {
-        if (code === 0) {
-          resolve();
-        } else {
-          reject(code ?? signal);
-        }
-      });
-    });
-    await rm(join(dir, 'content'), { recursive: true });
-    const root = await readZip(join(dir, 'all.zip'));
+    const zipPath = join(ctx.getTyped(TEST_DIR), 'all.zip');
+    await writeTestZip(zipPath, structure);
+    const root = await readZip(zipPath);
     return zipFileFinder(root.find(relativePath) as ZipDirectory, options);
   };
 
