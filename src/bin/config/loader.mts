@@ -1,5 +1,5 @@
-import { readFile } from 'node:fs/promises';
 import type { FallbackOptions, FileNegotiation, FileNegotiationOption } from '../../index.mts';
+import { readAnyFile } from '../zipCache.mts';
 import type { Mapper } from './schema.mts';
 import type { Config, ConfigHeaders, ConfigMount } from './types.mts';
 
@@ -161,7 +161,7 @@ export async function loadConfig(
 
   let config: Config;
   if (file) {
-    config = parser(JSON.parse(await readFile(file, 'utf-8')), { file, path: '' });
+    config = parser(JSON.parse(await readAnyFile(file)), { file, path: '' });
   } else if (json) {
     config = parser(JSON.parse(json), { file: '', path: '' });
   } else {

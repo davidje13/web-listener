@@ -8,8 +8,8 @@ import type { CloseableReadable, ReadOnlyFileHandle } from '../../util/ReadOnlyF
 import { createSafeReadStream } from '../../util/createSafeReadStream.mts';
 
 class ZipError extends Error {
-  constructor(message: string) {
-    super(`invalid zip file: ${message}`);
+  constructor(path: string, message: string) {
+    super(`${path} is not a valid zip archive: ${message}`);
   }
 }
 
@@ -25,7 +25,10 @@ export async function readZip(source: string): Promise<ZipDirectory> {
 
     const getFilePart = async (start: number, size: number) => {
       if (start < 0 || start > totalSize || start + size > totalSize) {
-        throw new ZipError(`byte range ${start}-${start + size} is not within 0-${totalSize}`);
+        throw new ZipError(
+          source,
+          `byte range ${start}-${start + size} is not within 0-${totalSize}`,
+        );
       }
       if (start >= tailOffset && tail) {
         return new Uint8Array(tail.buffer, tail.byteOffset + start - tailOffset, size);
@@ -33,7 +36,7 @@ export async function readZip(source: string): Promise<ZipDirectory> {
       const out = new Uint8Array(size);
       const { bytesRead } = await handle.read(out, 0, size, start);
       if (bytesRead !== size) {
-        throw new ZipError('modified while reading');
+        throw new ZipError(source, 'modified while reading');
       }
       return out;
     };
@@ -52,7 +55,7 @@ export async function readZip(source: string): Promise<ZipDirectory> {
       }
     }
     if (commentSize === -1) {
-      throw new ZipError('no EOCD found');
+      throw new ZipError(source, 'no EOCD found');
     }
     const eocdOffset = totalSize - commentSize - 22;
     const eocd = sub(tail, eocdOffset - tailOffset, 22);
@@ -65,12 +68,12 @@ export async function readZip(source: string): Promise<ZipDirectory> {
     ) {
       const eocdl = sub(tail, eocdOffset - tailOffset - 20, 20);
       if (read32BE(eocdl, 0) !== 0x504b0607) {
-        throw new ZipError('missing EOCDL in 64-bit zip');
+        throw new ZipError(source, 'missing EOCDL in 64-bit zip');
       }
       const eocd64Offset = read64LE(eocdl, 8);
       const eocd64 = await getFilePart(eocd64Offset, 56);
       if (read32BE(eocd64, 0) !== 0x504b0606) {
-        throw new ZipError('EOCD64 is invalid');
+        throw new ZipError(source, 'EOCD64 is invalid');
       }
       cdTotalRecords = read64LE(eocd64, 32);
       cdTotalBytes = read64LE(eocd64, 40);
@@ -83,13 +86,13 @@ export async function readZip(source: string): Promise<ZipDirectory> {
     let pos = 0;
     for (let i = 0; i < cdTotalRecords; ++i) {
       if (read32BE(cd, pos) !== 0x504b0102) {
-        throw new ZipError(`missing CDFH for record #${i + 1} at 0x${pos.toString(16)}`);
+        throw new ZipError(source, `missing CDFH for record #${i + 1} at 0x${pos.toString(16)}`);
       }
       const bitFlag = read16LE(cd, pos + 8);
       const isUTF8 = Boolean(bitFlag & 0b00000100_00000000);
       const compression = read16LE(cd, pos + 10);
       if (compression !== 0 && compression !== 8) {
-        throw new ZipError(`unsupported compression type: ${compression}`);
+        throw new ZipError(source, `unsupported compression type: ${compression}`);
       }
       let modified = readDOSTimeDate(read16LE(cd, pos + 12), read16LE(cd, pos + 14));
       const crc32 = read32LE(cd, pos + 16);
@@ -152,7 +155,7 @@ export async function readZip(source: string): Promise<ZipDirectory> {
       }
       const localHeader = await getFilePart(localHeaderOffset, 30);
       if (read32BE(localHeader, 0) !== 0x504b0304) {
-        throw new ZipError(`invalid local header for ${fileName}`);
+        throw new ZipError(source, `invalid local header for ${fileName}`);
       }
       const localNameLength = read16LE(localHeader, 26);
       const localExraLength = read16LE(localHeader, 28);
@@ -161,7 +164,7 @@ export async function readZip(source: string): Promise<ZipDirectory> {
         localHeaderOffset < 0 ||
         localHeaderOffset + localHeaderSize + compressedSize > totalSize
       ) {
-        throw new ZipError(`invalid location for ${fileName}`);
+        throw new ZipError(source, `invalid location for ${fileName}`);
       }
 
       const details: ZipFileDetails = {
@@ -188,12 +191,12 @@ export async function readZip(source: string): Promise<ZipDirectory> {
 }
 
 class ZipDirectory {
-  /** @internal */ declare private readonly _zipFilePath: string;
+  declare public readonly zipFilePath: string;
   /** @internal */ declare readonly _path: string[];
   declare public readonly children: Map<string, ZipNode>;
 
   /** @internal */ constructor(zipFilePath: string, path: string[]) {
-    this._zipFilePath = zipFilePath;
+    this.zipFilePath = zipFilePath;
     this._path = path;
     this.children = new Map();
   }
@@ -207,7 +210,7 @@ class ZipDirectory {
   }
 
   get filesystemPath(): string {
-    return join(this._zipFilePath, ...this._path);
+    return join(this.zipFilePath, ...this._path);
   }
 
   /** @internal */ _append(entity: ZipNode) {
@@ -217,13 +220,13 @@ class ZipDirectory {
       const part = path[i]!;
       let next = cur.children.get(part);
       if (!next || next.virtual) {
-        next = new ZipDirectory(this._zipFilePath, path.slice(0, i + 1));
+        next = new ZipDirectory(this.zipFilePath, path.slice(0, i + 1));
         cur.children.set(part, next);
       } else if (!next.isDirectory) {
         if (entity.virtual) {
           return;
         }
-        throw new ZipError(`mix of file and directory at ${path.join('/')}`);
+        throw new ZipError(this.zipFilePath, `mix of file and directory at ${path.join('/')}`);
       }
       cur = next;
     }
@@ -234,9 +237,9 @@ class ZipDirectory {
         return;
       }
       if (existing.isDirectory !== entity.isDirectory) {
-        throw new ZipError(`mix of file and directory at ${path.join('/')}`);
+        throw new ZipError(this.zipFilePath, `mix of file and directory at ${path.join('/')}`);
       } else {
-        throw new ZipError(`duplicate file/directory at ${path.join('/')}`);
+        throw new ZipError(this.zipFilePath, `duplicate file/directory at ${path.join('/')}`);
       }
     }
     cur.children.set(name, entity);
@@ -279,10 +282,10 @@ interface ZipFileDetails {
 }
 
 class ZipFile {
-  /** @internal */ declare readonly _source: SharedFileHandle;
+  /** @internal */ declare private readonly _source: SharedFileHandle;
   /** @internal */ declare readonly _path: string[];
-  /** @internal */ declare readonly _details: ZipFileDetails;
-  /** @internal */ declare readonly _inflate: boolean;
+  /** @internal */ declare private readonly _details: ZipFileDetails;
+  /** @internal */ declare private readonly _inflate: boolean;
   /** @internal */ declare private readonly _stats: Stats & BigIntStats;
   declare public readonly virtual: boolean;
 
@@ -302,6 +305,15 @@ class ZipFile {
 
   get isDirectory(): false {
     return false;
+  }
+
+  get zipFilePath(): string {
+    return this._source.path;
+  }
+
+  /** @internal */ meta() {
+    // this is not an official API, but is needed by the CLI to load zip contents synchronously (for compatibility with the Node.js loader hooks API)
+    return { p: this._details._dataOffset, z: this._inflate, s: this._details._compressedSize };
   }
 
   get filesystemPath(): string {

@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { loadConfig, readArgs } from './config/loader.mts';
 import type { Config } from './config/types.mts';
 import { loadSchema, makeSchemaParser } from './config/schema.mts';
+import { clearZipCache } from './zipCache.mts';
 import { ServerManager } from './ServerManager.mts';
 import { runCompression } from './compression.mts';
 import { loadMime } from './mime.mts';
@@ -63,6 +64,7 @@ async function run() {
   }
 
   async function load() {
+    clearZipCache();
     const config = await loadConfig(parser, args);
     logLevel = logLevels.indexOf(config.log);
     await loadMime(config.mime);

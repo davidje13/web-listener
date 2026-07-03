@@ -165,7 +165,7 @@ describe('readZip', () => {
   });
 
   beforeAll(async () => {
-    // test zip files are compressed to save space in the repository - expand them for testing
+    // test zip archives are compressed to save space in the repository - expand them for testing
     if (
       !(await access(testZipDir).then(
         () => true,

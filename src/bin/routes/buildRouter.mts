@@ -1,5 +1,4 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { readFile } from 'node:fs/promises';
 import {
   addTeardown,
   assetServer,
@@ -15,6 +14,7 @@ import {
 } from '../../index.mts';
 import type { ConfigMount } from '../config/types.mts';
 import { TransientError } from '../TransientError.mts';
+import { readAnyFile } from '../zipCache.mts';
 import { dependencies } from './modules/dependencies.mts';
 import { loadCustomHandler } from './custom/loadCustomHandler.mts';
 import { anyFileFinder } from './anyFileFinder.mts';
@@ -126,7 +126,7 @@ export async function buildRouter(
         if (typeof item.mapping === 'string') {
           let content: string;
           try {
-            content = await readFile(item.mapping, 'utf-8');
+            content = await readAnyFile(item.mapping);
           } catch (error: unknown) {
             if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
               throw new TransientError(`redirect-map file not found at ${item.mapping}`);

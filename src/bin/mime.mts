@@ -1,6 +1,6 @@
-import { readFile } from 'node:fs/promises';
 import { decompressMime, readMimeTypes, registerMime, resetMime } from '../index.mts';
 import type { ConfigMime } from './config/types.mts';
+import { readAnyFile } from './zipCache.mts';
 
 export async function loadMime(mime: ConfigMime | ConfigMime[]) {
   const newMimes: Map<string, string>[] = [];
@@ -8,7 +8,7 @@ export async function loadMime(mime: ConfigMime | ConfigMime[]) {
     if (typeof item !== 'string') {
       newMimes.push(new Map(Object.entries(item)));
     } else if (item.startsWith('file://')) {
-      newMimes.push(readMimeTypes(await readFile(item.substring(7), 'utf-8')));
+      newMimes.push(readMimeTypes(await readAnyFile(item.substring(7))));
     } else {
       newMimes.push(decompressMime(item));
     }

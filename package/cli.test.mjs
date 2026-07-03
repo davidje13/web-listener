@@ -168,6 +168,41 @@ describe('cli', () => {
     expect(p.errors).isEmpty();
   });
 
+  it(
+    'accepts compressed configuration files',
+    { timeout: 3000 },
+    async ({ [TEARDOWN]: teardown }) => {
+      const [port] = await findAvailablePorts(1);
+
+      const p = spawnProcess(
+        join(...binDir, 'web-listener'),
+        ['-c', join('cli', 'bundle.zip', 'sample-config.json'), '--port', String(port)],
+        { env: { NO_COLOR: '1' } },
+      );
+      teardown(p.close);
+      if (!(await awaitLine(p.stderr, 'all servers ready'))) {
+        fail('failed to start server');
+      }
+
+      const resFile = await fetch(`http://localhost:${port}/file.txt`);
+      expect(resFile.status).equals(200);
+      expect(resFile.headers.get('content-type')).equals('text/bundled-apache; charset=utf-8');
+      expect(await resFile.text()).equals('Bundled content\n');
+
+      const resFixture = await fetch(`http://localhost:${port}/config.json`);
+      expect(resFixture.status).equals(200);
+      expect(await resFixture.text()).equals('{"env":"bundled"}');
+
+      const resRedirect = await fetch(`http://localhost:${port}/request`, { redirect: 'manual' });
+      expect(resRedirect.status).equals(307);
+      expect(resRedirect.headers.get('location')).equals('/bundled-other');
+
+      const resCustom = await fetch(`http://localhost:${port}/custom`);
+      expect(resCustom.status).equals(200);
+      expect(await resCustom.text()).equals('bundled custom response');
+    },
+  );
+
   const TEARDOWN = beforeEach(({ setParameter }) => {
     const tasks = [];
     setParameter((fn) => tasks.push(fn));

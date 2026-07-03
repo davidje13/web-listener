@@ -4,6 +4,7 @@ import type { Readable, Writable } from 'node:stream';
 import { findCause, HTTPError, WebListener, type ListenOptions } from '../index.mts';
 import type { ConfigServer, ConfigServerOptions, ConfigBackgroundTask } from './config/types.mts';
 import { buildRouter } from './routes/buildRouter.mts';
+import { clearZipCache } from './zipCache.mts';
 import type { Logger, AddColour } from './log.mts';
 import { TransientError } from './TransientError.mts';
 
@@ -123,7 +124,10 @@ export class ServerManager {
       if (this._stopping) {
         this._shutdown();
       } else if (doRetry) {
-        this._autoRetry = setTimeout(() => this.set(servers, backgroundTasks, errorHandler), 1000);
+        this._autoRetry = setTimeout(() => {
+          clearZipCache();
+          this.set(servers, backgroundTasks, errorHandler);
+        }, 1000);
       } else if (this._servers.size) {
         this._log(1, 'all servers ready');
       } else {

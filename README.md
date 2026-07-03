@@ -90,3 +90,6 @@ and
 Note that this library does not implement rate limiting of any kind, so if you have an endpoint
 which is vulnerable to rapid requests (e.g. a password checking endpoint), you should set up your
 own rate limiting or use a reverse proxy such as NGINX and configure rate limiting there.
+
+The CLI offers several ways of running custom code (such as background tasks and custom handlers),
+so should never be launched with an untrusted configuration or bundle.

@@ -16,6 +16,7 @@ This tool supports:
 - [running multiple servers simultaneously](#run-multiple-servers)
 - [running background tasks](#run-background-tasks)
 - [registering custom Javascript handlers](#custom-handlers)
+- [loading config and serving files directly from zips](#using-zips)
 
 Simple servers can be configured via CLI flags. Complex servers can be configured via JSON.
 
@@ -525,3 +526,51 @@ Notes:
   is possible to add versioning strings to imported paths (e.g. `./my-handler.mjs?v1`) to work
   around this, but doing so will lead to ever-increasing memory usage as old scripts remain in
   memory, and is not suitable for production deployments or long-lived development servers.
+
+### Using Zips
+
+All configuration files, custom handler scripts, and served directories can be specified as paths
+within a zip archive, using the form:
+
+```
+/path/to/file.zip/path/within/zip
+```
+
+If a config file is in a zip archive, any paths it contains will be relative to its location in the
+zip. This can be used to produce single-file "bundles" for simple services. For example, a zip named
+`bundle.zip` containing:
+
+- `config.json`:
+
+  ```json
+  {
+    "servers": [
+      {
+        "port": 8080,
+        "mount": [
+          { "type": "custom", "path": "/custom", "import": "./custom-handler.mjs" },
+          { "type": "files", "path": "/", "dir": "static" }
+        ]
+      }
+    ],
+    "mime": ["file://apache.types"]
+  }
+  ```
+
+- [`apache.types`](#add-mime-types-from-apache-types-file)
+- [`custom-handler.mjs`](#custom-handlers)
+- `static`
+  - `index.html`
+
+Could be loaded with:
+
+```sh
+npx web-listener --config-file ./bundle.zip/config.json
+```
+
+When performing path resolution, the zip is interpreted as a regular directory, so config files
+inside zip archives can still reference files outside the zip by navigating to them using `..`, or
+using absolute paths.
+
+Note that as with all CLI configuration, you should not use untrusted bundles, as they have the
+ability to access files and execute arbitrary code using the permissions of the current user.

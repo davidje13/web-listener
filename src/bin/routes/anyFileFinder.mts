@@ -1,16 +1,15 @@
 import { stat } from 'node:fs/promises';
-import { join, sep } from 'node:path';
 import {
   dynamicFileFinder,
   negotiateEncoding,
   Negotiator,
-  readZip,
   staticFileFinder,
   zipFileFinder,
   type FileFinder,
   type FileServerOptions,
 } from '../../index.mts';
 import { TransientError } from '../TransientError.mts';
+import { readZipPath } from '../zipCache.mts';
 
 export async function anyFileFinder(path: string, options: FileServerOptions): Promise<FileFinder> {
   const direct = await stat(path).catch(() => null);
@@ -22,35 +21,18 @@ export async function anyFileFinder(path: string, options: FileServerOptions): P
     }
   }
 
-  const parts = path.split(sep);
-  if (parts[parts.length - 1] === '') {
-    parts.pop();
+  const zip = await readZipPath(path, false);
+  if (!zip) {
+    throw new TransientError(`content to serve not found at ${path}`);
   }
-  if (!parts[0]) {
-    parts.shift();
-    if (parts.length > 0) {
-      parts[0] = sep + parts[0];
-    }
+
+  const zipDir = zip.root.find(zip.remaining);
+  if (!zipDir?.isDirectory) {
+    throw new Error(`/${zip.remaining.join('/')} in ${zip.path} is not a directory`);
   }
-  for (let i = parts.length; i > 0; --i) {
-    const filePath = join(...parts.slice(0, i));
-    const stats = await stat(filePath).catch(() => null);
-    if (!stats) {
-      continue;
-    }
-    if (!stats.isFile()) {
-      break;
-    }
-    const zipRoot = await readZip(filePath);
-    const zipDir = zipRoot.find(parts.slice(i));
-    if (!zipDir?.isDirectory) {
-      throw new Error(`${parts.slice(i).join('/')} in ${filePath} is not a directory`);
-    }
-    const adjustedOptions = options;
-    if (!adjustedOptions.negotiator) {
-      adjustedOptions.negotiator = new Negotiator([negotiateEncoding(['deflate'])]);
-    }
-    return zipFileFinder(zipDir, adjustedOptions);
+  const adjustedOptions = options;
+  if (!adjustedOptions.negotiator) {
+    adjustedOptions.negotiator = new Negotiator([negotiateEncoding(['deflate'])]);
   }
-  throw new TransientError(`content to serve not found at ${path}`);
+  return zipFileFinder(zipDir, adjustedOptions);
 }

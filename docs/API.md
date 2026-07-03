@@ -2540,14 +2540,14 @@ file. Can be combined with [`registerMime`] to register the result.
 
 [`readZip`]: #readzippath
 
-- `path` [`<string>`] path to the zip file to read.
+- `path` [`<string>`] path to the zip archive to read.
 - Returns: [`<Promise>`] Fulfills with [`<ZipDirectory>`].
 
-Reads the structure of a `.zip` file and returns the root directory. This can be used to navigate to
+Reads the structure of a zip archive and returns the root directory. This can be used to navigate to
 and open any file in the zip.
 
 Compressed files in the zip are represented by "virtual" sibling files with `.deflate` suffixes. For
-example, a zip containing:
+example, a zip archive containing:
 
 - `foo/file1.txt` (compressed)
 - `foo/file2.txt` (stored)
@@ -3874,7 +3874,8 @@ connection can be reused _without_ needing to consume the body if `willSendBody`
 [`zipFileFinder`]: #zipfilefinderzipdirectory-options
 
 - `zipDirectory` [`<ZipDirectory>`] the base directory to serve files from. Only content within this
-  directory (or sub-directories) in the zip be served. See [`readZip`] and [`ZipDirectory.find`].
+  directory (or sub-directories) in the zip archive will be served. See [`readZip`] and
+  [`ZipDirectory.find`].
 - `options` [`<Object>`] A set of options controlling how files are matched, and which files are
   visible
   - `subDirectories` [`<boolean>`] | [`<number>`] `true` to allow access to all sub-directories,
@@ -3913,7 +3914,7 @@ Example usage: [Serving zip assets]
 
 - Extends: [`<ZipNode>`]
 
-A representation of a directory in a zip file.
+A representation of a directory in a zip archive.
 
 #### `zipdirectory.allFiles()`
 
@@ -3944,7 +3945,7 @@ Returns the child node at the requested path, or returns `undefined` if the path
 
 - Extends: [`<ZipNode>`]
 
-A representation of a file in a zip file.
+A representation of a file in a zip archive.
 
 #### `zipfile.virtual`
 
@@ -3995,7 +3996,7 @@ Ensure the `FileHandle` is always `close`d when no-longer required.
 
 [`<ZipNode>`]: #zipnode
 
-A representation of a file ([`<ZipFile>`]) or directory ([`<ZipDirectory>`]) in a zip file.
+A representation of a file ([`<ZipFile>`]) or directory ([`<ZipDirectory>`]) in a zip archive.
 
 #### `zipnode.isDirectory`
 
@@ -4309,7 +4310,7 @@ Reference: [`staticJSON`], [`<Router>`]
 
 [Serving zip assets]: #serving-zip-assets
 
-Example of serving static content directly from a `.zip` file:
+Example of serving static content directly from a zip archive:
 
 ```js
 import {
@@ -4335,7 +4336,7 @@ router.use(
 Reference: [`assetServer`], [`negotiateEncoding`], [`Negotiator`], [`readZip`], [`<Router>`],
 [`zipFileFinder`]
 
-The recommended way to generate a zip file for this purpose on MacOS and Unix is:
+The recommended way to generate a zip archive for this purpose on MacOS and Unix is:
 
 ```sh
 zip -9 -X -r -n .gz:.png:.jpg:.jpeg content.zip index.html style.css [...]
