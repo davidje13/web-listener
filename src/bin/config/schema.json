@@ -6,7 +6,10 @@
   "required": ["servers"],
   "properties": {
     "$schema": { "type": "string" },
-    "servers": { "type": "array", "items": { "$ref": "#/$defs/server" } },
+    "servers": {
+      "type": "array",
+      "items": { "anyOf": [{ "$ref": "#/$defs/server" }, { "$ref": "#/$defs/server-ref" }] }
+    },
     "backgroundTasks": { "type": "array", "items": { "$ref": "#/$defs/task" }, "default": [] },
     "mime": {
       "anyOf": [
@@ -137,6 +140,14 @@
                 }
               },
               {
+                "label": "delegate",
+                "body": {
+                  "type": "delegate",
+                  "path": "${1:/}",
+                  "config": { "file": "$2" }
+                }
+              },
+              {
                 "label": "custom",
                 "body": {
                   "type": "custom",
@@ -147,6 +158,7 @@
               }
             ],
             "anyOf": [
+              { "$ref": "#/$defs/mount-delegate" },
               { "$ref": "#/$defs/mount-headers" },
               { "$ref": "#/$defs/mount-files" },
               { "$ref": "#/$defs/mount-proxy" },
@@ -160,10 +172,20 @@
         }
       }
     },
+    "mount-delegate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "config"],
+      "properties": {
+        "type": { "const": "delegate" },
+        "path": { "type": "string", "default": "/" },
+        "config": { "$ref": "#/$defs/server-ref" }
+      }
+    },
     "mount-headers": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["headers"],
+      "required": ["type", "headers"],
       "properties": {
         "type": { "const": "headers" },
         "path": { "type": "string", "default": "/" },
@@ -201,7 +223,7 @@
             },
             "verbose": { "type": "boolean", "default": false },
             "subDirectories": {
-              "anyOf": [{ "type": "boolean" }, { "type": "integer" }],
+              "anyOf": [{ "type": "boolean" }, { "type": "integer", "minimum": 0 }],
               "default": true
             },
             "caseSensitive": {
@@ -427,6 +449,18 @@
         ]
       }
     },
+    "server-ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file"],
+      "properties": {
+        "file": { "type": "string", "format": "uri-reference" },
+        "serverIndex": { "type": "integer", "minimum": 0 },
+        "serverPort": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "includeMime": { "type": "boolean", "default": true },
+        "includeBackgroundTasks": { "type": "boolean", "default": false }
+      }
+    },
     "task": {
       "title": "Configuration for a background task",
       "type": "object",
@@ -457,8 +491,8 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "uid": { "type": "number" },
-            "gid": { "type": "number" },
+            "uid": { "type": "integer", "minimum": 0 },
+            "gid": { "type": "integer", "minimum": 0 },
             "killSignal": {
               "anyOf": [
                 {
@@ -502,7 +536,7 @@
                     "SIGINFO"
                   ]
                 },
-                { "type": "number" }
+                { "type": "integer", "minimum": 1 }
               ],
               "default": "SIGTERM"
             },

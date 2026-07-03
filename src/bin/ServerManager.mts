@@ -209,6 +209,7 @@ export class ServerManager {
     const name = this._colour('34', `http://${host}:${port}`);
     const router = await buildRouter(
       mount,
+      (warning) => this._log(1, `${name} ${this._colour('33', 'warning')}: ${warning}`),
       options.logRequests
         ? (info) => {
             const method = this._colour('1', info.method.replaceAll(/[^a-zA-Z0-9\-_]/g, '?'));
@@ -219,8 +220,7 @@ export class ServerManager {
             const duration = this._colour('2', `(${info.duration}ms)`);
             this._log(0, `${name} ${method} ${info.path} ${status} ${duration}`);
           }
-        : () => {},
-      (warning) => this._log(1, `${name} ${this._colour('33', 'warning')}: ${warning}`),
+        : undefined,
     );
     const weblistener = new WebListener(router);
     weblistener.addEventListener('error', (evt) => {

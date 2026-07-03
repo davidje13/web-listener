@@ -30,27 +30,32 @@ export interface LogInfo {
 
 export async function buildRouter(
   mount: ConfigMount[],
-  log: (info: LogInfo) => void = () => {},
   warn: (message: string) => void = () => {},
+  log?: ((info: LogInfo) => void) | undefined,
 ) {
   const router = new Router();
-  router.use(
-    requestHandler((req, res) => {
-      const tm0 = Date.now();
-      addTeardown(req, () => {
-        const duration = Date.now() - tm0;
-        log({
-          method: req.method ?? 'GET',
-          path: getAbsolutePath(req),
-          status: res.statusCode,
-          duration,
+  if (log) {
+    router.use(
+      requestHandler((req, res) => {
+        const tm0 = Date.now();
+        addTeardown(req, () => {
+          const duration = Date.now() - tm0;
+          log({
+            method: req.method ?? 'GET',
+            path: getAbsolutePath(req),
+            status: res.statusCode,
+            duration,
+          });
         });
-      });
-      return CONTINUE;
-    }),
-  );
+        return CONTINUE;
+      }),
+    );
+  }
   for (const item of mount) {
     switch (item.type) {
+      case 'nested':
+        router.mount(item.path, await buildRouter(item.mount, warn));
+        break;
       case 'headers': {
         const headers = new Map(Object.entries(item.headers));
         router.mount(item.path, (_, res) => {

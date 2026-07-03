@@ -1,0 +1,20 @@
+{
+  "$schema": "../node_modules/web-listener/schema.json",
+  "servers": [
+    {
+      "port": 8080,
+      "mount": [
+        {
+          "type": "delegate",
+          "path": "/one",
+          "config": { "file": "./sample-config.json", "includeMime": true }
+        },
+        {
+          "type": "delegate",
+          "path": "/two",
+          "config": { "file": "./bundle.zip/sample-config.json", "includeMime": false }
+        }
+      ]
+    }
+  ]
+}

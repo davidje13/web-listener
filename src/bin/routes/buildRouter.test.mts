@@ -448,6 +448,7 @@ default /other;
         { type: 'redirect', path: '/gone', status: 301, target: '/other' },
         { type: 'fixture', method: 'GET', path: '/spc@chars', status: 200, headers: {}, body: '' },
       ],
+      () => {},
       (info) => events.push({ method: info.method, path: info.path, status: info.status }),
     );
     return withServer(router, async (url, { expectError }) => {

@@ -203,6 +203,37 @@ describe('cli', () => {
     },
   );
 
+  it(
+    'combines multiple configuration files when using delegates',
+    { timeout: 3000 },
+    async ({ [TEARDOWN]: teardown }) => {
+      const [port] = await findAvailablePorts(1);
+
+      const p = spawnProcess(
+        join(...binDir, 'web-listener'),
+        ['-c', join('cli', 'combo-config.json'), '--port', String(port)],
+        { env: { NO_COLOR: '1' } },
+      );
+      teardown(p.close);
+      if (!(await awaitLine(p.stderr, 'all servers ready'))) {
+        fail('failed to start server');
+      }
+
+      const resFixture1 = await fetch(`http://localhost:${port}/one/config.json`);
+      expect(resFixture1.status).equals(200);
+      expect(await resFixture1.text()).equals('{"env":"local"}');
+
+      const resFixture2 = await fetch(`http://localhost:${port}/two/config.json`);
+      expect(resFixture2.status).equals(200);
+      expect(await resFixture2.text()).equals('{"env":"bundled"}');
+
+      const resFile = await fetch(`http://localhost:${port}/two/file.txt`);
+      expect(resFile.status).equals(200);
+      expect(resFile.headers.get('content-type')).equals('text/apache; charset=utf-8');
+      expect(await resFile.text()).equals('Bundled content\n');
+    },
+  );
+
   const TEARDOWN = beforeEach(({ setParameter }) => {
     const tasks = [];
     setParameter((fn) => tasks.push(fn));

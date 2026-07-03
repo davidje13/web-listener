@@ -67,6 +67,8 @@ export async function readAnyFile(path: string): Promise<string> {
       } finally {
         await handle.close();
       }
+    } else {
+      throw new Error(`/${zip.remaining.join('/')} not found in ${zip.path}`);
     }
   }
   return readFile(path, 'utf-8');

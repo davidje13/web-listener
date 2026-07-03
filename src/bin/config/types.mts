@@ -14,6 +14,18 @@ export type ConfigMountFilesOptions = Omit<FileServerOptions, 'negotiator'> & {
   headers?: ConfigHeaders;
 };
 
+interface ConfigMountDelegate {
+  type: 'delegate';
+  path: string;
+  config: ConfigServerRef;
+}
+
+interface ConfigMountNested {
+  type: 'nested';
+  path: string;
+  mount: ConfigMount[];
+}
+
 interface ConfigMountHeaders {
   type: 'headers';
   path: string;
@@ -78,6 +90,8 @@ interface ConfigMountCustom {
 }
 
 export type ConfigMount =
+  | ConfigMountDelegate
+  | ConfigMountNested
   | ConfigMountHeaders
   | ConfigMountFiles
   | ConfigMountProxy
@@ -98,6 +112,16 @@ export interface ConfigServer {
   host: string;
   options: ConfigServerOptions;
   mount: ConfigMount[];
+  file?: never;
+}
+
+export interface ConfigServerRef {
+  file: string;
+  serverIndex?: number;
+  serverPort?: number;
+  includeMime: boolean;
+  includeBackgroundTasks: boolean;
+  mount?: never;
 }
 
 export interface ConfigBackgroundTask {
@@ -117,7 +141,7 @@ export interface ConfigBackgroundTask {
 export type ConfigMime = string | Record<string, string>;
 
 export interface Config {
-  servers: ConfigServer[];
+  servers: (ConfigServer | ConfigServerRef)[];
   backgroundTasks: ConfigBackgroundTask[];
   mime: ConfigMime | ConfigMime[];
   writeCompressed: boolean;
@@ -125,3 +149,5 @@ export interface Config {
   noServe: boolean;
   log: LogLevel;
 }
+
+export type ResolvedConfig = Omit<Config, 'servers'> & { servers: ConfigServer[] };

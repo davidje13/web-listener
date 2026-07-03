@@ -1,7 +1,14 @@
+import { resolve } from 'node:path';
 import type { FallbackOptions, FileNegotiation, FileNegotiationOption } from '../../index.mts';
 import { readAnyFile } from '../zipCache.mts';
 import type { Mapper } from './schema.mts';
-import type { Config, ConfigHeaders, ConfigMount } from './types.mts';
+import type {
+  Config,
+  ConfigHeaders,
+  ConfigMount,
+  ConfigServerRef,
+  ResolvedConfig,
+} from './types.mts';
 
 const shorthands = new Map<string, string>([
   ['', 'dir'],
@@ -131,7 +138,7 @@ export function readArgs(argv: string[]) {
 export async function loadConfig(
   parser: Mapper<Config>,
   args: Map<string, unknown>,
-): Promise<Config> {
+): Promise<ResolvedConfig> {
   const stringListParam = (name: string, fallback: string[] = []) =>
     (args.get(name) ?? fallback) as string[];
   const stringParam = (name: string) => args.get(name) as string | undefined;
@@ -159,11 +166,11 @@ export async function loadConfig(
     throw new Error('multiple config files are not supported');
   }
 
-  let config: Config;
+  let config: ResolvedConfig;
   if (file) {
-    config = parser(JSON.parse(await readAnyFile(file)), { file, path: '' });
+    config = await loadConfigFileNetwork(null, file, parser);
   } else if (json) {
-    config = parser(JSON.parse(json), { file: '', path: '' });
+    config = await loadConfigFileNetwork(json, '', parser);
   } else {
     let fallback: FallbackOptions | undefined;
     if (spa) {
@@ -180,7 +187,7 @@ export async function loadConfig(
     if (proxy) {
       mount.push({ type: 'proxy', target: proxy });
     }
-    config = parser({ servers: [{ port: 8080, mount }] }, { file: '', path: '' });
+    config = parser({ servers: [{ port: 8080, mount }] }, { file: '', path: '' }) as ResolvedConfig;
   }
 
   for (const task of exec) {
@@ -269,15 +276,7 @@ export async function loadConfig(
     }
   }
   if (mime.length || mimeTypes.length) {
-    if (!Array.isArray(config.mime)) {
-      if (config.mime) {
-        config.mime = [config.mime];
-      } else {
-        config.mime = [];
-      }
-    }
-    config.mime.push(...mime);
-    config.mime.push(...mimeTypes.map((path) => `file://${path}`));
+    config.mime = [...asArray(config.mime), ...mime, ...mimeTypes.map((path) => `file://${path}`)];
   }
   if (args.get('write-compressed')) {
     config.writeCompressed = true;
@@ -308,6 +307,81 @@ export async function loadConfig(
   return config;
 }
 
+async function loadConfigFileNetwork(
+  content: string | null,
+  file: string,
+  parser: Mapper<Config>,
+): Promise<ResolvedConfig> {
+  const seen = new Map<string, ResolvedConfig | true>();
+
+  const followLink = async (target: Config, options: ConfigServerRef) => {
+    const sub = await loadRecur(options.file, null);
+    if (options.includeMime) {
+      target.mime = [...asArray(target.mime), ...asArray(sub.mime)];
+      sub.mime = [];
+    }
+    if (options.includeBackgroundTasks) {
+      target.backgroundTasks.push(...sub.backgroundTasks);
+      sub.backgroundTasks = [];
+    }
+    if (options.serverPort !== undefined) {
+      return sub.servers.filter((o) => o.port === options.serverPort);
+    } else if (options.serverIndex !== undefined) {
+      if (options.serverIndex < 0 || options.serverIndex >= sub.servers.length) {
+        return [];
+      }
+      return [sub.servers[options.serverIndex]!];
+    } else {
+      return sub.servers;
+    }
+  };
+
+  async function loadRecur(absFile: string, content: string | null) {
+    const existing = seen.get(absFile);
+    if (existing) {
+      if (existing === true) {
+        throw new Error(`circular reference to ${absFile}`);
+      }
+      return existing;
+    }
+    seen.set(absFile, true);
+    if (content === null) {
+      content = await readAnyFile(absFile);
+    }
+    const config = parser(JSON.parse(content), { file: absFile, path: '' });
+    for (let i = 0; i < config.servers.length; ) {
+      const server = config.servers[i]!;
+      if (server.mount) {
+        for (let j = 0; j < server.mount.length; ++j) {
+          const mount = server.mount[j]!;
+          if (mount.type === 'delegate') {
+            const servers = await followLink(config, mount.config);
+            if (servers.length !== 1) {
+              throw new Error(
+                `${servers.length > 1 ? 'multiple' : 'no'} servers found in ${mount.config.file} matching requirements`,
+              );
+            }
+            server.mount[j] = { type: 'nested', path: mount.path, mount: servers[0]!.mount };
+          }
+        }
+        ++i;
+      } else {
+        const servers = await followLink(config, server);
+        if (!servers) {
+          throw new Error(`no servers found in ${server.file} matching requirements`);
+        }
+        config.servers.splice(i, 1, ...servers);
+        i += servers.length;
+      }
+    }
+    const resolvedConfig = config as ResolvedConfig;
+    seen.set(absFile, resolvedConfig);
+    return resolvedConfig;
+  }
+
+  return loadRecur(resolve(file || '.'), content);
+}
+
 function splitFirst(v: string, sep: RegExp): [string, string?] {
   const m = v.match(sep);
   return m ? [v.substring(0, m.index!), v.substring(m.index! + m[0].length)] : [v];
@@ -332,3 +406,5 @@ const ENCODINGS = new Map<string, FileNegotiationOption>([
   ['gzip', { value: 'gzip', file: '{file}.gz' }],
   ['deflate', { value: 'deflate', file: '{file}.deflate' }],
 ]);
+
+const asArray = <T,>(v: T | T[]) => (Array.isArray(v) ? v : v ? [v] : []);

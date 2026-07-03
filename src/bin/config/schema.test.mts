@@ -58,6 +58,20 @@ describe('schema', () => {
         params: { type: 'integer' },
         message: 'must be integer',
       },
+      {
+        instancePath: '/servers/0',
+        schemaPath: '#/$defs/server-ref/required',
+        keyword: 'required',
+        params: { missingProperty: 'file' },
+        message: "must have required property 'file'",
+      },
+      {
+        instancePath: '/servers/0',
+        schemaPath: '#/properties/servers/items/anyOf',
+        keyword: 'anyOf',
+        params: {},
+        message: 'must match a schema in anyOf',
+      },
     ]);
 
     validator.validate(schema, { servers: [{ port: 80, mount: [{ type: 'unknown' }] }] });
