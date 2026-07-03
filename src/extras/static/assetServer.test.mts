@@ -1,5 +1,6 @@
 import { platform } from 'node:os';
 import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { makeTestTempDir } from '../../test-helpers/makeFileStructure.mts';
 import { withServer } from '../../test-helpers/withServer.mts';
 import { makeRequestOnSocket, openRawSocket, rawRequest } from '../../test-helpers/rawRequest.mts';
@@ -286,7 +287,7 @@ describe('assetServer with large content', () => {
 });
 
 describe('assetServer with zipFileFinder', () => {
-  const testZip = join(dirname(new URL(import.meta.url).pathname), 'test-assets.zip');
+  const testZip = join(dirname(fileURLToPath(import.meta.url)), 'test-assets.zip');
 
   it('serves files directly from the zip', { timeout: 3000 }, async () => {
     const handler = assetServer(zipFileFinder(await readZip(testZip)));

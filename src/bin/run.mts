@@ -2,6 +2,7 @@
 import { readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { loadConfig, readArgs } from './config/loader.mts';
 import type { Config } from './config/types.mts';
 import { loadSchema, makeSchemaParser } from './config/schema.mts';
@@ -32,7 +33,7 @@ const addColour: AddColour =
     : (_, message) => message;
 
 const args = readArgs(process.argv.slice(2));
-const selfDir = dirname(new URL(import.meta.url).pathname);
+const selfDir = dirname(fileURLToPath(import.meta.url));
 
 if (args.get('version') || args.get('help')) {
   let pkg = { name: 'web-listener', version: 'unknown' };

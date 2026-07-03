@@ -3,10 +3,11 @@ import { text } from 'node:stream/consumers';
 import { spawn } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { createServer } from 'node:net';
+import { fileURLToPath } from 'node:url';
 import { createInterface } from 'node:readline/promises';
 import 'lean-test';
 
-const selfDir = dirname(new URL(import.meta.url).pathname);
+const selfDir = dirname(fileURLToPath(import.meta.url));
 const binDir = [selfDir, 'node_modules', '.bin'];
 
 describe('cli', () => {

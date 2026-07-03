@@ -3,11 +3,12 @@ import { createWriteStream } from 'node:fs';
 import { buffer, text } from 'node:stream/consumers';
 import { pipeline } from 'node:stream/promises';
 import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { inflateRaw } from 'node:zlib';
 import { readZip, type ZipFile } from './readZip.mts';
 import type { ReadOnlyFileHandle } from '../../util/ReadOnlyFileHandle.mts';
 
-const selfDir = dirname(new URL(import.meta.url).pathname);
+const selfDir = dirname(fileURLToPath(import.meta.url));
 const testZipDir = join(selfDir, 'test-zips');
 const LONG_CONTENT =
   'test file content with repetition which should be able to compress test test test test test test test test\n';

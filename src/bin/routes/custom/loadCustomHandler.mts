@@ -1,5 +1,6 @@
 import { registerHooks } from 'node:module';
 import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { ErrorHandler, HandlerResult, RequestHandler } from '../../../index.mts';
 
@@ -8,7 +9,7 @@ registerHooks({
     if (specifier === 'web-listener') {
       // ensure custom routes get our own index.js file when importing web-listener
       // (to avoid problems with duplicate classes, increased memory, etc.)
-      specifier = join(dirname(new URL(import.meta.url).pathname), 'index.js');
+      specifier = join(dirname(fileURLToPath(import.meta.url)), 'index.js');
     }
     return nextResolve(specifier, context);
   },

@@ -1,4 +1,5 @@
 import { dirname, join, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { makeTestTempDir } from '../../test-helpers/makeFileStructure.mts';
 import { anyFileFinder } from './anyFileFinder.mts';
 import 'lean-test';
@@ -25,7 +26,7 @@ describe('anyFileFinder', () => {
   });
 
   it('loads zip contents', async () => {
-    const testZip = join(dirname(new URL(import.meta.url).pathname), 'test-assets.zip');
+    const testZip = join(dirname(fileURLToPath(import.meta.url)), 'test-assets.zip');
 
     const fileFinder = await anyFileFinder(testZip, {});
     expect(fileFinder.isStaticListing).isTrue();
@@ -39,7 +40,7 @@ describe('anyFileFinder', () => {
   });
 
   it('loads zip contents with trailing slash', async () => {
-    const testZip = join(dirname(new URL(import.meta.url).pathname), 'test-assets.zip') + sep;
+    const testZip = join(dirname(fileURLToPath(import.meta.url)), 'test-assets.zip') + sep;
 
     const fileFinder = await anyFileFinder(testZip, {});
     expect(fileFinder.isStaticListing).isTrue();
@@ -53,7 +54,7 @@ describe('anyFileFinder', () => {
   });
 
   it('loads nested zip contents', async () => {
-    const testZip = join(dirname(new URL(import.meta.url).pathname), 'test-assets.zip', 'sub');
+    const testZip = join(dirname(fileURLToPath(import.meta.url)), 'test-assets.zip', 'sub');
 
     const fileFinder = await anyFileFinder(testZip, {});
     expect(fileFinder.isStaticListing).isTrue();

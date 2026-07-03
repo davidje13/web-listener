@@ -1,11 +1,10 @@
 import { readFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { SchemaObject } from 'ajv';
 
 export const loadSchema = async (): Promise<SchemaObject> =>
-  JSON.parse(
-    await readFile(join(dirname(new URL(import.meta.url).pathname), 'schema.json'), 'utf-8'),
-  );
+  JSON.parse(await readFile(join(dirname(fileURLToPath(import.meta.url)), 'schema.json'), 'utf-8'));
 
 export function makeSchemaParser<T>(schema: SchemaObject) {
   // ajv's auto-generated code is huge and has confusing error messages for invalid input, so we

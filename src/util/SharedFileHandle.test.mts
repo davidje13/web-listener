@@ -1,9 +1,10 @@
 import { constants, type FileHandle } from 'node:fs/promises';
 import { text } from 'node:stream/consumers';
+import { fileURLToPath } from 'node:url';
 import { SharedFileHandle } from './SharedFileHandle.mts';
 import 'lean-test';
 
-const testPath = new URL(import.meta.url).pathname;
+const testPath = fileURLToPath(import.meta.url);
 
 describe('SharedFileHandle', () => {
   it('creates file handles for the given path', { timeout: 3000 }, async () => {

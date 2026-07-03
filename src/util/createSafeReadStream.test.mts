@@ -1,9 +1,10 @@
 import { constants, open } from 'node:fs/promises';
 import type { EventEmitter } from 'node:stream';
+import { fileURLToPath } from 'node:url';
 import { createSafeReadStream } from './createSafeReadStream.mts';
 import 'lean-test';
 
-const testPath = new URL(import.meta.url).pathname;
+const testPath = fileURLToPath(import.meta.url);
 
 describe('createSafeReadStream', () => {
   it('ensures close listeners are removed once the stream ends', { timeout: 3000 }, async () => {
