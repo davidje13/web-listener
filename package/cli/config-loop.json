@@ -1,0 +1,9 @@
+{
+  "$schema": "../node_modules/web-listener/schema.json",
+  "servers": [
+    {
+      "port": 8080,
+      "mount": [{ "type": "delegate", "path": "/one", "config": { "file": "./config-loop.json" } }]
+    }
+  ]
+}

@@ -494,6 +494,32 @@ May include templates in headers and body.
 }
 .Ed
 .
+.It Qq delegate
+Delegate to another config file.
+.Bd -literal -offset 2n
+{
+  "type": "delegate",
+  "path": "/",
+  "config": {
+    "file": <path to config file>,
+    "serverIndex": <optional index of server to use from config file>,
+    "serverPort": <optional port of server to use from config file>,
+    "includeMime": true,
+    "includeBackgroundTasks": false
+  }
+}
+.Ed
+.
+.It Qq headers
+Set headers on all responses.
+.Bd -literal -offset 2n
+{
+  "type": "headers",
+  "path": "/",
+  "headers": <header map>
+}
+.Ed
+.
 .It Qq redirect
 Serve a redirect.
 May include templates in target.

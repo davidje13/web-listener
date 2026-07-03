@@ -17,6 +17,7 @@ This tool supports:
 - [running background tasks](#run-background-tasks)
 - [registering custom Javascript handlers](#custom-handlers)
 - [loading config and serving files directly from zips](#using-zips)
+- [combining multiple configuration files](#combining-configuration-one-server)
 
 Simple servers can be configured via CLI flags. Complex servers can be configured via JSON.
 
@@ -574,3 +575,100 @@ using absolute paths.
 
 Note that as with all CLI configuration, you should not use untrusted bundles, as they have the
 ability to access files and execute arbitrary code using the permissions of the current user.
+
+### Combining Configuration (one server)
+
+If you want to break up your configuration into multiple files, or run multiple distinct services
+(e.g. a production server running multiple simple applications in one process to minimise memory
+requirements), you can use the `delegate` mount type:
+
+#### JSON Configuration
+
+```json
+{
+  "servers": [
+    {
+      "port": 8080,
+      "mount": [
+        {
+          "type": "delegate",
+          "path": "/thing-1",
+          "config": {
+            "file": "./other-config.json",
+            "serverPort": 2000
+          }
+        }
+      ]
+    }
+  ]
+}
+```
+
+#### `other-config.json`:
+
+```json
+{
+  "servers": [
+    {
+      "port": 2000,
+      "mount": [
+        {
+          "type": "files",
+          "path": "/",
+          "dir": ".",
+          "options": { "fallback": { "filePath": "index.html" } }
+        }
+      ]
+    }
+  ]
+}
+```
+
+By default, [mime types](#add-mime-types) defined in the referenced file will be merged with the
+root config's mime types, and [background tasks](#run-background-tasks) will be ignored. You can
+change these behaviours by setting `includeMime` and `includeBackgroundTasks` in the `"delegate"`
+configuration.
+
+If the referenced config sets options on the server, these are ignored. See below for an approach
+which lets each file define its own server.
+
+### Combining Configuration (multiple servers)
+
+An alternative way to combine configuration is to let each config file define its own server:
+
+#### JSON Configuration
+
+```json
+{
+  "servers": [
+    {
+      "file": "./other-config.json",
+      "serverPort": 2000
+    }
+  ]
+}
+```
+
+(`serverPort` can be omitted to load all servers from the referenced file at once)
+
+#### `other-config.json`:
+
+```json
+{
+  "servers": [
+    {
+      "port": 2000,
+      "mount": [
+        {
+          "type": "files",
+          "path": "/",
+          "dir": ".",
+          "options": { "fallback": { "filePath": "index.html" } }
+        }
+      ]
+    }
+  ]
+}
+```
+
+This allows the referenced config to set options on the server.

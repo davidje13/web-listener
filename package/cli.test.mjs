@@ -234,6 +234,21 @@ describe('cli', () => {
     },
   );
 
+  it('rejects circular configuration', { timeout: 3000 }, async ({ [TEARDOWN]: teardown }) => {
+    const [port] = await findAvailablePorts(1);
+
+    const p = spawnProcess(
+      join(...binDir, 'web-listener'),
+      ['-c', join('cli', 'config-loop.json'), '--port', String(port)],
+      { env: { NO_COLOR: '1' } },
+    );
+    teardown(p.close);
+    if (!(await awaitLine(p.stderr, /circular reference/))) {
+      fail('no error printed');
+    }
+    await p.closed;
+  });
+
   const TEARDOWN = beforeEach(({ setParameter }) => {
     const tasks = [];
     setParameter((fn) => tasks.push(fn));
@@ -292,6 +307,7 @@ function spawnProcess(path, args, options = {}) {
       ac.abort();
       return exited;
     },
+    closed: exited,
   };
 }
 
@@ -299,7 +315,7 @@ async function awaitLine(readable, expected) {
   const lines = createInterface(readable);
   for await (const line of lines) {
     console.log(line);
-    if (line === expected) {
+    if (typeof expected === 'string' ? line === expected : expected.test(line)) {
       // pipe all remaining output to console in the background
       (async () => {
         for await (const line of lines) {
