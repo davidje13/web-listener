@@ -576,6 +576,21 @@ using absolute paths.
 Note that as with all CLI configuration, you should not use untrusted bundles, as they have the
 ability to access files and execute arbitrary code using the permissions of the current user.
 
+The recommended way to generate a zip archive for this purpose on MacOS and Unix is:
+
+```sh
+zip -8 -X -r -n .br:.gz:.zstd:.deflate:.png:.jpg:.jpeg bundle.zip config.json static [...]
+```
+
+The flags:
+
+- `-8` sets maximum compression (but not `-9`, which would cause it to ignore the `-n` flag);
+- `-X` skips additional file metadata such as user and group ID;
+- `-r` enables recursive scanning of files;
+- `-n .br:.gz:...` disables compression for specific filetypes which are unlikely to benefit from it
+  (and storing these uncompressed means they can be served directly from the file, without needing
+  to decompress them at runtime).
+
 ### Combining Configuration (one server)
 
 If you want to break up your configuration into multiple files, or run multiple distinct services

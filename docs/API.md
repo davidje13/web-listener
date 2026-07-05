@@ -4339,12 +4339,17 @@ Reference: [`assetServer`], [`negotiateEncoding`], [`Negotiator`], [`readZip`], 
 The recommended way to generate a zip archive for this purpose on MacOS and Unix is:
 
 ```sh
-zip -9 -X -r -n .gz:.png:.jpg:.jpeg content.zip index.html style.css [...]
+zip -8 -X -r -n .br:.gz:.zstd:.deflate:.png:.jpg:.jpeg content.zip index.html style.css [...]
 ```
 
-(`-9` sets maximum compression, `-X` skips additional file metadata such as user and group ID, `-r`
-enables recursive scanning of files, `-n .gz:.png:...` disables compression for specific filetypes
-which are unlikely to benefit from it).
+The flags:
+
+- `-8` sets maximum compression (but not `-9`, which would cause it to ignore the `-n` flag);
+- `-X` skips additional file metadata such as user and group ID;
+- `-r` enables recursive scanning of files;
+- `-n .br:.gz:...` disables compression for specific filetypes which are unlikely to benefit from it
+  (and storing these uncompressed means they can be served directly from the file, without needing
+  to decompress them at runtime).
 
 ## Proxy
 
