@@ -143,7 +143,7 @@ describe('loadConfig', () => {
                     type: 'proxy',
                     target: 'https://example.com',
                     path: '/',
-                    options: { headers: {} },
+                    options: {},
                   },
                 ],
               },
@@ -355,22 +355,7 @@ const DEFAULT_SERVER_OPTIONS: ConfigServerOptions = {
   shutdownTimeout: 500,
 };
 
-const DEFAULT_FILES_OPTIONS: ConfigMountFilesOptions = {
-  mode: 'dynamic',
-  subDirectories: true,
-  caseSensitive: 'exact',
-  verbose: false,
-  allowAllDotfiles: false,
-  allowAllTildefiles: false,
-  allowDirectIndexAccess: false,
-  dynamicHeaders: ['etag', 'last-modified'],
-  hide: [],
-  allow: ['.well-known'],
-  indexFiles: ['index.htm', 'index.html'],
-  implicitSuffixes: [],
-  negotiation: [],
-  headers: {},
-};
+const DEFAULT_FILES_OPTIONS: ConfigMountFilesOptions = { fallback: undefined };
 
 const DEFAULT_FILES: ConfigMount = {
   type: 'files',

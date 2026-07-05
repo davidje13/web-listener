@@ -148,7 +148,7 @@ export async function loadConfig(
   const json = stringParam('config-json');
   const port = numberParam('port');
   const host = stringParam('host');
-  const dirs = stringListParam('dir', ['.']);
+  const dirs = stringListParam('dir');
   const exec = stringListParam('exec').map((v) => v.split(' '));
   const ext = stringListParam('ext').map((v) => (v.startsWith('.') ? v : `.${v}`));
   const headers = stringListParam('header').map((v) => splitFirst(v, /: ?/));
@@ -172,22 +172,13 @@ export async function loadConfig(
   } else if (json) {
     config = await loadConfigFileNetwork(json, '', parser);
   } else {
-    let fallback: FallbackOptions | undefined;
-    if (spa) {
-      fallback = { statusCode: 200, filePath: spa };
-    } else if (err404) {
-      fallback = { statusCode: 404, filePath: err404 };
+    if (!dirs.length) {
+      dirs.push('.');
     }
-    const mount: Partial<ConfigMount>[] = [];
-    for (let i = 0; i < dirs.length; ++i) {
-      const dir = dirs[i]!;
-      const isLast = i === dirs.length - 1;
-      mount.push({ type: 'files', dir: dir, options: { fallback: isLast ? fallback : undefined } });
-    }
-    if (proxy) {
-      mount.push({ type: 'proxy', target: proxy });
-    }
-    config = parser({ servers: [{ port: 8080, mount }] }, { file: '', path: '' }) as ResolvedConfig;
+    config = parser(
+      { servers: [{ port: 8080, mount: [] }] },
+      { file: '', path: '' },
+    ) as ResolvedConfig;
   }
 
   for (const task of exec) {
@@ -216,6 +207,36 @@ export async function loadConfig(
       server.host = host;
     }
   }
+  if (dirs.length || spa || err404) {
+    if (!singleServer) {
+      throw new Error(
+        'cannot specify dir, spa, or 404 on commandline when defining multiple servers',
+      );
+    }
+    let fallback: FallbackOptions | undefined;
+    if (spa) {
+      fallback = { statusCode: 200, filePath: spa };
+    } else if (err404) {
+      fallback = { statusCode: 404, filePath: err404 };
+    }
+    for (let i = 0; i < dirs.length; ++i) {
+      const dir = dirs[i]!;
+      const isLast = i === dirs.length - 1;
+      singleServer.mount.push({
+        type: 'files',
+        path: '/',
+        dir,
+        options: { fallback: isLast ? fallback : undefined },
+      });
+    }
+  }
+  if (proxy) {
+    if (!singleServer) {
+      throw new Error('cannot specify proxy on commandline when defining multiple servers');
+    }
+    singleServer.mount.push({ type: 'proxy', path: '/', target: proxy, options: {} });
+  }
+
   if (redirectMap.length > 0) {
     for (const server of config.servers) {
       for (const filePath of redirectMap) {

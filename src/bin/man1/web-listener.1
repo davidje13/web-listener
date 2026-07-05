@@ -41,9 +41,11 @@ It also has limited support for launching background tasks
 Simple servers can be configured using commandline arguments, but more complex
 setups require the use of JSON configuration.
 It is possible to combine most arguments with JSON configuration, in which case
-the commandline arguments will override the relevant parts of the JSON.
+the commandline arguments will override or augment the relevant parts of the
+JSON.
 .Pp
-Once running, the server(s) can be closed cleanly by sending a single SIGINT
+Once running, the server(s) and any spawned background tasks can be closed
+cleanly by sending a single SIGINT
 .Pq "typically by pressing Ctrl+C in most terminals" .
 .Pp
 .Qq index.htm
@@ -61,13 +63,14 @@ Set
 .Fl -write-compressed
 to automatically generate these files at startup.
 ..
-.de nojson
-This cannot be combined with JSON configuration
+.de onejson
+This can be combined with JSON configuration
 .Po
 .Fl -config-json
 or
 .Fl -config-file
-.Pc .
+.Pc
+provided only a single server is defined.
 ..
 The options are as follows:
 .Bl -tag -width Ds
@@ -79,7 +82,7 @@ relative to the last
 .Fl -dir
 .Pc
 to serve with a HTTP 404 status code if a requested file is not found.
-.nojson
+.onejson
 If you want to serve the file with a HTTP 200 status code, use
 .Fl -spa
 instead.
@@ -129,8 +132,9 @@ This can also be the path to a .zip archive, or a path within a .zip archive
 .Pc .
 Can be specified multiple times to provide fall-backs.
 Defaults to
-.Qq "." .
-.nojson
+.Qq "." ,
+unless JSON configuration is being used.
+.onejson
 .
 .It Fl -deflate
 .compression Deflate .deflate
@@ -224,8 +228,8 @@ If this amount of compression is not achieved, the compressed file is discarded
 without saving.
 .
 .It Fl -no-serve
-Do not start the server(s); just validate the configuration and generate
-compressed files if requested
+Do not start the server(s) or background tasks; just validate the configuration
+and generate compressed files if requested
 .Po
 via the
 .Fl -write-compressed
@@ -236,7 +240,7 @@ then exit successfully.
 .It Fl P Ar proxy , Fl -proxy Ar proxy
 A server to proxy requests to which do not match any files in
 .Ar directory .
-.nojson
+.onejson
 Note that if
 .Fl -404
 or
@@ -256,8 +260,11 @@ This format is loosely one redirect per line, with the requested URL first,
 then a space, then the redirect URL, and finally a semicolon.
 Matching is case insensitive.
 URLs can be quoted, and regular expression syntax is supported by prefixing the
-URL with ~.
-Comments can be included using the # character.
+URL with
+.Qq "~" .
+Comments can be included using the
+.Qq "#"
+character.
 A full explanation can be found at
 .Lk https://nginx.org/en/docs/http/ngx_http_map_module.html .
 Note that regular expressions are parsed using native Javascript regular
@@ -279,7 +286,7 @@ to serve with a HTTP 200 status code if a requested file is not found.
 This is typically useful for
 .Qq "single-page"
 apps.
-.nojson
+.onejson
 If you want to serve the file with a HTTP 404 status code, use
 .Fl -404
 instead.
