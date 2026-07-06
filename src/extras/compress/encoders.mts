@@ -10,7 +10,7 @@ import { pipeline } from 'node:stream/promises';
 import { buffer } from 'node:stream/consumers';
 
 export type ContentEncoding = 'zstd' | 'br' | 'gzip' | 'deflate' | 'identity';
-export type EncodingQuality = 'fast' | 'default' | 'max';
+export type EncodingQuality = 'fast' | 'mid' | 'max';
 
 const ENCODERS = /*@__PURE__*/ new Map<
   ContentEncoding,

@@ -129,6 +129,7 @@ path parameters from a parent, which can be typed with
   - [`sendCSVStream`]
   - [`sendJSON`]
   - [`sendJSONStream`]
+  - [`sendEncoded`]
   - [`<ServerSentEvents>`]
   - [`router.onReturn`] (templating)
 - Static files and content
@@ -3203,6 +3204,37 @@ characters inside quoted text are escaped by doubling (e.g. `my "value"` encodes
 `"my ""value"""`). If a [`<stream.Readable>`] or [`<ReadableStream>`] is provided, the content will
 always be quoted.
 
+### `sendEncoded(req, res, content[, options])`
+
+[`sendEncoded`]: #sendencodedreq-res-content-options
+
+- `req` [`<http.IncomingMessage>`]
+- `res` [`<http.ServerResponse>`]
+- `content` [`<string>`] | [`<Buffer>`] | [`<TypedArray>`] | [`<DataView>`] | [`<stream.Readable>`]
+  | [`<ReadableStream>`]
+- `options` [`<Object>`]
+  - `encoding` [`<string>`] the text encoding for the `content`, ignored if `content` is not a
+    [`<string>`]. **Default:** `'utf-8'`
+  - `encodings` [`<string[]>`][`<string>`] a list of [`Content-Encoding`]s which may be used when
+    sending the response. **Default:** `['zstd', 'br', 'gzip', 'deflate']`
+  - `encodingQuality` [`<string>`] one of `'fast'`, `'mid'`, or `'max'`. The exact meaning of the
+    levels depends on the encoding type, and may change between versions. **Default:** `'fast'`
+    - `'fast'` provides best performance but minimal compression;
+    - `'mid'` uses the common defaults for each compression type;
+    - `'max'` provides high compression but low performance (this matches the settings used by
+      [`compressFileOffline`] and [`staticContent`]).
+  - `estimatedLength` [`<number>`] an optional estimate of the byte length of the content, if it is
+    a stream (ignored if `content` is not a stream). This may be used to adjust compression
+    parameters for better performance. It does not need to be very accutate (currently, Brotli
+    encoding checks whether it is > 1MB).
+  - `compressionSizeThreshold` [`<number>`] the minimum size of content to attempt compression. If
+    the content length is not known in advance (i.e. if `content` is a stream and `estimatedLength`
+    is not set), this is ignored. **Default:** `0`
+- Returns: [`<Promise>`] Fulfills with [`<undefined>`] once the entire content has been sent.
+
+Sends `content` to `res`, possibly compressed (if the client has requested a supported compression
+using [`Accept-Encoding`]).
+
 ### `sendFile(req, res, source[, fileStats[, options]])`
 
 [`sendFile`]: #sendfilereq-res-source-filestats-options
@@ -4682,6 +4714,10 @@ Reference: [`getPathParameters`], [`makeAcceptWebSocket`], [`nextWebSocketMessag
 [`<Map>`]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map
 [`<Set>`]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Set
 [`<Blob>`]: https://developer.mozilla.org/en-US/docs/Web/API/Blob
+[`<TypedArray>`]:
+  https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/TypedArray
+[`<DataView>`]:
+  https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/DataView
 [`<Error>`]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error
 [`<SuppressedError>`]:
   https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/SuppressedError
@@ -4696,6 +4732,7 @@ Reference: [`getPathParameters`], [`makeAcceptWebSocket`], [`nextWebSocketMessag
 [`<ReadableStream>`]: https://developer.mozilla.org/en-US/docs/Web/API/ReadableStream
 [`<TransformStream>`]: https://developer.mozilla.org/en-US/docs/Web/API/TransformStream
 [`<Buffer>`]: https://nodejs.org/api/buffer.html#class-buffer
+[`<stream.Writable>`]: https://nodejs.org/api/stream.html#class-streamwritable
 [`<stream.Readable>`]: https://nodejs.org/api/stream.html#class-streamreadable
 [`<stream.Duplex>`]: https://nodejs.org/api/stream.html#class-streamduplex
 [`<fs.Stats>`]: https://nodejs.org/api/fs.html#class-fsstats
