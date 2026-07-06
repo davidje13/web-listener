@@ -8,7 +8,7 @@ describe('getMime', () => {
     expect(getMime('.gzip')).equals('application/gzip');
     expect(getMime('.json')).equals('application/json');
     expect(getMime('.png')).equals('image/png');
-    expect(getMime('.svg')).equals('image/svg+xml');
+    expect(getMime('.svg')).equals('image/svg+xml; charset=utf-8');
     expect(getMime('.wav')).equals('audio/wave');
   });
 
@@ -24,6 +24,12 @@ describe('getMime', () => {
     expect(getMime('mjs')).equals('text/javascript; charset=utf-8');
     expect(getMime('md')).equals('text/markdown; charset=utf-8');
     expect(getMime('rtf')).equals('text/rtf; charset=utf-8');
+  });
+
+  it('populates charset for xml mimes', () => {
+    expect(getMime('xml')).equals('application/xml; charset=utf-8');
+    expect(getMime('xml', 'custom')).equals('application/xml; charset=custom');
+    expect(getMime('svg')).equals('image/svg+xml; charset=utf-8');
   });
 
   it('returns application/octet-stream for unknown types', () => {

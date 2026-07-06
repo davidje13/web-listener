@@ -52,7 +52,7 @@ export function getMime(ext: string, charset = 'utf-8') {
     ext = ext.substring(1);
   }
   const value = MIME_TYPE_LOOKUP.get(ext) ?? 'application/octet-stream';
-  if (value.startsWith('text/') && !value.includes('charset=')) {
+  if (/^text\/|\+xml$|^application\/xml$/i.test(value) && !value.includes('charset=')) {
     return `${value}; charset=${charset}`;
   } else {
     return value;

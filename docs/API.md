@@ -1336,8 +1336,8 @@ Parses the [`If-Range`] header from the request.
 Returns the mime type for the requested extension. If the extension is not known, this will return
 `application/octet-stream`.
 
-If the mime type matches `text/*`, it will have `; charset={charset}` appended to the end (unless
-the registered mime type already includes an explicit `charset`).
+If the mime type matches `text/*`, or `*/*+xml`, it will have `; charset={charset}` appended to the
+end (unless the registered mime type already includes an explicit `charset`).
 
 ### `getPathParameter(req, name)`
 
