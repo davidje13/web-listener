@@ -153,7 +153,8 @@
                   "type": "custom",
                   "path": "${1:/}",
                   "method": "^${2:null}",
-                  "import": "$3"
+                  "import": "$3",
+                  "namedExport": "^${4:null}"
                 }
               }
             ],
@@ -435,7 +436,8 @@
           ],
           "default": null
         },
-        "import": { "type": "string", "format": "uri-reference" }
+        "import": { "type": "string", "format": "uri-reference" },
+        "namedExport": { "anyOf": [{ "type": "string" }, { "type": "null" }], "default": null }
       }
     },
     "headers": {

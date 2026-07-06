@@ -623,7 +623,9 @@ Serve package dependencies and an importmap file.
 .
 .It Qq custom
 Load arbitrary Javascript as a handler.
-The script must export a handler as its default export.
+The script must export a handler as its default export, or set
+.Qq namedExport
+to a named export to use.
 Note that due to module caching, imported files will
 .Em not
 be reloaded when they change.
@@ -632,7 +634,8 @@ be reloaded when they change.
   "type": "custom",
   "method": null,
   "path": "/",
-  "import": <filename>
+  "import": <filename>,
+  "namedExport": null,
 }
 .Ed
 .

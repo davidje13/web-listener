@@ -4,6 +4,7 @@ import type { Readable, Writable } from 'node:stream';
 import { findCause, HTTPError, WebListener, type ListenOptions } from '../index.mts';
 import type { ConfigServer, ConfigServerOptions, ConfigBackgroundTask } from './config/types.mts';
 import { buildRouter } from './routes/buildRouter.mts';
+import { markImportingDone } from './routes/custom/loadCustomHandler.mts';
 import { clearZipCache } from './zipCache.mts';
 import type { Logger, AddColour } from './log.mts';
 import { TransientError } from './TransientError.mts';
@@ -120,6 +121,7 @@ export class ServerManager {
 
       await runTasks(preTasks);
       await runTasks(tasks);
+      markImportingDone();
 
       if (this._stopping) {
         this._shutdown();

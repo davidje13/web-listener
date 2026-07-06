@@ -87,6 +87,7 @@ interface ConfigMountCustom {
   path: string;
   method: string | string[] | null;
   import: string;
+  namedExport: string | null;
 }
 
 export type ConfigMount =

@@ -189,7 +189,7 @@ export async function buildRouter(
         );
         break;
       case 'custom': {
-        const handler = await loadCustomHandler(item.import, warn);
+        const handler = await loadCustomHandler(item.import, item.namedExport, warn);
         if (typeof item.method === 'string' && item.method.toLowerCase() === 'get') {
           router.get(item.path, handler);
         } else if (item.method) {

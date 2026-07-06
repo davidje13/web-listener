@@ -553,6 +553,7 @@ default /other;
           import:
             'data:text/javascript;base64,' +
             btoa('export default (_, res) => res.end("My custom responder")'),
+          namedExport: null,
         },
       ]);
 
@@ -571,6 +572,24 @@ default /other;
       });
     });
 
+    it('uses named exports if requested', { timeout: 3000 }, async () => {
+      const router = await buildRouter([
+        {
+          type: 'custom',
+          method: 'GET',
+          path: '/custom',
+          import:
+            'data:text/javascript;base64,' +
+            btoa('export const foo = (_, res) => res.end("My custom responder")'),
+          namedExport: 'foo',
+        },
+      ]);
+
+      return withServer(router, (url) =>
+        expect(fetch(url + '/custom'), responds({ status: 200, body: 'My custom responder' })),
+      );
+    });
+
     it(
       'maps all verbs and subroutes to the handler if no method is specified',
       { timeout: 3000 },
@@ -583,6 +602,7 @@ default /other;
             import:
               'data:text/javascript;base64,' +
               btoa('export default (_, res) => res.end("My wildcard responder")'),
+            namedExport: null,
           },
         ]);
 
@@ -615,6 +635,7 @@ default /other;
             import:
               'data:text/javascript;base64,' +
               btoa('export default (_, res) => res.end("My post responder")'),
+            namedExport: null,
           },
         ]);
 
@@ -644,6 +665,7 @@ default /other;
             import:
               'data:text/javascript;base64,' +
               btoa('export default (_, res) => res.end("My post/put responder")'),
+            namedExport: null,
           },
         ]);
 
@@ -676,6 +698,7 @@ default /other;
             btoa(
               'import { isIntercepted } from "web-listener"; export default (_, res) => res.end(`Got ${isIntercepted}`)',
             ),
+          namedExport: null,
         },
       ]);
 

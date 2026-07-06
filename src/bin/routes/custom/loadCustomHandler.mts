@@ -56,24 +56,36 @@ registerHooks({
 });
 
 const LOADED = new Set();
+const LOADED_THIS_TIME = new Set();
+
+export function markImportingDone() {
+  for (const path of LOADED_THIS_TIME) {
+    LOADED.add(path);
+  }
+  LOADED_THIS_TIME.clear();
+}
 
 export async function loadCustomHandler(
   path: string,
+  namedExport: string | null,
   warn: (message: string) => void,
 ): Promise<AnyHandler> {
-  if (LOADED.has(path)) {
-    // it is not currently possible to force-reload a module
-    // after it has been imported, so warn the user instead:
-    warn(`${path} has already been loaded into the module cache and will not be updated`);
-  } else {
-    LOADED.add(path);
+  if (!LOADED_THIS_TIME.has(path)) {
+    if (LOADED.has(path)) {
+      // it is not currently possible to force-reload a module
+      // after it has been imported, so warn the user instead:
+      warn(`${path} has already been loaded into the module cache and will not be updated`);
+    }
+    LOADED_THIS_TIME.add(path);
   }
 
   await readZipPath(path, true); // load hook is synchronous, so we must open the zip (asynchronously) upfront
   const mod = await import(path);
-  const handler = mod?.default;
+  const handler = mod?.[namedExport || 'default'];
   if (!handler || (typeof handler !== 'function' && typeof handler !== 'object')) {
-    throw new Error(`${path} must "export default" a request handler`);
+    throw new Error(
+      `${path} must export a request handler ${namedExport ? `named ${JSON.stringify(namedExport)}` : 'as default'}`,
+    );
   }
   return handler;
 }
