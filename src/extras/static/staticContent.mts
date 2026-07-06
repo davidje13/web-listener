@@ -3,15 +3,15 @@ import { internalNormaliseHeaders, type AnyHeaders } from '../../util/normaliseH
 import type { RequestHandler } from '../../core/handler.mts';
 import { CONTINUE } from '../../core/RoutingInstruction.mts';
 import { checkIfModified } from '../request/conditional.mts';
-import { generateStrongETagStatic } from '../cache/etag.mts';
-import { compress, type ContentEncoding } from '../compress/encoders.mts';
 import { Negotiator, type FileNegotiationOption } from '../request/Negotiator.mts';
-import { internalAddVary, internalSetContentEncoding } from './setHeaders.mts';
+import { internalAddVary, internalSetContentEncoding } from '../response/setHeaders.mts';
+import { generateStrongETagStatic } from '../cache/etag.mts';
+import { internalCompressBuffer, type ContentEncoding } from '../compress/encoders.mts';
 
 export interface StaticContentOptions {
   headers?: AnyHeaders | undefined;
-  encodings?: ContentEncoding[] | undefined;
-  minCompression?: number;
+  encodings?: ReadonlyArray<ContentEncoding> | undefined;
+  minCompression?: number | undefined;
 }
 
 export const staticContent = (
@@ -24,7 +24,7 @@ export const staticContent = (
     options.set('', { _data: content, _etag: generateStrongETagStatic(content) });
     const negotiations: FileNegotiationOption[] = [];
     for (const encoding of encodings) {
-      const compressed = await compress(content, encoding, minCompression);
+      const compressed = await internalCompressBuffer(content, encoding, 'max', minCompression);
       if (compressed) {
         options.set(encoding, {
           _data: compressed,

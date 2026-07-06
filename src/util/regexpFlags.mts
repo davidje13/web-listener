@@ -1,3 +1,5 @@
+import { isArray } from './isArray.mts';
+
 export const internalOverrideFlags = (pattern: RegExp, caseInsensitive: boolean) =>
   new RegExp(
     pattern,
@@ -6,13 +8,13 @@ export const internalOverrideFlags = (pattern: RegExp, caseInsensitive: boolean)
   );
 
 export const stringPredicate = (
-  conditions: (string | RegExp)[] | string | RegExp | undefined,
+  conditions: ReadonlyArray<string | RegExp> | string | RegExp | undefined,
   caseInsensitive: boolean,
 ): ((value: string) => boolean) => {
   if (conditions === undefined) {
     return () => true;
   }
-  if (!Array.isArray(conditions)) {
+  if (!isArray(conditions)) {
     conditions = [conditions];
   }
   if (!conditions.length) {

@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { SchemaObject } from 'ajv';
+import { isArray } from '../util/isArray.mts';
 
 export const loadSchema = async (): Promise<SchemaObject> =>
   JSON.parse(await readFile(join(dirname(fileURLToPath(import.meta.url)), 'schema.json'), 'utf-8'));
@@ -136,7 +137,7 @@ const mNull: Mapper<null> = (o, ctx) => {
 const mArray =
   <T,>(itemMapper: Mapper<T>): Mapper<T[]> =>
   (o, ctx) => {
-    if (!Array.isArray(o)) {
+    if (!isArray(o)) {
       throw new ConfigError(`expected list, got ${typeof o}`, ctx);
     }
     return o.map((v, i) => itemMapper(v, { ...ctx, path: `${ctx.path}[${i}]` }));
@@ -210,7 +211,7 @@ const mObject =
     if (!o) {
       throw new ConfigError('expected object, got null', ctx);
     }
-    if (Array.isArray(o)) {
+    if (isArray(o)) {
       throw new ConfigError('expected object, got list', ctx);
     }
     const r: [string, unknown][] = [];

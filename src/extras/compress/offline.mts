@@ -3,7 +3,7 @@ import { readdir, readFile, writeFile, rm, utimes, stat } from 'node:fs/promises
 import { Queue } from '../../util/Queue.mts';
 import { internalMutateName, type FileNegotiationOption } from '../request/Negotiator.mts';
 import { getMime } from '../registries/mime.mts';
-import { compress } from './encoders.mts';
+import { internalCompressBuffer, type ContentEncoding } from './encoders.mts';
 
 export interface CompressionInfo {
   /** the path to the file */
@@ -57,7 +57,7 @@ const DEFAULT_FILTER = (_: string, mime: string) =>
 
 export async function compressFileOffline(
   file: string,
-  encodings: FileNegotiationOption[],
+  encodings: ReadonlyArray<FileNegotiationOption>,
   {
     minCompression = 0,
     deleteObsolete = false,
@@ -85,7 +85,12 @@ export async function compressFileOffline(
     if (mutated === opt.file) {
       continue;
     }
-    const compressed = await compress(raw, opt.value, minCompression);
+    const compressed = await internalCompressBuffer(
+      raw,
+      opt.value as ContentEncoding,
+      'max',
+      minCompression,
+    );
     if (compressed) {
       await writeFile(mutated, compressed);
       if (matchModifiedTime) {
@@ -103,7 +108,7 @@ export async function compressFileOffline(
 
 export async function compressFilesInDir(
   dir: string,
-  encodings: FileNegotiationOption[],
+  encodings: ReadonlyArray<FileNegotiationOption>,
   options: CompressionOptions = {},
 ): Promise<CompressionInfo[]> {
   const files = new Set<string>();

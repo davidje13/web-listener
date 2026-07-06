@@ -20,7 +20,7 @@ export interface ProxyOptions extends AgentOptions {
    *
    * @default []
    */
-  blockRequestHeaders?: string[] | undefined;
+  blockRequestHeaders?: ReadonlyArray<string> | undefined;
   /**
    * A list of headers to remove from proxied responses (runs before `responseHeaders`).
    * Hop-by-hop headers (including standard hop-by-hop headers and
@@ -28,15 +28,15 @@ export interface ProxyOptions extends AgentOptions {
    *
    * @default []
    */
-  blockResponseHeaders?: string[] | undefined;
+  blockResponseHeaders?: ReadonlyArray<string> | undefined;
   /**
    * Mutators for the proxied request headers. e.g. `replaceForwarded`.
    */
-  requestHeaders?: ProxyRequestHeaderAdapter[] | undefined;
+  requestHeaders?: ReadonlyArray<ProxyRequestHeaderAdapter> | undefined;
   /**
    * Mutators for the proxied response headers.
    */
-  responseHeaders?: ProxyResponseHeaderAdapter[] | undefined;
+  responseHeaders?: ReadonlyArray<ProxyResponseHeaderAdapter> | undefined;
 }
 
 export function proxy(
@@ -124,7 +124,7 @@ export function proxy(
   );
 }
 
-function blockHeaders(headers: OutgoingHttpHeaders, blocked: string[]) {
+function blockHeaders(headers: OutgoingHttpHeaders, blocked: ReadonlyArray<string>) {
   for (const key of readHTTPUnquotedCommaSeparated(headers['connection']) ?? []) {
     deleteProperty(headers, key.toLowerCase());
   }

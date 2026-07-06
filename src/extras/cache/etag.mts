@@ -3,9 +3,10 @@ import { createHash } from 'node:crypto';
 import { pipeline } from 'node:stream/promises';
 import type { ReadOnlyFileHandle } from '../../util/ReadOnlyFileHandle.mts';
 import { createSafeReadStream } from '../../util/createSafeReadStream.mts';
+import type { LooseHeaderValue } from '../../util/normaliseHeaders.mts';
 
 export function generateWeakETag(
-  contentEncoding: string | number | string[] | undefined,
+  contentEncoding: LooseHeaderValue | undefined,
   fileStats: Pick<Stats, 'mtimeMs' | 'size'>,
 ) {
   const token = `${fileStats.mtimeMs | 0} ${fileStats.size} ${contentEncoding ?? ''}`;

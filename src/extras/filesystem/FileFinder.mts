@@ -73,7 +73,7 @@ export interface FileFinderOptions {
    *
    * @default []
    */
-  hide?: (string | RegExp)[] | undefined;
+  hide?: ReadonlyArray<string | RegExp> | undefined;
 
   /**
    * Allow access to specific files which would otherwise be blocked as a dotfile, tilde file, or
@@ -81,7 +81,7 @@ export interface FileFinderOptions {
    *
    * @default ['.well-known']
    */
-  allow?: string[] | undefined;
+  allow?: ReadonlyArray<string> | undefined;
 
   /**
    * Files to look for if a directory is requested.
@@ -91,7 +91,7 @@ export interface FileFinderOptions {
    *
    * @default ['index.htm', 'index.html']
    */
-  indexFiles?: string[] | undefined;
+  indexFiles?: ReadonlyArray<string> | undefined;
 
   /**
    * Suffixes to try appending if the requested file does not exist.
@@ -100,7 +100,7 @@ export interface FileFinderOptions {
    *
    * @default []
    */
-  implicitSuffixes?: string[] | undefined;
+  implicitSuffixes?: ReadonlyArray<string> | undefined;
 
   /**
    * Content negotiation to apply to files.
@@ -118,12 +118,12 @@ export interface FileFinderOptions {
 
 export interface FileFinder {
   find(
-    pathParts: string[],
+    pathParts: ReadonlyArray<string>,
     reqHeaders?: IncomingHttpHeaders,
     warnings?: string[] | undefined,
   ): Promise<ResolvedFileInfo | null>;
 
-  toNormalisedPath(pathParts: string[]): string[];
+  toNormalisedPath(pathParts: ReadonlyArray<string>): ReadonlyArray<string>;
 
   isStaticListing: boolean;
   staticPaths?: () => Set<string>;
@@ -137,9 +137,9 @@ export class FileFinderRules {
   /** @internal */ declare readonly _allowDirectIndexAccess: boolean;
   /** @internal */ declare readonly _allow: Set<string>;
   /** @internal */ declare private readonly _hide: (v: string) => boolean;
-  /** @internal */ declare readonly _indexFiles: string[];
+  /** @internal */ declare readonly _indexFiles: ReadonlyArray<string>;
   /** @internal */ declare readonly _indexFilesSet: Set<string>;
-  /** @internal */ declare readonly _implicitSuffixes: string[];
+  /** @internal */ declare readonly _implicitSuffixes: ReadonlyArray<string>;
   /** @internal */ declare readonly _negotiator: Negotiator | undefined;
 
   /** @internal */ constructor({
@@ -190,7 +190,7 @@ export class FileFinderRules {
     }
   }
 
-  /** @internal */ _toNormalisedPath(pathParts: string[]) {
+  /** @internal */ _toNormalisedPath(pathParts: ReadonlyArray<string>) {
     const last = pathParts[pathParts.length - 1];
     if (last && this._indexFilesSet.has(this._normalise(last))) {
       return pathParts.slice(0, pathParts.length - 1);

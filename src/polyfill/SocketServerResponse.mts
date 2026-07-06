@@ -1,6 +1,7 @@
 import { STATUS_CODES, type OutgoingHttpHeaders } from 'node:http';
 import type { Writable } from 'node:stream';
 import { throwCodedError } from '../util/throwCodedError.mts';
+import type { LooseHeaderValue } from '../util/normaliseHeaders.mts';
 
 // This class exists because it is not possible to construct a built-in ServerResponse
 // on an arbitrary socket. It attempts to mimic a subset of the ServerResponse API.
@@ -66,8 +67,6 @@ export class SocketServerResponse {
     return this;
   }
 }
-
-type LooseHeaderValue = string | number | Readonly<string[]>;
 
 export function internalEncodeHeaders(
   headers: Record<string, LooseHeaderValue | undefined>,

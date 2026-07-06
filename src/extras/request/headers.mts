@@ -1,5 +1,6 @@
 import type { IncomingMessage } from 'node:http';
 import { internalSplitFirst } from '../../util/splitFirst.mts';
+import type { LooseHeaderValue } from '../../util/normaliseHeaders.mts';
 import { HTTPError } from '../../core/HTTPError.mts';
 import type { HTTPRange, RangePart } from '../range.mts';
 
@@ -226,5 +227,3 @@ export function readHTTPDateSeconds(raw: LooseHeaderValue | undefined): number |
   }
   return (parsed / 1000) | 0;
 }
-
-export type LooseHeaderValue = string | number | string[];

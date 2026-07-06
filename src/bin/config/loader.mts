@@ -1,5 +1,6 @@
 import { resolve } from 'node:path';
 import type { FallbackOptions, FileNegotiation, FileNegotiationOption } from '../../index.mts';
+import { isArray } from '../util/isArray.mts';
 import { readAnyFile } from '../zipCache.mts';
 import type { Mapper } from './schema.mts';
 import type {
@@ -270,7 +271,7 @@ export async function loadConfig(
             mount.options.negotiation = [...mount.options.negotiation, enc];
           }
           if (!enc.options.find((o) => o.value === encoding.value)) {
-            enc.options.push(encoding);
+            (enc.options as FileNegotiationOption[]).push(encoding);
           }
         }
       }
@@ -428,4 +429,4 @@ const ENCODINGS = new Map<string, FileNegotiationOption>([
   ['deflate', { value: 'deflate', file: '{file}.deflate' }],
 ]);
 
-const asArray = <T,>(v: T | T[]) => (Array.isArray(v) ? v : v ? [v] : []);
+const asArray = <T,>(v: T | T[]) => (isArray(v) ? v : v ? [v] : []);

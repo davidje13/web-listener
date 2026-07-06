@@ -36,7 +36,7 @@ export function parseAddress(address: string | undefined): Address | undefined {
   return { family: 'alias', address: address, port: undefined };
 }
 
-export function makeAddressTester(cidrRanges: string[]) {
+export function makeAddressTester(cidrRanges: ReadonlyArray<string>) {
   const aliases = new Set<string>();
   const ipv4: [number, number][] = [];
   const ipv6: [bigint, bigint][] = [];

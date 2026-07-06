@@ -1,3 +1,5 @@
+import { isArray } from '../util/isArray.mts';
+
 export const render = (
   template: string,
   getParam: (name: string) => { _value: string | string[] | null | undefined; _encoding: string },
@@ -45,7 +47,7 @@ const ENCODERS: Record<string, (v: string | string[]) => string | string[]> = {
       .replaceAll("'", '&#39;'),
   json: (v) => JSON.stringify(joinPath(v)),
   int: (v) => {
-    if (Array.isArray(v)) {
+    if (isArray(v)) {
       return '0';
     }
     const m = /^(?:\+|(-))?0*(\d+)$/.exec(v);
@@ -54,7 +56,7 @@ const ENCODERS: Record<string, (v: string | string[]) => string | string[]> = {
     }
     return (m[1] ?? '') + m[2];
   },
-  uri: (v) => (Array.isArray(v) ? v.map(encodeURIComponent) : encodeURIComponent(v)),
+  uri: (v) => (isArray(v) ? v.map(encodeURIComponent) : encodeURIComponent(v)),
 };
 
-const joinPath = (v: string | string[]) => (Array.isArray(v) ? v.join('/') : v);
+const joinPath = (v: string | string[]) => (isArray(v) ? v.join('/') : v);

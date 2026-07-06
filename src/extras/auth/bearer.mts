@@ -1,6 +1,7 @@
 import type { IncomingMessage } from 'node:http';
 import { CONTINUE } from '../../core/RoutingInstruction.mts';
 import type { MaybePromise } from '../../util/MaybePromise.mts';
+import { isArray } from '../../util/isArray.mts';
 import { scheduleClose } from '../../core/close.mts';
 import { anyHandler, type RequestHandler, type UpgradeHandler } from '../../core/handler.mts';
 import { HTTPError } from '../../core/HTTPError.mts';
@@ -127,7 +128,7 @@ function internalExtractScopesMap(data: unknown): Set<string> {
     return new Set();
   }
   const { scopes } = data;
-  if (Array.isArray(scopes)) {
+  if (isArray(scopes)) {
     return new Set(scopes);
   }
   if (typeof scopes === 'string') {

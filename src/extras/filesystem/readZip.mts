@@ -257,7 +257,7 @@ class ZipDirectory {
     }
   }
 
-  find(path: string[]) {
+  find(path: ReadonlyArray<string>) {
     let cur: ZipNode = this;
     for (const part of path) {
       if (!cur.isDirectory) {
@@ -283,7 +283,7 @@ interface ZipFileDetails {
 
 class ZipFile {
   /** @internal */ declare private readonly _source: SharedFileHandle;
-  /** @internal */ declare readonly _path: string[];
+  /** @internal */ declare readonly _path: ReadonlyArray<string>;
   /** @internal */ declare private readonly _details: ZipFileDetails;
   /** @internal */ declare private readonly _inflate: boolean;
   /** @internal */ declare private readonly _stats: Stats & BigIntStats;
@@ -291,7 +291,7 @@ class ZipFile {
 
   /** @internal */ constructor(
     source: SharedFileHandle,
-    path: string[],
+    path: ReadonlyArray<string>,
     details: ZipFileDetails,
     inflate: boolean,
     virtual: boolean,

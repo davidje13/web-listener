@@ -10,8 +10,8 @@ import type { ReadOnlyFileHandle } from '../../util/ReadOnlyFileHandle.mts';
 import { STOP } from '../../core/RoutingInstruction.mts';
 import { getRange, type GetRangeOptions } from '../request/headers.mts';
 import { checkIfModified, checkIfRange } from '../request/conditional.mts';
-import { sendRanges } from '../response/sendRanges.mts';
 import { simplifyRange, type SimplifyRangeOptions } from '../range.mts';
+import { sendRanges } from './sendRanges.mts';
 
 export async function sendFile(
   req: IncomingMessage,

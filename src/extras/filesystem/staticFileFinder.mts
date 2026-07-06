@@ -72,7 +72,12 @@ export class StaticFileFinder<T> implements FileFinder {
     }
   }
 
-  /** @internal */ _addFile(path: string[], filename: string, data: T, siblings: Map<string, T>) {
+  /** @internal */ _addFile(
+    path: ReadonlyArray<string>,
+    filename: string,
+    data: T,
+    siblings: Map<string, T>,
+  ) {
     const normFileName = this._rules._normalise(filename);
     const entity: Omit<StaticFileInfo<T>, 'p'> = { data, basename: normFileName, siblings };
     const indexPos = this._rules._indexFiles.indexOf(normFileName);
@@ -94,15 +99,15 @@ export class StaticFileFinder<T> implements FileFinder {
     }
   }
 
-  /** @internal */ _addDir(path: string[]) {
+  /** @internal */ _addDir(path: ReadonlyArray<string>) {
     this._set(this._rules._normalise(path.join('/')), DIR);
   }
 
-  toNormalisedPath(pathParts: string[]) {
+  toNormalisedPath(pathParts: ReadonlyArray<string>) {
     return this._rules._toNormalisedPath(pathParts);
   }
 
-  async find(path: string[], reqHeaders = {}, warnings: string[] | undefined) {
+  async find(path: ReadonlyArray<string>, reqHeaders = {}, warnings: string[] | undefined) {
     const entity = this._lookup.get(this._rules._normalise(path.join('/')));
     if (!entity || entity.data === undefined) {
       warnings?.push(`${JSON.stringify(path.join('/'))} not found in static file paths`);

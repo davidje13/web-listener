@@ -2,6 +2,7 @@ import { access, constants, readdir, readFile, realpath, stat } from 'node:fs/pr
 import { dirname, join, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Queue } from '../../../index.mts';
+import { isArray } from '../../util/isArray.mts';
 
 export interface PackageInfo {
   isRoot: boolean;
@@ -101,7 +102,7 @@ function getNormalisedExports(
       './*': './*',
     };
   }
-  if (Array.isArray(exp) || typeof exp !== 'object' || !exp) {
+  if (isArray(exp) || typeof exp !== 'object' || !exp) {
     return { '.': exp };
   }
   for (const id of Object.keys(exp)) {
@@ -136,7 +137,7 @@ function resolveMapping(
   if (typeof mapping === 'string' || mapping === null) {
     return mapping;
   }
-  if (Array.isArray(mapping)) {
+  if (isArray(mapping)) {
     for (const item of mapping) {
       const resolved = resolveMapping(item, env);
       if (resolved) {

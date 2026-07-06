@@ -27,7 +27,7 @@ export class DynamicFileFinder implements FileFinder {
     return false;
   }
 
-  toNormalisedPath(pathParts: string[]) {
+  toNormalisedPath(pathParts: ReadonlyArray<string>) {
     return this._rules._toNormalisedPath(pathParts);
   }
 
@@ -41,7 +41,7 @@ export class DynamicFileFinder implements FileFinder {
    * @returns details about the resolved file (including an active `FileHandle`), or `null`
    */
   async find(
-    pathParts: string[],
+    pathParts: ReadonlyArray<string>,
     reqHeaders: IncomingHttpHeaders = {},
     warnings?: string[] | undefined,
   ): Promise<ResolvedFileInfo | null> {

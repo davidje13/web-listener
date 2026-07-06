@@ -1,6 +1,8 @@
 import type { IncomingHttpHeaders } from 'node:http';
 import { extname } from 'node:path';
 import { stringPredicate } from '../../util/regexpFlags.mts';
+import { isArray } from '../../util/isArray.mts';
+import type { ContentEncoding } from '../compress/encoders.mts';
 import { readHTTPQualityValues, type QualityValue } from './headers.mts';
 
 const FEATURES = {
@@ -20,7 +22,7 @@ export interface FileNegotiation {
   /** Filename filter (only apply this negotiation for requests with filenames matching the pattern) */
   match?: string | RegExp;
   /** List of negotiation options available, ordered by server preference */
-  options: FileNegotiationOption[];
+  options: ReadonlyArray<FileNegotiationOption>;
 }
 
 export interface FileNegotiationOption {
@@ -57,9 +59,7 @@ export interface FileNegotiationOption {
   file: string;
 }
 
-type FileEncodingFormat = 'zstd' | 'br' | 'gzip' | 'deflate' | 'identity';
-
-const ENCODING_MAPPING_LOOKUP = /*@__PURE__*/ new Map<FileEncodingFormat, string>([
+const ENCODING_MAPPING_LOOKUP = /*@__PURE__*/ new Map<ContentEncoding, string>([
   ['zstd', '{file}.zst'],
   ['br', '{file}.br'],
   ['gzip', '{file}.gz'],
@@ -68,17 +68,17 @@ const ENCODING_MAPPING_LOOKUP = /*@__PURE__*/ new Map<FileEncodingFormat, string
 ]);
 
 export const negotiateEncoding = (
-  options: FileEncodingFormat[] | Record<FileEncodingFormat, string>,
+  options: ReadonlyArray<ContentEncoding> | Record<ContentEncoding, string>,
 ): FileNegotiation => ({
   feature: 'encoding',
   options: internalReadMap(options, ENCODING_MAPPING_LOOKUP),
 });
 
 function internalReadMap<T extends string>(
-  items: T[] | Record<T, string>,
+  items: ReadonlyArray<T> | Record<T, string>,
   lookup: Map<T, string>,
 ): { value: T; file: string }[] {
-  if (Array.isArray(items)) {
+  if (isArray(items)) {
     return items.map((value) => ({ value, file: lookup.get(value)! }));
   } else {
     return Object.entries(items).map(([value, file]) => ({
@@ -144,7 +144,7 @@ export class Negotiator {
    *
    * See the helper `negotiateEncoding` for a simple way to support pre-compressed files.
    */
-  constructor(rules: FileNegotiation[], { maxFailedAttempts = 10 } = {}) {
+  constructor(rules: ReadonlyArray<FileNegotiation>, { maxFailedAttempts = 10 } = {}) {
     this._normalisedRules = rules
       .map((rule): InternalRule => {
         if (!Object.prototype.hasOwnProperty.call(FEATURES, rule.feature)) {

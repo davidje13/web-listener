@@ -41,7 +41,10 @@ export function replaceForwarded(
 
 export const sanitiseAndAppendForwarded =
   (
-    getClient: (req: IncomingMessage) => { outwardChain: ProxyNode[]; trusted: ProxyNode[] },
+    getClient: (req: IncomingMessage) => {
+      outwardChain: ReadonlyArray<ProxyNode>;
+      trusted: ReadonlyArray<ProxyNode>;
+    },
     { onlyTrusted = false } = {},
   ) =>
   (req: IncomingMessage, headers: IncomingHttpHeaders): OutgoingHttpHeaders => {
@@ -69,7 +72,7 @@ export function simpleAppendForwarded(
   return outHeaders;
 }
 
-export function writeForwarded(forwarded: ProxyNode[]) {
+export function writeForwarded(forwarded: ReadonlyArray<ProxyNode>) {
   return forwarded
     .filter((node) => node.server || node.client)
     .map((node) =>

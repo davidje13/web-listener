@@ -4,13 +4,17 @@ import { ReadableStream } from 'node:stream/web';
 import { internalDrainUncorked } from '../../util/drain.mts';
 import { VOID_BUFFER } from '../../util/voidBuffer.mts';
 import { dispose, LoadOnDemand } from './LoadOnDemand.mts';
+import { isArray } from '../../util/isArray.mts';
 
 export interface JSONOptions {
   /**
    * Either a function to invoke on every object (recursive) to be printed, or a list of properties to filter for when printing objects (applies to nested objects too).
    * @default null
    */
-  replacer?: ((this: unknown, key: string, value: unknown) => unknown) | (number | string)[] | null;
+  replacer?:
+    | ((this: unknown, key: string, value: unknown) => unknown)
+    | ReadonlyArray<number | string>
+    | null;
   /**
    * The amount of spacing to use for indentation. If this is 0, no spacing is used anywhere.
    * @default 0
@@ -67,10 +71,10 @@ export async function sendJSONStream(
     end = true,
   }: JSONOptions = {},
 ) {
-  if (Array.isArray(replacer)) {
+  if (isArray(replacer)) {
     const items = new Set(replacer.map((v) => String(v)));
     replacer = function (k, v) {
-      return this === null || Array.isArray(this) || items.has(k) ? v : undefined;
+      return this === null || isArray(this) || items.has(k) ? v : undefined;
     };
   }
   if (typeof space === 'number') {

@@ -1,11 +1,13 @@
 import type { OutgoingHttpHeaders } from 'node:http';
 import { internalNormaliseHeaderValue } from '../polyfill/SocketServerResponse.mts';
 
+export type LooseHeaderValue = string | number | ReadonlyArray<string>;
+
 export type AnyHeaders =
   | Headers
-  | [string, string][]
+  | ReadonlyArray<[string, string]>
   | OutgoingHttpHeaders
-  | Map<string, string | number | Readonly<string[]>>
+  | Map<string, LooseHeaderValue>
   | undefined;
 
 export function internalNormaliseHeaders(headers: AnyHeaders): Headers {

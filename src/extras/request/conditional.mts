@@ -39,7 +39,7 @@ export function checkIfRange(
 export function compareETag(
   res: ServerResponse,
   fileStats: Pick<Stats, 'mtimeMs' | 'size'> | null,
-  etags: string[],
+  etags: ReadonlyArray<string>,
 ) {
   if (etags.includes('*')) {
     return true;

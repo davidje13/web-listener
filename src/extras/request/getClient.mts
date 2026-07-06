@@ -42,7 +42,7 @@ export interface GetClientOptions {
    *
    * @default none (trust all proxies within trustedProxyCount hops)
    */
-  trustedProxyAddresses?: string[];
+  trustedProxyAddresses?: ReadonlyArray<string>;
 
   /**
    * The headers which are set (or cleared) by your proxy, and can therefore be trusted.
@@ -53,7 +53,7 @@ export interface GetClientOptions {
    *
    * @default [] (no headers are trusted)
    */
-  trustedHeaders: ProxyHeader[];
+  trustedHeaders: ReadonlyArray<ProxyHeader>;
 }
 
 export type GetClient = (req: IncomingMessage) => ProxyChain;

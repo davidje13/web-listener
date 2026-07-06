@@ -7,11 +7,11 @@ import type { MaybePromise } from '../../util/MaybePromise.mts';
 import { internalNormaliseHeaders, type AnyHeaders } from '../../util/normaliseHeaders.mts';
 import { getRemainingPathComponents } from '../request/pathComponents.mts';
 import { sendFile } from '../response/sendFile.mts';
+import { internalAddVary, internalSetContentEncoding } from '../response/setHeaders.mts';
 import { generateWeakETag } from '../cache/etag.mts';
 import { emitError } from '../error/emitError.mts';
 import { getMime } from '../registries/mime.mts';
 import type { FileFinder, ResolvedFileInfo } from '../filesystem/FileFinder.mts';
-import { internalAddVary, internalSetContentEncoding } from './setHeaders.mts';
 
 export interface AssetServerOptions {
   /**
@@ -50,7 +50,7 @@ export interface AssetServerOptions {
    *
    * @default ['etag', 'last-modified']
    */
-  dynamicHeaders?: ('etag' | 'last-modified')[] | false | undefined;
+  dynamicHeaders?: ReadonlyArray<'etag' | 'last-modified'> | false | undefined;
 
   /**
    * A function to call when a file is being served. Can modify headers in the response.
@@ -107,7 +107,7 @@ export const assetServer = (
     callback,
   }: AssetServerOptions = {},
 ): RequestHandler => {
-  let fallbackPath: string[] | null = null;
+  let fallbackPath: ReadonlyArray<string> | null = null;
   const fallbackStatusCode = fallback?.statusCode ?? 200;
   if (fallback) {
     let path = fallback.filePath;

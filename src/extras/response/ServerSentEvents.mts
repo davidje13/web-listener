@@ -78,7 +78,7 @@ export class ServerSentEvents {
     ]);
   }
 
-  async sendFields(parts: [string, string | undefined][]): Promise<void> {
+  async sendFields(parts: ReadonlyArray<[string, string | undefined]>): Promise<void> {
     this._ac.signal.throwIfAborted();
     let done: () => void;
     this._res.cork();
