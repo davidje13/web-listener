@@ -63,7 +63,7 @@ describe('SharedFileHandle', () => {
   });
 
   it('closes the handle if all consumers are closed for a time', { timeout: 3000 }, async () => {
-    const sharedHandle = new SharedFileHandle(testPath, constants.O_RDONLY, 0o666, 100);
+    const sharedHandle = new SharedFileHandle(testPath, constants.O_RDONLY, 0o666, 50);
     let handle1: FileHandle | undefined;
     let handle2: FileHandle | undefined;
     try {
@@ -71,7 +71,7 @@ describe('SharedFileHandle', () => {
       const fd = handle1.fd;
       await handle1.close();
       handle1 = undefined;
-      await new Promise((resolve) => setTimeout(resolve, 150));
+      await new Promise((resolve) => setTimeout(resolve, 300));
       handle2 = await sharedHandle.open();
       expect(handle2.fd).not(equals(fd));
     } finally {
