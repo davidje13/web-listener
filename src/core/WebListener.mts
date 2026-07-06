@@ -94,7 +94,7 @@ export class WebListener extends (EventTarget as TypedEventTarget<
       reason = '',
       existingConnectionTimeout = -1,
       forShutdown = false,
-      callback?: () => void,
+      callback?: (() => void) | undefined,
     ) => {
       guardTimeout(existingConnectionTimeout, 'existingConnectionTimeout', true);
       if (!forShutdown) {

@@ -1,7 +1,7 @@
 import type { IncomingMessage } from 'node:http';
 import { internalMustGetProps } from '../../core/messages.mts';
 
-export const emitError = (req: IncomingMessage, error: unknown, context?: string) => {
+export const emitError = (req: IncomingMessage, error: unknown, context?: string | undefined) => {
   const props = internalMustGetProps(req);
   props._errorCallback(
     error,

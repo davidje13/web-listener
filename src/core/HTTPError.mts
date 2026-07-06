@@ -4,7 +4,7 @@ import { internalNormaliseHeaders, type AnyHeaders } from '../util/normaliseHead
 export interface HTTPErrorOptions {
   message?: string | undefined;
   statusMessage?: string | undefined;
-  headers?: AnyHeaders;
+  headers?: AnyHeaders | undefined;
   body?: string | undefined;
   cause?: unknown;
 }

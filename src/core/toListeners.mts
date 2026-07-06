@@ -37,13 +37,13 @@ export interface NativeListenersOptions {
    *
    * The default implementation logs the error via `console.error` unless it is a `HTTPError` with `statusCode` < 500
    */
-  onError?: ServerGeneralErrorCallback;
+  onError?: ServerGeneralErrorCallback | undefined;
 
   /**
    * Number of milliseconds to wait before forcibly closing sockets which are left half-open by the client.
    * @default 500
    */
-  socketCloseTimeout?: number;
+  socketCloseTimeout?: number | undefined;
 }
 
 export type ServerGeneralErrorCallback = (

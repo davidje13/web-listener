@@ -24,7 +24,7 @@ export async function sendFile(
     | Readable
     | ReadableStream<Uint8Array>,
   fileStats: Pick<Stats, 'mtimeMs' | 'size'> | null = null,
-  options?: GetRangeOptions & SimplifyRangeOptions,
+  options?: (GetRangeOptions & SimplifyRangeOptions) | undefined,
 ) {
   if (res.closed || !res.writable) {
     throw STOP; // client closed connection; don't bother loading file

@@ -22,24 +22,24 @@ interface GetBodyOptions {
    * The maximum content length after applying all decoding steps
    * @default Infinity
    */
-  maxContentBytes?: number;
+  maxContentBytes?: number | undefined;
 
   /**
    * The maximum content length as sent (before applying any decoding steps)
    * @default maxContentBytes
    */
-  maxNetworkBytes?: number;
+  maxNetworkBytes?: number | undefined;
 
   /**
    * The maximum number of content-encoding steps the client can specify.
    * Browsers typically do not use any content-encoding in requests, and it is unlikely that this would need to be set greater than 1 for any standard client.
    * @default 1
    */
-  maxEncodingSteps?: number;
+  maxEncodingSteps?: number | undefined;
 }
 
 interface GetBodyTextOptions extends GetBodyOptions, TextDecoderOptions {
-  defaultCharset?: string;
+  defaultCharset?: string | undefined;
 }
 
 interface GetBodyJSONOptions extends GetBodyOptions, TextDecoderOptions {
@@ -48,7 +48,7 @@ interface GetBodyJSONOptions extends GetBodyOptions, TextDecoderOptions {
         this: Record<string, unknown> | unknown[],
         key: string,
         value: unknown,
-        context?: { source?: string },
+        context?: { source?: string | undefined } | undefined,
       ) => unknown)
     | undefined;
 }

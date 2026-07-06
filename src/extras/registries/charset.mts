@@ -12,7 +12,7 @@ export type { TextDecoderOptions };
 
 interface Charset {
   decoder: (options: TextDecoderOptions) => Decoder;
-  decoderStream?: (options: TextDecoderOptions) => DecoderStream;
+  decoderStream?: ((options: TextDecoderOptions) => DecoderStream) | undefined;
 }
 
 const CHARSETS = new Map<string, Charset>();

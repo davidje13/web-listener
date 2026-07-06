@@ -13,10 +13,10 @@ export interface DependencyHandlerOptions extends Omit<
   FileServerOptions,
   'indexFiles' | 'implicitSuffixes' | 'allowDirectIndexAccess'
 > {
-  environment?: string[];
-  mapFilePath?: string | false;
-  sourcesBasePath?: string;
-  modulesBasePath?: string;
+  environment?: string[] | undefined;
+  mapFilePath?: string | false | undefined;
+  sourcesBasePath?: string | undefined;
+  modulesBasePath?: string | undefined;
 }
 
 export async function dependencies(

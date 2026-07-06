@@ -10,8 +10,8 @@ import type { LogLevel } from '../log.mts';
 export type ConfigHeaders = Record<string, string | number | string[]>;
 
 export type ConfigMountFilesOptions = Omit<FileServerOptions, 'negotiator'> & {
-  negotiation?: FileNegotiation[];
-  headers?: ConfigHeaders;
+  negotiation?: FileNegotiation[] | undefined;
+  headers?: ConfigHeaders | undefined;
 };
 
 interface ConfigMountDelegate {
@@ -44,7 +44,7 @@ interface ConfigMountProxy {
   path: string;
   target: string;
   options: ProxyOptions & {
-    headers?: ConfigHeaders;
+    headers?: ConfigHeaders | undefined;
   };
 }
 
@@ -78,7 +78,7 @@ interface ConfigMountDependencies {
   path: string;
   package: string;
   options: Omit<DependencyHandlerOptions, 'negotiator' | 'fallback'> & {
-    headers?: ConfigHeaders;
+    headers?: ConfigHeaders | undefined;
   };
 }
 
@@ -117,8 +117,8 @@ export interface ConfigServer {
 
 export interface ConfigServerRef {
   file: string;
-  serverIndex?: number;
-  serverPort?: number;
+  serverIndex?: number | undefined;
+  serverPort?: number | undefined;
   includeMime: boolean;
   includeBackgroundTasks: boolean;
   mount?: never;

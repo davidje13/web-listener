@@ -3,9 +3,9 @@ import { guardTimeout } from '../../util/guardTimeout.mts';
 import { setSoftCloseHandler } from '../../core/close.mts';
 
 interface ServerSentEventsOptions {
-  keepaliveInterval?: number;
-  softCloseReconnectDelay?: number;
-  softCloseReconnectStagger?: number;
+  keepaliveInterval?: number | undefined;
+  softCloseReconnectDelay?: number | undefined;
+  softCloseReconnectStagger?: number | undefined;
 }
 
 export interface ServerSentEvent {

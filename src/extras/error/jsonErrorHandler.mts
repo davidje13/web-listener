@@ -29,7 +29,7 @@ export interface JSONErrorHandlerOptions {
    * The content-type to set on the response.
    * @default 'application/json'
    */
-  contentType?: string;
+  contentType?: string | undefined;
 }
 
 export const jsonErrorHandler = (

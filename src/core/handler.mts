@@ -43,7 +43,7 @@ export interface UpgradeHandler<Req = {}> {
 
 export const upgradeHandler = <Req,>(
   handler: UpgradeHandler<Req> | UpgradeHandlerFn<Req>,
-  shouldUpgrade?: ShouldUpgradeFn<Req>,
+  shouldUpgrade?: ShouldUpgradeFn<Req> | undefined,
 ): UpgradeHandler<Req> =>
   typeof handler === 'function'
     ? { handleUpgrade: handler, shouldUpgrade }
@@ -70,7 +70,9 @@ export type ErrorHandlerFn<Req = {}> = (
 
 export interface ErrorHandler<Req = {}> {
   handleError: ErrorHandlerFn<Req>;
-  shouldHandleError?: (error: unknown, req: IncomingMessage & Req, output: ErrorOutput) => boolean;
+  shouldHandleError?:
+    | ((error: unknown, req: IncomingMessage & Req, output: ErrorOutput) => boolean)
+    | undefined;
 }
 
 export const errorHandler = <Req,>(

@@ -13,8 +13,8 @@ export type AcceptUpgradeHandler<T, Req = {}> = (
 
 export interface AcceptUpgradeResult<T> {
   return: T;
-  onError?: UpgradeErrorHandler;
-  softCloseHandler?: SoftCloseHandler;
+  onError?: UpgradeErrorHandler | undefined;
+  softCloseHandler?: SoftCloseHandler | undefined;
 }
 
 interface UpgradeMessageProps {

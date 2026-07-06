@@ -136,15 +136,15 @@ export interface GetFormFieldsOptions extends BusboyOptions {
    * This can be used to prevent clients uploading large files when the request has already been rejected.
    * @default 500
    */
-  closeAfterErrorDelay?: number;
+  closeAfterErrorDelay?: number | undefined;
 }
 
 export interface GetFormDataOptions extends GetFormFieldsOptions {
   /** true to apply .trim() to all field values */
-  trimAllValues?: boolean;
+  trimAllValues?: boolean | undefined;
 
   /** function to apply to all uploaded files (e.g. to check available disk space) */
-  preCheckFile?: PreCheckFile;
+  preCheckFile?: PreCheckFile | undefined;
 }
 
 export type PreCheckFile = (info: PreCheckFileInfo) => MaybePromise<PostCheckFile | void>;

@@ -1,7 +1,7 @@
 interface WebSocketErrorOptions {
-  message?: string;
-  closeReason?: string;
-  cause?: unknown;
+  message?: string | undefined;
+  closeReason?: string | undefined;
+  cause?: unknown | undefined;
 }
 
 export class WebSocketError extends Error {

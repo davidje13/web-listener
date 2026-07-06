@@ -5,44 +5,44 @@ export interface BusboyOptions {
    * `true` to block `multipart/form-data` (including file uploads). If set, only `application/x-www-form-urlencoded` is supported.
    * @default false
    */
-  blockMultipart?: boolean;
+  blockMultipart?: boolean | undefined;
 
   /**
    * `true` to preserve path information in filenames. `false` to only include the basename (omitting everything before the last `/` or `\`)
    * @default false
    */
-  preservePath?: boolean;
+  preservePath?: boolean | undefined;
 
   /**
    * High water mark to set on file streams.
    * @default 65536
    */
-  fileHwm?: number;
+  fileHwm?: number | undefined;
 
   /**
    * Default character set to use for reading name and filename from the content-disposition header in multipart content.
    * According to the standard this should be `latin1`, but most browsers use `utf-8`.
    * @default 'utf-8'
    */
-  defParamCharset?: string;
+  defParamCharset?: string | undefined;
 
   /**
    * Default character set to use for reading field content (and field names in urlencoded content).
    * @default 'utf-8'
    */
-  defCharset?: string;
+  defCharset?: string | undefined;
 
   /**
    * The maximum content length as sent (including e.g. multipart boundaries and headers)
    * @default Infinity
    */
-  maxNetworkBytes?: number;
+  maxNetworkBytes?: number | undefined;
 
   /**
    * The maximum content length, combining all field names, values, and files
    * @default maxNetworkBytes
    */
-  maxContentBytes?: number;
+  maxContentBytes?: number | undefined;
 
   /**
    * The maximum field name size (in bytes).

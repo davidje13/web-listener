@@ -20,7 +20,7 @@ export interface FileNegotiation {
   /** Feature to negotiate ('type', 'language', or 'encoding') */
   feature: NegotiationFeature;
   /** Filename filter (only apply this negotiation for requests with filenames matching the pattern) */
-  match?: string | RegExp;
+  match?: string | RegExp | undefined;
   /** List of negotiation options available, ordered by server preference */
   options: ReadonlyArray<FileNegotiationOption>;
 }
@@ -41,7 +41,7 @@ export interface FileNegotiationOption {
    *
    * @example { value: 'text/plain', for: /^text\//, file: '{base}.txt' }
    */
-  for?: RegExp;
+  for?: RegExp | undefined;
 
   /**
    * Filename modifier to apply. Several tokens are available:

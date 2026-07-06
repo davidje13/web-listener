@@ -119,7 +119,7 @@ export interface FileFinderOptions {
 export interface FileFinder {
   find(
     pathParts: ReadonlyArray<string>,
-    reqHeaders?: IncomingHttpHeaders,
+    reqHeaders?: IncomingHttpHeaders | undefined,
     warnings?: string[] | undefined,
   ): Promise<ResolvedFileInfo | null>;
 

@@ -46,7 +46,7 @@ export interface GetRangeOptions {
    *
    * @default 10
    */
-  maxRanges?: number;
+  maxRanges?: number | undefined;
 
   /**
    * Maximum number of ranges a client can request in a single message if any ranges are
@@ -57,7 +57,7 @@ export interface GetRangeOptions {
    *
    * @default 2
    */
-  maxNonSequential?: number;
+  maxNonSequential?: number | undefined;
 
   /**
    * Maximum number of ranges a client can request in a single message if any ranges are
@@ -68,7 +68,7 @@ export interface GetRangeOptions {
    *
    * @default 2
    */
-  maxWithOverlap?: number;
+  maxWithOverlap?: number | undefined;
 }
 
 export function getRange(

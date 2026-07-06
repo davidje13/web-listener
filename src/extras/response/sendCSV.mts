@@ -10,25 +10,25 @@ export interface CSVOptions {
    * The delimiter to use between cells
    * @default ','
    */
-  delimiter?: string | Uint8Array;
+  delimiter?: string | Uint8Array | undefined;
 
   /**
    * The delimiter to use between rows
    * @default '\n'
    */
-  newline?: string | Uint8Array;
+  newline?: string | Uint8Array | undefined;
 
   /**
    * The quote character to use. Typically should be `"` or (if the target application supports it) `'`
    * @default '"'
    */
-  quote?: string;
+  quote?: string | undefined;
 
   /**
    * The text encoding to use.
    * @default 'utf-8'
    */
-  encoding?: BufferEncoding;
+  encoding?: BufferEncoding | undefined;
 
   /**
    * For use with `ServerResponse` targets.
@@ -41,7 +41,7 @@ export interface CSVOptions {
    * If `true`, will call `end()` on target stream after writing.
    * @default true
    */
-  end?: boolean;
+  end?: boolean | undefined;
 }
 
 type MaybeAsyncIterable<T> = Iterable<T> | AsyncIterable<T>;

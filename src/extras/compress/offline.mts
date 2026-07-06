@@ -27,20 +27,20 @@ export interface CompressionOptions {
    * the minimum compression (in bytes) which must be achieved to save the file
    * @default 0
    */
-  minCompression?: number;
+  minCompression?: number | undefined;
 
   /**
    * if `true`, existing compressed files which are no-longer relevant will be removed
    * @default false
    */
-  deleteObsolete?: boolean;
+  deleteObsolete?: boolean | undefined;
 
   /**
    * if `true`, the modified time of the compressed files will be set to match the modified time of
    * the input file
    * @default true
    */
-  matchModifiedTime?: boolean;
+  matchModifiedTime?: boolean | undefined;
 
   /**
    * Filter to apply to files (does not attempt to compress files if the function returns `false`)
@@ -49,7 +49,7 @@ export interface CompressionOptions {
    * @returns `true` if the file should be compressed
    * @default (_, mime) => !['image', 'video', 'audio', 'font'].includes(mime.split('/')[0])
    */
-  filter?: (path: string, mime: string) => boolean;
+  filter?: ((path: string, mime: string) => boolean) | undefined;
 }
 
 const DEFAULT_FILTER = (_: string, mime: string) =>

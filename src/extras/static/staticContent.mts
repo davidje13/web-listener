@@ -73,5 +73,5 @@ export const staticContent = (
   };
 };
 
-export const staticJSON = (content: unknown, options?: StaticContentOptions) =>
+export const staticJSON = (content: unknown, options?: StaticContentOptions | undefined) =>
   staticContent(Buffer.from(JSON.stringify(content), 'utf-8'), 'application/json', options);

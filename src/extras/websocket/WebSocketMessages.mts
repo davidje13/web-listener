@@ -10,7 +10,7 @@ export interface ListenableWebSocket {
   on(event: 'close', handler: CloseHandler): void;
   off(event: 'message', handler: MessageHandler): void;
   off(event: 'close', handler: CloseHandler): void;
-  readyState?: number;
+  readyState?: number | undefined;
 }
 
 export class WebSocketMessage {
@@ -38,7 +38,7 @@ export class WebSocketMessage {
 }
 
 interface WebSocketMessagesOptions {
-  limit?: number;
+  limit?: number | undefined;
   signal?: AbortSignal | undefined;
 }
 
@@ -84,7 +84,7 @@ export class WebSocketMessages implements AsyncIterable<WebSocketMessage, unknow
     }
   }
 
-  next(timeout?: number): Promise<WebSocketMessage> {
+  next(timeout?: number | undefined): Promise<WebSocketMessage> {
     return this._queue.shift(timeout);
   }
 
@@ -95,7 +95,7 @@ export class WebSocketMessages implements AsyncIterable<WebSocketMessage, unknow
 
 export function nextWebSocketMessage(
   ws: ListenableWebSocket,
-  { timeout, signal }: { timeout?: number; signal?: AbortSignal } = {},
+  { timeout, signal }: { timeout?: number | undefined; signal?: AbortSignal | undefined } = {},
 ): Promise<WebSocketMessage> {
   const messages = new WebSocketMessages(ws, { limit: 1, signal });
   return messages.next(timeout).finally(() => messages.detach());

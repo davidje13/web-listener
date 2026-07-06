@@ -20,7 +20,7 @@ export interface TempFileStorage {
   nextFile: () => string;
   save: (
     stream: Readable | ReadableStream,
-    options?: { mode?: number | undefined },
+    options?: { mode?: number | undefined } | undefined,
   ) => Promise<SavedFile>;
 }
 

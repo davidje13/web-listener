@@ -14,27 +14,28 @@ export interface JSONOptions {
   replacer?:
     | ((this: unknown, key: string, value: unknown) => unknown)
     | ReadonlyArray<number | string>
-    | null;
+    | null
+    | undefined;
   /**
    * The amount of spacing to use for indentation. If this is 0, no spacing is used anywhere.
    * @default 0
    */
-  space?: string | number | null;
+  space?: string | number | null | undefined;
   /**
    * If the top-level value being encoded is `undefined`, setting this to `true` will output `null`. `false` will output nothing.
    * @default false
    */
-  undefinedAsNull?: boolean;
+  undefinedAsNull?: boolean | undefined;
   /**
    * The text encoding to use. Note that only Unicode variants are permitted by the standard.
    * @default 'utf-8'
    */
-  encoding?: BufferEncoding;
+  encoding?: BufferEncoding | undefined;
   /**
    * Whether to close the writable automatically after writing the JSON content.
    * @default true
    */
-  end?: boolean;
+  end?: boolean | undefined;
 }
 
 export function sendJSON(

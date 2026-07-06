@@ -9,8 +9,8 @@ export interface RangePart {
 }
 
 export interface SimplifyRangeOptions {
-  forceSequential?: boolean;
-  mergeOverlapDistance?: number;
+  forceSequential?: boolean | undefined;
+  mergeOverlapDistance?: number | undefined;
 }
 
 export function simplifyRange(

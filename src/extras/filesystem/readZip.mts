@@ -324,9 +324,9 @@ class ZipFile {
     return this._details._crc32;
   }
 
-  stat(opts?: StatOptions & { bigint?: false | undefined }): Stats;
+  stat(opts?: (StatOptions & { bigint?: false | undefined }) | undefined): Stats;
   stat(opts: StatOptions & { bigint: true }): BigIntStats;
-  stat(opts?: StatOptions): Stats | BigIntStats;
+  stat(opts?: StatOptions | undefined): Stats | BigIntStats;
 
   stat({ bigint = false }: StatOptions = {}): Stats & BigIntStats {
     const map = (v: number) => (bigint ? BigInt(v) : v);
@@ -355,7 +355,7 @@ class ZipFile {
 
   async open(): Promise<ReadOnlyFileHandle> {
     const compressedSize = this._details._compressedSize;
-    const stat = (options?: StatOptions): Promise<Stats & BigIntStats> =>
+    const stat = (options?: StatOptions | undefined): Promise<Stats & BigIntStats> =>
       Promise.resolve(this.stat(options) as Stats & BigIntStats);
 
     if (!compressedSize) {

@@ -31,7 +31,7 @@ export interface GetClientOptions {
    * @default 0 if trustedProxyAddresses is not set
    * @default infinity if trustedProxyAddresses is set
    */
-  trustedProxyCount?: number;
+  trustedProxyCount?: number | undefined;
 
   /**
    * The proxies to trust.
@@ -42,7 +42,7 @@ export interface GetClientOptions {
    *
    * @default none (trust all proxies within trustedProxyCount hops)
    */
-  trustedProxyAddresses?: ReadonlyArray<string>;
+  trustedProxyAddresses?: ReadonlyArray<string> | undefined;
 
   /**
    * The headers which are set (or cleared) by your proxy, and can therefore be trusted.

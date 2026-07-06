@@ -49,7 +49,7 @@ export function scheduleClose(
   reason: string,
   hardCloseTimestamp: number,
   softCloseBufferTime: number = 0,
-  onSoftCloseError?: ServerErrorCallback,
+  onSoftCloseError?: ServerErrorCallback | undefined,
 ) {
   const props = internalMustGetProps<CloseMessageProps>(req);
   const softCloseTimestamp = hardCloseTimestamp - Math.max(softCloseBufferTime, 0);

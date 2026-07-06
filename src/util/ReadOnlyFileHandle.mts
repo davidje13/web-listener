@@ -9,7 +9,7 @@ export interface ReadOnlyFileHandle
   extends
     Pick<FileHandle, 'stat' | 'close' | typeof Symbol.asyncDispose>,
     Partial<Pick<FileHandle, 'read' | 'readFile' | 'readLines' | 'readableWebStream' | 'readv'>> {
-  createReadStream(options?: CreateReadStreamOptions): CloseableReadable;
+  createReadStream(options?: CreateReadStreamOptions | undefined): CloseableReadable;
 
   noRandomAccess?: boolean | undefined;
 }
