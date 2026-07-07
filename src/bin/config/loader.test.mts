@@ -1,3 +1,4 @@
+import { dirname } from 'node:path';
 import type { FileNegotiation } from '../../index.mts';
 import { loadSchema, makeSchemaParser } from './schema.mts';
 import type {
@@ -224,7 +225,10 @@ describe('loadConfig', () => {
             servers: [
               {
                 ...DEFAULT_SERVER,
-                mount: [{ type: 'headers', path: '/', headers: { foo: ['bar'] } }, DEFAULT_FILES],
+                mount: [
+                  { type: 'headers', path: '/', headers: { foo: ['bar'] } },
+                  { ...DEFAULT_FILES, options: { ...DEFAULT_FILES_OPTIONS, headers: {} } },
+                ],
               },
             ],
           },
@@ -250,7 +254,7 @@ describe('loadConfig', () => {
                     path: '/',
                     headers: { foo: ['bar', 'two:with-colon'], baz: ['second'] },
                   },
-                  DEFAULT_FILES,
+                  { ...DEFAULT_FILES, options: { ...DEFAULT_FILES_OPTIONS, headers: {} } },
                 ],
               },
             ],
@@ -341,6 +345,115 @@ describe('loadConfig', () => {
           args: ['--log', 'full'],
           expected: { ...DEFAULT_CONFIG, log: 'progress' },
         },
+        {
+          name: 'config-json',
+          args: [
+            '--config-json',
+            JSON.stringify({
+              servers: [{ port: 8090, mount: [{ type: 'files', dir: '.', path: '/' }] }],
+            }),
+          ],
+          expected: {
+            ...DEFAULT_CONFIG,
+            servers: [
+              {
+                ...DEFAULT_SERVER,
+                port: 8090,
+                mount: [
+                  {
+                    type: 'files',
+                    dir: dirname(process.cwd()),
+                    path: '/',
+                    options: FULL_DEFAULT_FILES_OPTIONS,
+                  },
+                ],
+              },
+            ],
+          },
+        },
+        {
+          name: 'header overriding header config',
+          args: [
+            '--config-json',
+            JSON.stringify({
+              servers: [
+                {
+                  port: 8090,
+                  mount: [
+                    { type: 'headers', path: '/', headers: { foo: 'bar', other: 'remains' } },
+                  ],
+                },
+              ],
+            }),
+            '-H',
+            'foo: updated1',
+            '-H',
+            'foo: updated2',
+          ],
+          expected: {
+            ...DEFAULT_CONFIG,
+            servers: [
+              {
+                ...DEFAULT_SERVER,
+                port: 8090,
+                mount: [
+                  {
+                    type: 'headers',
+                    path: '/',
+                    headers: { foo: ['updated1', 'updated2'], other: ['remains'] },
+                  },
+                ],
+              },
+            ],
+          },
+        },
+        {
+          name: 'header overriding file config',
+          args: [
+            '--config-json',
+            JSON.stringify({
+              servers: [
+                {
+                  port: 8090,
+                  mount: [
+                    {
+                      type: 'files',
+                      dir: '.',
+                      path: '/',
+                      options: { headers: { foo: 'bar', other: 'remains' } },
+                    },
+                  ],
+                },
+              ],
+            }),
+            '-H',
+            'foo: updated1',
+            '-H',
+            'foo: updated2',
+          ],
+          expected: {
+            ...DEFAULT_CONFIG,
+            servers: [
+              {
+                ...DEFAULT_SERVER,
+                port: 8090,
+                mount: [
+                  {
+                    type: 'headers',
+                    path: '/',
+                    headers: { foo: ['updated1', 'updated2'] },
+                  },
+                  {
+                    type: 'files',
+                    dir: dirname(process.cwd()),
+                    path: '/',
+                    options: { ...FULL_DEFAULT_FILES_OPTIONS, headers: { other: 'remains' } },
+                  },
+                ],
+              },
+            ],
+          },
+        },
       ],
     },
   );
@@ -356,6 +469,22 @@ const DEFAULT_SERVER_OPTIONS: ConfigServerOptions = {
 };
 
 const DEFAULT_FILES_OPTIONS: ConfigMountFilesOptions = { fallback: undefined };
+const FULL_DEFAULT_FILES_OPTIONS: ConfigMountFilesOptions = {
+  mode: 'dynamic',
+  headers: {},
+  dynamicHeaders: ['etag', 'last-modified'],
+  verbose: false,
+  subDirectories: true,
+  caseSensitive: 'exact',
+  allowAllDotfiles: false,
+  allowAllTildefiles: false,
+  allowDirectIndexAccess: false,
+  hide: [],
+  allow: ['.well-known'],
+  indexFiles: ['index.htm', 'index.html'],
+  implicitSuffixes: [],
+  negotiation: [],
+};
 
 const DEFAULT_FILES: ConfigMount = {
   type: 'files',

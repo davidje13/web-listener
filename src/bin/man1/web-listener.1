@@ -173,6 +173,7 @@ If found, the file is sent as a direct response to the user
 Set a header key/value pair on all responses.
 This can be specified multiple times to set multiple headers
 .Pq "or the same header multiple times" .
+This replaces any headers set on specific routes in the configuration.
 .
 .It Fl h , Fl -help
 Open this man page.
@@ -226,6 +227,13 @@ Defaults to
 .Qq 300 .
 If this amount of compression is not achieved, the compressed file is discarded
 without saving.
+.
+.It Fl -no-cache
+Shorthand for
+.Fl -header
+.Qq "Cache-Control: no-store, no-cache, max-age=0" .
+This is intended for local development, when files are expected to change
+often.
 .
 .It Fl -no-serve
 Do not start the server(s) or background tasks; just validate the configuration

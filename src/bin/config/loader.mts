@@ -7,6 +7,7 @@ import type {
   Config,
   ConfigHeaders,
   ConfigMount,
+  ConfigServer,
   ConfigServerRef,
   ResolvedConfig,
 } from './types.mts';
@@ -51,6 +52,7 @@ const params = new Map<string, { type: 'string' | 'number' | 'boolean'; multi?: 
   ['redirect-map', { type: 'string', multi: true }],
   ['write-compressed', { type: 'boolean' }],
   ['min-compress', { type: 'number' }],
+  ['no-cache', { type: 'boolean' }],
   ['no-serve', { type: 'boolean' }],
   ['log', { type: 'string' }],
   ['help', { type: 'boolean' }],
@@ -260,41 +262,61 @@ export async function loadConfig(
       });
     }
   }
-  const addNegotiation = (feature: FileNegotiation['feature'], encoding: FileNegotiationOption) => {
-    for (const server of config.servers) {
-      for (const mount of server.mount) {
-        if (mount.type === 'files') {
-          mount.options.negotiation ??= [];
-          let enc = mount.options.negotiation.find((n) => n.feature === feature);
-          if (!enc) {
-            enc = { feature, options: [] };
-            mount.options.negotiation = [...mount.options.negotiation, enc];
-          }
-          if (!enc.options.find((o) => o.value === encoding.value)) {
-            (enc.options as FileNegotiationOption[]).push(encoding);
-          }
+  const addNegotiation = (feature: FileNegotiation['feature'], encoding: FileNegotiationOption) =>
+    forAllMounts(config.servers, (mount) => {
+      if (mount.type === 'files') {
+        mount.options.negotiation ??= [];
+        let enc = mount.options.negotiation.find((n) => n.feature === feature);
+        if (!enc) {
+          enc = { feature, options: [] };
+          mount.options.negotiation = [...mount.options.negotiation, enc];
+        }
+        if (!enc.options.find((o) => o.value === encoding.value)) {
+          (enc.options as FileNegotiationOption[]).push(encoding);
         }
       }
-    }
-  };
+    });
   for (const [flag, enc] of ENCODINGS) {
     if (args.get(flag)) {
       addNegotiation('encoding', enc);
     }
   }
   if (ext.length) {
-    for (const server of config.servers) {
-      for (const mount of server.mount) {
-        if (mount.type === 'files') {
-          mount.options.implicitSuffixes = ext;
-        }
+    forAllMounts(config.servers, (mount) => {
+      if (mount.type === 'files') {
+        mount.options.implicitSuffixes = ext;
       }
-    }
+    });
+  }
+  if (args.get('no-cache')) {
+    headers.push(['cache-control', 'no-store, no-cache, max-age=0']);
   }
   if (headers.length) {
-    const headerMount: ConfigMount = { type: 'headers', path: '/', headers: toHeaders(headers) };
+    const base: ConfigMount = {
+      type: 'headers',
+      path: '/',
+      headers: {},
+    };
+    forAllMounts(config.servers, (mount) => {
+      switch (mount.type) {
+        case 'headers':
+        case 'fixture':
+          mount.headers = dropHeaders(mount.headers, headers);
+          break;
+        case 'files':
+        case 'proxy':
+        case 'dependencies':
+          mount.options.headers = dropHeaders(mount.options.headers, headers);
+          break;
+      }
+    });
     for (const server of config.servers) {
-      server.mount.unshift(headerMount);
+      let headersMount = server.mount[0];
+      if (headersMount?.type !== 'headers' || headersMount.path !== '/') {
+        headersMount = { ...base };
+        server.mount.unshift(headersMount);
+      }
+      headersMount.headers = mergeHeaders(headersMount.headers, headers);
     }
   }
   if (mime.length || mimeTypes.length) {
@@ -327,6 +349,20 @@ export async function loadConfig(
       break;
   }
   return config;
+}
+
+function forAllMounts(servers: ConfigServer[], fn: (mount: ConfigMount) => void) {
+  const recur = (mounts: ConfigMount[]) => {
+    for (const mount of mounts) {
+      fn(mount);
+      if (mount.type === 'nested') {
+        recur(mount.mount);
+      }
+    }
+  };
+  for (const server of servers) {
+    recur(server.mount);
+  }
 }
 
 async function loadConfigFileNetwork(
@@ -409,8 +445,13 @@ function splitFirst(v: string, sep: RegExp): [string, string?] {
   return m ? [v.substring(0, m.index!), v.substring(m.index! + m[0].length)] : [v];
 }
 
-function toHeaders(headers: [string, string?][]): ConfigHeaders {
-  const lookup = new Map<string, string[]>();
+function mergeHeaders(
+  existing: ConfigHeaders | undefined,
+  headers: ReadonlyArray<[string, string?]>,
+): ConfigHeaders {
+  const lookup = new Map<string, string[]>(
+    Object.entries(existing ?? {}).map(([k, v]) => [k, Array.isArray(v) ? [...v] : [String(v)]]),
+  );
   for (const [header, value = ''] of headers) {
     const existing = lookup.get(header);
     if (existing) {
@@ -420,6 +461,16 @@ function toHeaders(headers: [string, string?][]): ConfigHeaders {
     }
   }
   return Object.fromEntries(lookup.entries());
+}
+
+function dropHeaders(
+  existing: ConfigHeaders | undefined,
+  drop: ReadonlyArray<[string, string?]>,
+): ConfigHeaders {
+  const toDrop = new Set(drop.map((v) => v[0].toLowerCase()));
+  return Object.fromEntries(
+    Object.entries(existing ?? {}).filter((o) => !toDrop.has(o[0].toLowerCase())),
+  );
 }
 
 const ENCODINGS = new Map<string, FileNegotiationOption>([
