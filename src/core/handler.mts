@@ -24,7 +24,7 @@ export interface RequestHandler<Req = {}> {
   handleRequest: RequestHandlerFn<Req>;
 }
 
-export const requestHandler = <Req,>(
+export const requestHandler = <Req = {},>(
   handler: RequestHandler<Req> | RequestHandlerFn<Req>,
 ): RequestHandler<Req> => (typeof handler === 'function' ? { handleRequest: handler } : handler);
 
@@ -41,7 +41,7 @@ export interface UpgradeHandler<Req = {}> {
   shouldUpgrade?: ShouldUpgradeFn<Req> | undefined;
 }
 
-export const upgradeHandler = <Req,>(
+export const upgradeHandler = <Req = {},>(
   handler: UpgradeHandler<Req> | UpgradeHandlerFn<Req>,
   shouldUpgrade?: ShouldUpgradeFn<Req> | undefined,
 ): UpgradeHandler<Req> =>
@@ -49,7 +49,7 @@ export const upgradeHandler = <Req,>(
     ? { handleUpgrade: handler, shouldUpgrade }
     : { shouldUpgrade, ...handler };
 
-export const anyHandler = <Req,>(
+export const anyHandler = <Req = {},>(
   handler: UpgradeHandlerFn<Req> & RequestHandlerFn<Req>,
   shouldUpgrade: ShouldUpgradeFn<Req> = NO_UPGRADE,
 ): RequestHandler<Req> & UpgradeHandler<Req> => ({
@@ -75,7 +75,7 @@ export interface ErrorHandler<Req = {}> {
     | undefined;
 }
 
-export const errorHandler = <Req,>(
+export const errorHandler = <Req = {},>(
   handler: ErrorHandler<Req> | ErrorHandlerFn<Req>,
 ): ErrorHandler<Req> => (typeof handler === 'function' ? { handleError: handler } : handler);
 
@@ -122,11 +122,11 @@ export type RequestReturnHandlerFn<Req = {}> = (
   res: ServerResponse,
 ) => MaybePromise<void>;
 
-export const wrapHandlerRequest = <Req,>(
+export const wrapHandlerRequest = <Req = {},>(
   handler: Handler<Req> | RequestHandlerFn<Req>,
 ): Handler<Req> => (typeof handler === 'function' ? { handleRequest: handler } : handler);
 
-export const wrapHandlerUpgrade = <Req,>(
+export const wrapHandlerUpgrade = <Req = {},>(
   handler: Handler<Req> | UpgradeHandlerFn<Req>,
 ): Handler<Req> => (typeof handler === 'function' ? { handleUpgrade: handler } : handler);
 
