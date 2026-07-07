@@ -10,28 +10,23 @@ import { clearZipCache } from './zipCache.mts';
 import { ServerManager } from './ServerManager.mts';
 import { runCompression } from './compression.mts';
 import { loadMime } from './mime.mts';
-import { logLevels, type Logger, type AddColour } from './log.mts';
+import { jsonLogger, textLogger } from './log.mts';
 
 // https://nodejs.org/en/learn/getting-started/security-best-practices#dns-rebinding-cwe-346
 process.on('SIGUSR1', () => {
   // ignore (disable default behaviour of opening inspector port)
 });
 
-let logLevel = 2;
-const log: Logger = (level, message) => level <= logLevel && process.stderr.write(message + '\n');
+const logTarget = process.stderr;
+let log = textLogger(logTarget, 'progress');
 
 function handleError(error: unknown) {
   process.stdin.destroy();
-  log(0, error instanceof Error ? error.message : String(error));
+  log(0, { type: 'error', message: error });
 }
 
 process.on('unhandledRejection', handleError);
 process.on('uncaughtException', handleError);
-
-const addColour: AddColour =
-  process.stderr.isTTY && !process.env['NO_COLOR']
-    ? (id, message) => (id ? `\x1b[${id}m${message}\x1b[0m` : message)
-    : (_, message) => message;
 
 const args = readArgs(process.argv.slice(2));
 const selfDir = dirname(fileURLToPath(import.meta.url));
@@ -53,20 +48,24 @@ if (args.get('version') || args.get('help')) {
 }
 
 async function run() {
-  const manager = new ServerManager(log, addColour);
-  process.on('unhandledRejection', () => manager.shutdown());
-  process.on('uncaughtException', () => manager.shutdown());
+  const manager = new ServerManager();
+  process.on('unhandledRejection', () => manager.shutdown(log));
+  process.on('uncaughtException', () => manager.shutdown(log));
   const parser = makeSchemaParser<Config>(await loadSchema());
 
   function stop() {
     process.stdin.destroy();
-    manager.shutdown();
+    manager.shutdown(log);
   }
 
   async function load() {
     clearZipCache();
     const config = await loadConfig(parser, args);
-    logLevel = logLevels.indexOf(config.log);
+    if (config.logFormat === 'json') {
+      log = jsonLogger(logTarget, config.log);
+    } else {
+      log = textLogger(logTarget, config.log);
+    }
     await loadMime(config.mime);
     if (config.writeCompressed) {
       await runCompression(config.servers, config.minCompress, log);
@@ -74,13 +73,13 @@ async function run() {
     if (config.noServe) {
       stop();
     } else {
-      manager.set(config.servers, config.backgroundTasks, (error) => {
+      manager.set(config.servers, config.backgroundTasks, log, (error) => {
         if (error instanceof AggregateError) {
           for (const subError of error.errors) {
-            log(0, subError instanceof Error ? subError.message : String(subError));
+            log(0, { type: 'error', message: subError });
           }
         } else {
-          log(0, error instanceof Error ? error.message : String(error));
+          log(0, { type: 'error', message: error });
         }
         process.stdin.destroy();
         process.exit(1);
@@ -89,7 +88,7 @@ async function run() {
   }
 
   function update() {
-    log(2, 'refreshing config');
+    log(2, { message: 'refreshing config' });
     return load();
   }
 
@@ -106,7 +105,9 @@ async function run() {
       return;
     }
     stopping = true;
-    log(2, '');
+    if (logTarget.isTTY) {
+      logTarget.write('\n');
+    }
     stop();
   });
 }

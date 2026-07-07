@@ -122,12 +122,14 @@ export type RequestReturnHandlerFn<Req = {}> = (
   res: ServerResponse,
 ) => MaybePromise<void>;
 
-export const wrapHandlerRequest = <Req = {},>(
-  handler: Handler<Req> | RequestHandlerFn<Req>,
-): Handler<Req> => (typeof handler === 'function' ? { handleRequest: handler } : handler);
+export const wrapHandlerRequests = <Req = {},>(
+  handlers: ReadonlyArray<Handler<Req> | RequestHandlerFn<Req> | null | undefined>,
+): Handler<Req>[] =>
+  handlers.filter((h) => h).map((h) => (typeof h === 'function' ? { handleRequest: h } : h!));
 
-export const wrapHandlerUpgrade = <Req = {},>(
-  handler: Handler<Req> | UpgradeHandlerFn<Req>,
-): Handler<Req> => (typeof handler === 'function' ? { handleUpgrade: handler } : handler);
+export const wrapHandlerUpgrades = <Req = {},>(
+  handlers: ReadonlyArray<Handler<Req> | UpgradeHandlerFn<Req> | null | undefined>,
+): Handler<Req>[] =>
+  handlers.filter((h) => h).map((h) => (typeof h === 'function' ? { handleUpgrade: h } : h!));
 
 const NO_UPGRADE = () => false;

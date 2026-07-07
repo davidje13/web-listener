@@ -11,14 +11,13 @@ export async function runCompression(servers: ConfigServer[], minCompression: nu
       if (mount.type === 'files') {
         const config = mount.options.negotiation?.find((n) => n.feature === 'encoding');
         if (!config?.options?.length) {
-          log(2, `skipping ${mount.dir} because no compression is configured`);
+          log(2, { message: `skipping ${mount.dir} because no compression is configured` });
           continue;
         }
         const match = config.match ? ` matching ${config.match}` : '';
-        log(
-          2,
-          `compressing files in ${mount.dir}${match} using ${config.options.map((o) => o.value).join(', ')}`,
-        );
+        log(2, {
+          message: `compressing files in ${mount.dir}${match} using ${config.options.map((o) => o.value).join(', ')}`,
+        });
         const filenameFilter = stringPredicate(config.match, true);
         const processed = await compressFilesInDir(mount.dir, config.options, {
           minCompression,
@@ -31,14 +30,18 @@ export async function runCompression(servers: ConfigServer[], minCompression: nu
         });
         const textTotals = sumTotals(processed.filter(({ mime }) => mime.startsWith('text/')));
         const miscTotals = sumTotals(processed.filter(({ mime }) => !mime.startsWith('text/')));
-        log(2, `text:  ${bytes(textTotals.rawSize)} / ${bytes(textTotals.bestSize)} compressed`);
-        log(2, `other: ${bytes(miscTotals.rawSize)} / ${bytes(miscTotals.bestSize)} compressed`);
+        log(2, {
+          message: `text:  ${bytes(textTotals.rawSize)} / ${bytes(textTotals.bestSize)} compressed`,
+        });
+        log(2, {
+          message: `other: ${bytes(miscTotals.rawSize)} / ${bytes(miscTotals.bestSize)} compressed`,
+        });
         created += textTotals.created + miscTotals.created;
       }
     }
   }
 
-  log(2, `${quantity(created, 'compressed file')} written`);
+  log(2, { message: `${quantity(created, 'compressed file')} written` });
 }
 
 function sumTotals(items: CompressionInfo[]) {

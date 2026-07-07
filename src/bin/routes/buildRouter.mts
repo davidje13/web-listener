@@ -11,6 +11,7 @@ import {
   requestHandler,
   Router,
   getAbsolutePath,
+  Property,
 } from '../../index.mts';
 import type { ConfigMount } from '../config/types.mts';
 import { TransientError } from '../TransientError.mts';
@@ -28,6 +29,13 @@ export interface LogInfo {
   duration: number;
 }
 
+const LOG_MASKING = new Property(0);
+
+const maskSubpath = (req: IncomingMessage) => {
+  LOG_MASKING.set(req, req.url?.length ?? 0);
+  return CONTINUE;
+};
+
 export async function buildRouter(
   mount: ConfigMount[],
   warn: (message: string) => void = () => {},
@@ -40,12 +48,13 @@ export async function buildRouter(
         const tm0 = Date.now();
         addTeardown(req, () => {
           const duration = Date.now() - tm0;
-          log({
-            method: req.method ?? 'GET',
-            path: getAbsolutePath(req),
-            status: res.statusCode,
-            duration,
-          });
+          let path = getAbsolutePath(req);
+          const masked = LOG_MASKING.get(req);
+          if (masked > 1) {
+            const clip = path.length + 1 - masked;
+            path = path.substring(0, clip) + (path[clip] === '?' ? '?' : '') + '[***]';
+          }
+          log({ method: req.method ?? 'GET', path, status: res.statusCode, duration });
         });
         return CONTINUE;
       }),
@@ -53,9 +62,14 @@ export async function buildRouter(
   }
   for (const item of mount) {
     switch (item.type) {
-      case 'nested':
-        router.mount(item.path, await buildRouter(item.mount, warn));
+      case 'nested': {
+        router.mount(
+          item.path,
+          item.maskSubpaths ? maskSubpath : null,
+          await buildRouter(item.mount, warn),
+        );
         break;
+      }
       case 'headers': {
         const headers = new Map(Object.entries(item.headers));
         router.mount(item.path, (_, res) => {
@@ -195,7 +209,7 @@ export async function buildRouter(
         } else if (item.method) {
           router.onRequest(item.method, item.path, handler);
         } else {
-          router.mount(item.path, handler);
+          router.mount(item.path, item.maskSubpaths ? maskSubpath : null, handler);
         }
         break;
       }

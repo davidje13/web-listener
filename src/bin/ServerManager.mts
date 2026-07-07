@@ -1,30 +1,26 @@
 import { spawn } from 'node:child_process';
 import { createServer, type Server, type ServerOptions } from 'node:http';
-import type { Readable, Writable } from 'node:stream';
+import type { Readable } from 'node:stream';
 import { findCause, HTTPError, WebListener, type ListenOptions } from '../index.mts';
 import type { ConfigServer, ConfigServerOptions, ConfigBackgroundTask } from './config/types.mts';
 import { buildRouter } from './routes/buildRouter.mts';
 import { markImportingDone } from './routes/custom/loadCustomHandler.mts';
 import { clearZipCache } from './zipCache.mts';
-import type { Logger, AddColour } from './log.mts';
+import type { Logger } from './log.mts';
 import { TransientError } from './TransientError.mts';
 
 export class ServerManager {
   declare private _started: boolean;
   declare private _building: boolean;
   declare private _stopping: boolean;
-  declare private readonly _log: Logger;
-  declare private readonly _colour: AddColour;
   declare private readonly _servers: Map<number, ServerState>;
   declare private _backgroundTasks: Set<BackgroundTaskState>;
   declare private _autoRetry: NodeJS.Timeout | undefined;
 
-  constructor(log: Logger, colour: AddColour) {
+  constructor() {
     this._started = false;
     this._building = false;
     this._stopping = false;
-    this._log = log;
-    this._colour = colour;
     this._servers = new Map();
     this._backgroundTasks = new Set();
   }
@@ -32,6 +28,7 @@ export class ServerManager {
   async set(
     servers: ConfigServer[],
     backgroundTasks: ConfigBackgroundTask[],
+    log: Logger,
     errorHandler: (error: unknown) => void,
   ) {
     if (this._building || this._stopping) {
@@ -59,7 +56,7 @@ export class ServerManager {
         }
         canRetry = true;
         tasks.push(async () => {
-          this._backgroundTasks.add(await this._startBackgroundTask(taskConfig));
+          this._backgroundTasks.add(await this._startBackgroundTask(taskConfig, log));
         });
       }
       for (const taskState of previousBackgroundTasks) {
@@ -71,16 +68,22 @@ export class ServerManager {
         const serverConfig = servers[i]!;
         const port = serverConfig.port;
         if (port <= 0 || port > 65535) {
-          this._log(0, `servers[${i}] must have a specific port from 1 to 65535`);
+          log(0, {
+            type: 'warn',
+            message: `servers[${i}] must have a specific port from 1 to 65535`,
+          });
           continue;
         }
         if (ports.has(port)) {
-          this._log(0, `skipping servers[${i}] because port ${port} has already been defined`);
+          log(0, {
+            type: 'warn',
+            message: `skipping servers[${i}] because port ${port} has already been defined`,
+          });
           continue;
         }
         ports.add(port);
         tasks.push(async () => {
-          const state = await this._rerunServer(serverConfig, this._servers.get(port));
+          const state = await this._rerunServer(serverConfig, this._servers.get(port), log);
           if (state) {
             this._servers.set(port, state);
           } else {
@@ -105,7 +108,7 @@ export class ServerManager {
               await task();
             } catch (error: unknown) {
               if (canRetry && !this._stopping && error instanceof TransientError) {
-                this._log(1, `${error.message} (retrying)`);
+                log(1, { type: 'warn', message: `${error.message} (retrying)` });
                 doRetry = true;
               } else {
                 failures.push(error);
@@ -114,7 +117,7 @@ export class ServerManager {
           }),
         );
         if (failures.length) {
-          await this._shutdown();
+          await this._shutdown(log);
           throw failures.length > 1 ? new AggregateError(failures) : failures[0]!;
         }
       };
@@ -124,16 +127,16 @@ export class ServerManager {
       markImportingDone();
 
       if (this._stopping) {
-        this._shutdown();
+        this._shutdown(log);
       } else if (doRetry) {
         this._autoRetry = setTimeout(() => {
           clearZipCache();
-          this.set(servers, backgroundTasks, errorHandler);
+          this.set(servers, backgroundTasks, log, errorHandler);
         }, 1000);
       } else if (this._servers.size) {
-        this._log(1, 'all servers ready');
+        log(1, { message: 'all servers ready' });
       } else {
-        this._log(1, 'no servers configured');
+        log(1, { message: 'no servers configured' });
       }
     } catch (error: unknown) {
       errorHandler(error);
@@ -142,13 +145,16 @@ export class ServerManager {
     }
   }
 
-  private async _startBackgroundTask(config: ConfigBackgroundTask): Promise<BackgroundTaskState> {
-    const name = this._colour('35', config.command);
+  private async _startBackgroundTask(
+    config: ConfigBackgroundTask,
+    log: Logger,
+  ): Promise<BackgroundTaskState> {
+    const logBase = { service: config.command, serviceCol: '35' };
 
     const ac = new AbortController();
 
     return new Promise((resolve, reject) => {
-      this._log(2, `${name} ${this._colour('2', 'starting')}`);
+      log(2, { ...logBase, type: 'detail', message: 'starting' });
       let running = true;
       const proc = spawn(config.command, config.arguments, {
         cwd: config.cwd,
@@ -160,26 +166,26 @@ export class ServerManager {
         signal: ac.signal,
       });
       if (config.options.displayStdout) {
-        pipePrefixed(proc.stdout, `${name} ${this._colour('2', '[stdout]')} `, process.stderr);
+        watchOutput(proc.stdout, (ln) => log(0, { ...logBase, thread: 'stdout', message: ln }));
       } else {
         proc.stdout.resume();
       }
       if (config.options.displayStderr) {
-        pipePrefixed(proc.stderr, `${name} ${this._colour('2', '[stderr]')} `, process.stderr);
+        watchOutput(proc.stderr, (ln) => log(0, { ...logBase, thread: 'stderr', message: ln }));
       } else {
         proc.stderr.resume();
       }
       proc.addListener('error', (err) => {
-        this._log(0, `${name} startup failed: ${err.message}`);
+        log(0, { ...logBase, type: 'error', message: `startup failed: ${err.message}` });
         running = false;
         reject(err);
       });
       proc.addListener('exit', (code, signal) => {
-        if (code !== null) {
-          this._log(2, `${name} closed ${this._colour('2', `(exit code ${code})`)}`);
-        } else {
-          this._log(2, `${name} closed ${this._colour('2', `(exit signal ${signal})`)}`);
-        }
+        log(2, {
+          ...logBase,
+          message: 'closed',
+          stats: code !== null ? { code } : { signal },
+        });
         running = false;
       });
       proc.addListener('spawn', () =>
@@ -191,10 +197,12 @@ export class ServerManager {
               if (proc.signalCode !== null || proc.exitCode !== null) {
                 closeResolve();
               } else {
-                this._log(
-                  2,
-                  `${name} ${this._colour('2', `closing (signal ${config.options.killSignal})`)}`,
-                );
+                log(2, {
+                  ...logBase,
+                  type: 'detail',
+                  message: 'closing',
+                  stats: { signal: config.options.killSignal },
+                });
                 proc.addListener('exit', closeResolve);
                 proc.kill(config.options.killSignal);
               }
@@ -207,21 +215,21 @@ export class ServerManager {
   private async _rerunServer(
     { port, host, options, mount }: ConfigServer,
     existing: ServerState | undefined,
+    log: Logger,
   ): Promise<ServerState | undefined> {
-    const name = this._colour('34', `http://${host}:${port}`);
+    const logBase = { service: `http://${host}:${port}`, serviceCol: '34' };
     const router = await buildRouter(
       mount,
-      (warning) => this._log(1, `${name} ${this._colour('33', 'warning')}: ${warning}`),
+      (warning) => log(1, { ...logBase, type: 'warn', message: warning }),
       options.logRequests
-        ? (info) => {
-            const method = this._colour('1', info.method.replaceAll(/[^a-zA-Z0-9\-_]/g, '?'));
-            const status = this._colour(
-              STATUS_COLOURS[(info.status / 100) | 0] ?? '',
-              String(info.status),
-            );
-            const duration = this._colour('2', `(${info.duration}ms)`);
-            this._log(0, `${name} ${method} ${info.path} ${status} ${duration}`);
-          }
+        ? (info) =>
+            log(0, {
+              ...logBase,
+              method: info.method,
+              path: info.path,
+              status: info.status,
+              stats: { duration: info.duration },
+            })
         : undefined,
     );
     const weblistener = new WebListener(router);
@@ -229,7 +237,13 @@ export class ServerManager {
       evt.preventDefault();
       const { error, context, request } = evt.detail;
       if ((findCause(error, HTTPError)?.statusCode ?? 500) >= 500) {
-        this._log(0, `${name} ${this._colour('91', 'error')}: ${context} ${request?.url} ${error}`);
+        log(0, {
+          ...logBase,
+          thread: context,
+          type: 'error',
+          path: request?.url,
+          message: String(error),
+        });
       }
     });
 
@@ -237,15 +251,15 @@ export class ServerManager {
     let launch: Promise<void> | undefined;
     if (existing && host === existing.host && serverOptionsCompatible(options, existing.options)) {
       server = existing.server;
-      this._log(2, `${name} updated`);
+      log(2, { ...logBase, message: 'updated' });
       existing.detach();
     } else {
       if (existing) {
-        this._log(2, `${name} ${this._colour('2', 'restarting (step 1: shutdown)')}`);
+        log(2, { ...logBase, type: 'detail', message: 'restarting (step 1: shutdown)' });
         await existing.close();
-        this._log(2, `${name} ${this._colour('2', 'restarting (step 2: start)')}`);
+        log(2, { ...logBase, type: 'detail', message: 'restarting (step 2: start)' });
       } else {
-        this._log(2, `${name} ${this._colour('2', 'starting')}`);
+        log(2, { ...logBase, type: 'detail', message: 'starting' });
       }
       if (this._stopping) {
         return undefined;
@@ -260,7 +274,7 @@ export class ServerManager {
       await launch;
       // wait an extra tick before confirming we are ready (required on Linux)
       await new Promise((resolve) => setTimeout(resolve, 1));
-      this._log(2, `${name} ready`);
+      log(2, { ...logBase, message: 'ready' });
     }
     return {
       host,
@@ -272,35 +286,37 @@ export class ServerManager {
           const listeners = detach('shutdown', options.shutdownTimeout, true, () => {
             server.close(() => {
               // ignore any error (happens if server is already closed)
-              this._log(2, `${name} closed`);
+              log(2, { ...logBase, message: 'closed' });
               resolve();
             });
             server.closeAllConnections();
           });
           const connections = listeners.countConnections();
           if (connections > 0) {
-            this._log(
-              2,
-              `${name} ${this._colour('2', `closing (remaining connections: ${connections})`)}`,
-            );
+            log(2, {
+              ...logBase,
+              type: 'detail',
+              message: 'closing',
+              stats: { connections },
+            });
           }
         }),
     };
   }
 
-  private async _shutdown() {
+  private async _shutdown(log: Logger) {
     if (this._servers.size) {
-      this._log(2, this._colour('2', 'shutting down'));
+      log(2, { type: 'detail', message: 'shutting down' });
       await Promise.all(
         [...this._servers.values(), ...this._backgroundTasks].map((state) => state.close()),
       );
     }
     if (this._started) {
-      this._log(2, 'shutdown complete');
+      log(2, { message: 'shutdown complete' });
     }
   }
 
-  shutdown() {
+  shutdown(log: Logger) {
     if (this._stopping) {
       return;
     }
@@ -308,25 +324,18 @@ export class ServerManager {
     this._autoRetry = undefined;
     this._stopping = true;
     if (!this._building) {
-      this._shutdown();
+      this._shutdown(log);
     }
   }
 }
 
-const STATUS_COLOURS = ['', '37', '32', '36', '31', '41;97'];
-
-function pipePrefixed(readable: Readable, prefix: string, target: Writable) {
+function watchOutput(readable: Readable, lineHandler: (ln: string) => void) {
   let line = '';
   const writeln = (ln: string) =>
-    target.write(
-      prefix +
-        ln
-          .replaceAll(/\x1b\[[\d;]*[A-K]/g, '')
-          .replaceAll(
-            /[\x00-\x1f]/g,
-            (c) => `\\x${c.charCodeAt(0).toString(16).padStart(2, '0')}`,
-          ) +
-        '\n',
+    lineHandler(
+      ln
+        .replaceAll(/\x1b\[[\d;]*[A-K]/g, '')
+        .replaceAll(/[\x00-\x1f]/g, (c) => `\\x${c.charCodeAt(0).toString(16).padStart(2, '0')}`),
     );
   readable.addListener('data', (chunk) => {
     line += chunk;

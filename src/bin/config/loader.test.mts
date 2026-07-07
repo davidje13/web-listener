@@ -508,6 +508,7 @@ const DEFAULT_CONFIG: Config = {
   minCompress: 300,
   noServe: false,
   log: 'progress',
+  logFormat: 'text',
 };
 
 const withNegotiation = (negotiation: FileNegotiation[]) => ({

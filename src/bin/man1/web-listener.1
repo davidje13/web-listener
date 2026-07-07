@@ -200,6 +200,19 @@ and also a line for each requested resource, showing the status code and
 processing time.
 .El
 .
+.It Fl -log-format Cm text | json
+Logging format.
+Defaults to
+.Qq "text" .
+.Bl -tag -width "text"
+.It Cm text
+Write human-friendly log lines, in colour unless
+.Ev NO_COLOR
+is set.
+.It Cm json
+Write JSON-formatted log lines (one single-line JSON document per log).
+.El
+.
 .It Fl -mime Ar mapping
 Add additional mime mapping(s).
 .Ar mapping
@@ -453,7 +466,8 @@ is:
   "writeCompressed": false,
   "minCompress": 300,
   "noServe": false,
-  "log": "progress"
+  "log": "progress",
+  "logFormat": "text"
 }
 .Ed
 .Pp
@@ -520,7 +534,8 @@ Delegate to another config file.
     "serverIndex": <optional index of server to use from config file>,
     "serverPort": <optional port of server to use from config file>,
     "includeMime": true,
-    "includeBackgroundTasks": false
+    "includeBackgroundTasks": false,
+    "maskSubpath": false
   }
 }
 .Ed
@@ -644,6 +659,7 @@ be reloaded when they change.
   "path": "/",
   "import": <filename>,
   "namedExport": null,
+  "maskSubpath": false
 }
 .Ed
 .

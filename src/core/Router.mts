@@ -17,8 +17,8 @@ import { internalMustGetProps, internalRunDeferred, type MessageProps } from './
 import { internalBeginPathScope, type WithPathParameters } from './pathParameters.mts';
 import {
   errorHandler,
-  wrapHandlerUpgrade,
-  wrapHandlerRequest,
+  wrapHandlerUpgrades,
+  wrapHandlerRequests,
   type HandlerResult,
   type RequestHandlerFn,
   type RequestHandler,
@@ -46,7 +46,9 @@ export type CommonUpgrade = 'http/2' | 'http/3' | 'https' | 'h2c' | 'websocket';
 type RelaxedRequestHandler<Req = {}> =
   | RequestHandlerFn<Req>
   | RequestHandler<Req>
-  | ErrorHandler<Req>;
+  | ErrorHandler<Req>
+  | null
+  | undefined;
 
 type RelaxedRequestHandlerOrExplicitUpgrade<Req = {}> =
   | RelaxedRequestHandler<Req>
@@ -55,7 +57,9 @@ type RelaxedRequestHandlerOrExplicitUpgrade<Req = {}> =
 type RelaxedUpgradeHandler<Req = {}> =
   | UpgradeHandlerFn<Req>
   | UpgradeHandler<Req>
-  | ErrorHandler<Req>;
+  | ErrorHandler<Req>
+  | null
+  | undefined;
 
 type MethodWrapper<Req, This> = <Path extends string>(
   path: ValidPath<Path>,
@@ -94,19 +98,21 @@ export class Router<Req = {}> implements Handler<Req> {
     allowSubRoutes: boolean,
     handlers: Handler<R>[],
   ) {
-    const compiled = path
-      ? internalCompilePathPattern(path, allowSubRoutes)
-      : { _pattern: null, _parameters: [] };
-    if (handlers.some((h) => h instanceof Promise)) {
-      throw new TypeError('expected handler, got Promise (did you forget to await?)');
+    if (handlers.length) {
+      const compiled = path
+        ? internalCompilePathPattern(path, allowSubRoutes)
+        : { _pattern: null, _parameters: [] };
+      if (handlers.some((h) => h instanceof Promise)) {
+        throw new TypeError('expected handler, got Promise (did you forget to await?)');
+      }
+      this._routes.push({
+        _methods: methods,
+        _protocol: typeof protocol === 'string' ? protocol.toLowerCase() : protocol,
+        _pathPattern: compiled._pattern,
+        _namedParameters: compiled._parameters,
+        _handlerChain: handlers as Handler<unknown>[],
+      });
     }
-    this._routes.push({
-      _methods: methods,
-      _protocol: typeof protocol === 'string' ? protocol.toLowerCase() : protocol,
-      _pathPattern: compiled._pattern,
-      _namedParameters: compiled._parameters,
-      _handlerChain: handlers as Handler<unknown>[],
-    });
     return this;
   }
 
@@ -114,7 +120,7 @@ export class Router<Req = {}> implements Handler<Req> {
    * Register handlers or routers for all requests, upgrades, and errors, on all methods and paths.
    */
   use(...handlers: RelaxedRequestHandlerOrExplicitUpgrade<Req>[]): this {
-    return this._add(null, null, null, true, handlers.map(wrapHandlerRequest));
+    return this._add(null, null, null, true, wrapHandlerRequests(handlers));
   }
 
   /**
@@ -129,7 +135,7 @@ export class Router<Req = {}> implements Handler<Req> {
       Req & WithPathParameters<ParametersFromPath<Path>>
     >[]
   ): this {
-    return this._add(null, null, path, true, handlers.map(wrapHandlerRequest));
+    return this._add(null, null, path, true, wrapHandlerRequests(handlers));
   }
 
   /**
@@ -155,7 +161,7 @@ export class Router<Req = {}> implements Handler<Req> {
       Req & WithPathParameters<ParametersFromPath<Path>>
     >[]
   ): this {
-    return this._add(null, null, path, false, handlers.map(wrapHandlerRequest));
+    return this._add(null, null, path, false, wrapHandlerRequests(handlers));
   }
 
   /**
@@ -172,7 +178,7 @@ export class Router<Req = {}> implements Handler<Req> {
       HTTP_PROTOCOL,
       path,
       false,
-      handlers.map(wrapHandlerRequest),
+      wrapHandlerRequests(handlers),
     );
   }
 
@@ -190,7 +196,7 @@ export class Router<Req = {}> implements Handler<Req> {
     path: ValidPath<Path>,
     ...handlers: RelaxedUpgradeHandler<Req & WithPathParameters<ParametersFromPath<Path>>>[]
   ) {
-    return this._add(wrapMethods(method), protocol, path, false, handlers.map(wrapHandlerUpgrade));
+    return this._add(wrapMethods(method), protocol, path, false, wrapHandlerUpgrades(handlers));
   }
 
   /**
@@ -235,13 +241,7 @@ export class Router<Req = {}> implements Handler<Req> {
    * @returns
    */
   get: MethodWrapper<Req, this> = (path, ...handlers) => {
-    return this._add(
-      HEAD_GET_METHODS,
-      HTTP_PROTOCOL,
-      path,
-      false,
-      handlers.map(wrapHandlerRequest),
-    );
+    return this._add(HEAD_GET_METHODS, HTTP_PROTOCOL, path, false, wrapHandlerRequests(handlers));
   };
 
   /** Alias for `onRequest('DELETE', path, ...handlers)` */

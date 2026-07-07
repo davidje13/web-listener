@@ -18,12 +18,14 @@ interface ConfigMountDelegate {
   type: 'delegate';
   path: string;
   config: ConfigServerRef;
+  maskSubpaths: boolean;
 }
 
 interface ConfigMountNested {
   type: 'nested';
   path: string;
   mount: ConfigMount[];
+  maskSubpaths: boolean;
 }
 
 interface ConfigMountHeaders {
@@ -88,6 +90,7 @@ interface ConfigMountCustom {
   method: string | string[] | null;
   import: string;
   namedExport: string | null;
+  maskSubpaths: boolean;
 }
 
 export type ConfigMount =
@@ -149,6 +152,7 @@ export interface Config {
   minCompress: number;
   noServe: boolean;
   log: LogLevel;
+  logFormat: 'text' | 'json';
 }
 
 export type ResolvedConfig = Omit<Config, 'servers'> & { servers: ConfigServer[] };

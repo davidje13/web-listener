@@ -37,6 +37,11 @@
       "title": "Set the logging level. \"ready\" prints only the \"all servers ready\" line, \"progress\" prints server startup and shutdown progress.",
       "enum": ["none", "ready", "progress"],
       "default": "progress"
+    },
+    "logFormat": {
+      "title": "Set the logging format. \"text\" is the most human-readable, \"json\" prints each log message as a machine-readable JSON document (one per line).",
+      "enum": ["text", "json"],
+      "default": "text"
     }
   },
 
@@ -180,7 +185,8 @@
       "properties": {
         "type": { "const": "delegate" },
         "path": { "type": "string", "default": "/" },
-        "config": { "$ref": "#/$defs/server-ref" }
+        "config": { "$ref": "#/$defs/server-ref" },
+        "maskSubpath": { "type": "boolean", "default": false }
       }
     },
     "mount-headers": {
@@ -437,7 +443,8 @@
           "default": null
         },
         "import": { "type": "string", "format": "uri-reference" },
-        "namedExport": { "anyOf": [{ "type": "string" }, { "type": "null" }], "default": null }
+        "namedExport": { "anyOf": [{ "type": "string" }, { "type": "null" }], "default": null },
+        "maskSubpath": { "type": "boolean", "default": false }
       }
     },
     "headers": {

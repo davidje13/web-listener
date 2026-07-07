@@ -554,6 +554,7 @@ default /other;
             'data:text/javascript;base64,' +
             btoa('export default (_, res) => res.end("My custom responder")'),
           namedExport: null,
+          maskSubpaths: false,
         },
       ]);
 
@@ -582,6 +583,7 @@ default /other;
             'data:text/javascript;base64,' +
             btoa('export const foo = (_, res) => res.end("My custom responder")'),
           namedExport: 'foo',
+          maskSubpaths: false,
         },
       ]);
 
@@ -603,6 +605,7 @@ default /other;
               'data:text/javascript;base64,' +
               btoa('export default (_, res) => res.end("My wildcard responder")'),
             namedExport: null,
+            maskSubpaths: false,
           },
         ]);
 
@@ -636,6 +639,7 @@ default /other;
               'data:text/javascript;base64,' +
               btoa('export default (_, res) => res.end("My post responder")'),
             namedExport: null,
+            maskSubpaths: false,
           },
         ]);
 
@@ -666,6 +670,7 @@ default /other;
               'data:text/javascript;base64,' +
               btoa('export default (_, res) => res.end("My post/put responder")'),
             namedExport: null,
+            maskSubpaths: false,
           },
         ]);
 
@@ -699,11 +704,53 @@ default /other;
               'import { isIntercepted } from "web-listener"; export default (_, res) => res.end(`Got ${isIntercepted}`)',
             ),
           namedExport: null,
+          maskSubpaths: false,
         },
       ]);
 
       return withServer(router, async (url) => {
         await expect(fetch(url + '/custom'), responds({ status: 200, body: 'Got true' }));
+      });
+    });
+
+    it('can mask the logged URL', { timeout: 3000 }, async () => {
+      const loggedPaths: string[] = [];
+      const router = await buildRouter(
+        [
+          {
+            type: 'custom',
+            method: null,
+            path: '/custom',
+            import:
+              'data:text/javascript;base64,' +
+              btoa('export default (_, res) => res.end("Sensitive")'),
+            namedExport: null,
+            maskSubpaths: true,
+          },
+        ],
+        () => {},
+        (log) => loggedPaths.push(log.path),
+      );
+
+      return withServer(router, async (url) => {
+        await fetch(url + '/custom/sensitive-path/more?query');
+        expect(loggedPaths).contains('/custom/[***]');
+        loggedPaths.length = 0;
+
+        await fetch(url + '/custom?query');
+        expect(loggedPaths).contains('/custom?[***]');
+        loggedPaths.length = 0;
+
+        await fetch(url + '/custom/?query');
+        expect(loggedPaths).contains('/custom/?[***]');
+        loggedPaths.length = 0;
+
+        await fetch(url + '/custom/');
+        expect(loggedPaths).contains('/custom/');
+        loggedPaths.length = 0;
+
+        await fetch(url + '/custom');
+        expect(loggedPaths).contains('/custom');
       });
     });
   });

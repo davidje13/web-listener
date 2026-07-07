@@ -55,6 +55,7 @@ const params = new Map<string, { type: 'string' | 'number' | 'boolean'; multi?: 
   ['no-cache', { type: 'boolean' }],
   ['no-serve', { type: 'boolean' }],
   ['log', { type: 'string' }],
+  ['log-format', { type: 'string' }],
   ['help', { type: 'boolean' }],
   ['version', { type: 'boolean' }],
 ]);
@@ -164,6 +165,7 @@ export async function loadConfig(
   const mimeTypes = stringListParam('mime-types');
   const redirectMap = stringListParam('redirect-map');
   const log = stringParam('log');
+  const logFormat = stringParam('log-format');
 
   if (Number(Boolean(file)) + Number(Boolean(json)) + Number(Boolean(proxy)) > 1) {
     throw new Error('multiple config files are not supported');
@@ -332,6 +334,8 @@ export async function loadConfig(
     config.noServe = true;
   }
   switch (log) {
+    case undefined:
+      break;
     case 'none':
     case 'ready':
     case 'progress':
@@ -347,6 +351,18 @@ export async function loadConfig(
     case 'full':
       config.log = 'progress';
       break;
+    default:
+      throw new Error(`unknown log level: ${log}`);
+  }
+  switch (logFormat) {
+    case undefined:
+      break;
+    case 'text':
+    case 'json':
+      config.logFormat = logFormat;
+      break;
+    default:
+      throw new Error(`unknown log format: ${logFormat}`);
   }
   return config;
 }
@@ -419,7 +435,7 @@ async function loadConfigFileNetwork(
                 `${servers.length > 1 ? 'multiple' : 'no'} servers found in ${mount.config.file} matching requirements`,
               );
             }
-            server.mount[j] = { type: 'nested', path: mount.path, mount: servers[0]!.mount };
+            server.mount[j] = { ...mount, type: 'nested', mount: servers[0]!.mount };
           }
         }
         ++i;
