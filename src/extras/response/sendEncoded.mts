@@ -43,6 +43,9 @@ export function makeResponseEncoder(
       if (compressor) {
         internalSetContentEncoding(res, enc);
         internalAddVary(res, headers.vary);
+        // destroy the response if there is an error, but do not propagate the error to it
+        // (else we will observe it twice; once from the pipeline, and once in clientError)
+        compressor.on('error', () => res.destroy());
         compressor.pipe(res);
         return compressor;
       }

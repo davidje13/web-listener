@@ -401,7 +401,7 @@ class ZipFile {
           ...options,
         });
         if (this._inflate) {
-          s = s.pipe(createInflateRaw({ chunkSize: highWaterMark }));
+          s = s.compose(createInflateRaw({ chunkSize: highWaterMark }));
         }
         if (encoding) {
           s.setEncoding(encoding);

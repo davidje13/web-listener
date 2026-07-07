@@ -10,7 +10,7 @@ import type {
   UpgradeListener,
 } from '../polyfill/serverTypes.mts';
 import { VOID_BUFFER } from '../util/voidBuffer.mts';
-import { ErrorAccumulator } from '../util/ErrorAccumulator.mts';
+import { CAPTURED_ERRORS, ErrorAccumulator } from '../util/ErrorAccumulator.mts';
 import { findCause } from '../util/findCause.mts';
 import { guardTimeout } from '../util/guardTimeout.mts';
 import { internalCheckShouldUpgrade, internalRunHandler } from './Router.mts';
@@ -176,7 +176,7 @@ export function toListeners(
         // ideally we would automatically fall-back to a standard request here, but the Node.js
         // Server API doesn't support that, so we warn the user about a possible misconfiguration:
         console.warn(
-          `Upgrade ${req.headers.upgrade} request for ${req.url} fell-through. This probably means you need to add shouldUpgrade to one of your upgrade handlers, or if this is intentional, explicitly reject the request (throw new HTTPError(404)) instead of using CONTINUE.`,
+          `${req.url}: ${req.headers.upgrade} upgrade request fell-through. See https://github.com/davidje13/web-listener/blob/main/docs/API.md#upgrade-request-fell-through`,
         );
         currentError._add(new HTTPError(404));
       }
@@ -245,7 +245,13 @@ export function toListeners(
         return;
       }
 
-      onError(error, 'initialising request', undefined);
+      // Check if error was already caught by the handler chain and does not
+      // need to be reported again (wait a frame for promises & events to resolve).
+      setTimeout(() => {
+        if (!CAPTURED_ERRORS.has(error)) {
+          onError(error, 'initialising request', undefined);
+        }
+      }, 0);
     },
 
     softClose(reason, onError, callback) {

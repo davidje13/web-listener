@@ -1,5 +1,7 @@
 import { SuppressedError } from '../polyfill/SuppressedError.mts';
 
+export const CAPTURED_ERRORS = /*@__PURE__*/ new WeakSet<Error>();
+
 export class ErrorAccumulator {
   /** @internal */ declare _hasError: boolean;
   /** @internal */ declare _error: unknown;
@@ -9,6 +11,9 @@ export class ErrorAccumulator {
   }
 
   _add(error: unknown) {
+    if (error instanceof Error) {
+      CAPTURED_ERRORS.add(error);
+    }
     if (this._hasError) {
       if (error !== this._error) {
         this._error = new SuppressedError(error, this._error);

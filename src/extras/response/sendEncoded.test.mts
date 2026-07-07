@@ -143,6 +143,32 @@ describe('sendEncoded', () => {
     });
   });
 
+  it('closes the response if the stream errors', { timeout: 3000 }, () => {
+    const handler = requestHandler(async (req, res) => {
+      await sendEncoded(req, res, largeFailingStream());
+    });
+
+    return withServer(handler, async (url, { expectError }) => {
+      const res = await fetch(url, { headers: { 'accept-encoding': 'identity' } });
+      expect(res.status).equals(200);
+      await expect(() => res.text()).throws('terminated');
+      expectError('handling request /: Error: oops');
+    });
+  });
+
+  it('closes the response if the stream errors while compressing', { timeout: 3000 }, () => {
+    const handler = requestHandler(async (req, res) => {
+      await sendEncoded(req, res, largeFailingStream());
+    });
+
+    return withServer(handler, async (url, { expectError }) => {
+      const res = await fetch(url, { headers: { 'accept-encoding': 'gzip' } });
+      expect(res.status).equals(200);
+      await expect(() => res.text()).throws('terminated');
+      expectError('handling request /: Error: oops');
+    });
+  });
+
   it('ignores requests which close while data is being sent', { timeout: 3000 }, () => {
     const handler = requestHandler((req, res) =>
       sendEncoded(
@@ -173,3 +199,17 @@ describe('sendEncoded', () => {
     });
   });
 });
+
+const largeFailingStream = () =>
+  Readable.from(
+    (async function* () {
+      // must emit enough data for compression to begin & start streaming
+      const chunk = Buffer.from('a'.repeat(1000), 'utf-8');
+      for (let i = 0; i < 100; ++i) {
+        yield chunk;
+      }
+      // then error
+      throw new Error('oops');
+    })(),
+    { highWaterMark: 1 },
+  );

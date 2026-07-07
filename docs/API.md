@@ -4683,6 +4683,32 @@ router.ws('/things/:id', async (req) => {
 Reference: [`getPathParameters`], [`makeAcceptWebSocket`], [`nextWebSocketMessage`], [`<Router>`],
 [`<ws.WebSocketServer>`]
 
+## Troubleshooting
+
+### Upgrade request fell through
+
+The Node.js HTTP server implements [`Upgrade`] requests (e.g. websocket, HTTP/2) using a separate
+set of handlers. This means `web-listener` must decide upfront whether a request will be a standard
+HTTP request, or an upgrade request, and this must be done synchronously (to conform to the
+[`http.createServer`] `shouldUpgradeCallback` API).
+
+This is implemented with [`handler.shouldUpgrade`], which can return `true` to allow an upgrade, or
+`false` to continue with regular HTTP request handling. By default, if no `shouldUpgrade` function
+is provided, the presence of a [`handler.handleUpgrade`] function matching a request will be taken
+to mean that any upgrade request should be permitted.
+
+If you are seeing the warning message "(url): (type) upgrade request fell-through", it means that
+`web-listener` decided to allow an upgrade request, but no [`handler.handleUpgrade`] function ended
+up serving it, and the request was closed with a default 404 response.
+
+If this is the behaviour you want, you can suppress the warning by explicitly sending a 404 error
+(i.e. `throw new HTTPError(404)` instead of throwing or returning `CONTINUE` in
+[`handler.handleUpgrade`]).
+
+If you instead want the request to fall-back and be handled as a regular request (ignoring the
+client-requested Upgrade), ensure you have the appropriate [`handler.shouldUpgrade`] function on
+your upgrade handler (i.e. provide a `shouldUpgrade` function to [`upgradeHandler`]).
+
 [`<any>`]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Data_structures#Data_types
 [`<null>`]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Data_structures#null_type
 [`<undefined>`]:
