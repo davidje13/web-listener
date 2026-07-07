@@ -50,7 +50,8 @@ describe('sendEncoded', () => {
       const resZstd = await fetch(url, { headers: { 'accept-encoding': 'zstd' } });
       expect(resZstd.status).equals(200);
       expect(resZstd.headers.get('content-encoding')).equals('zstd');
-      expect(await resZstd.text()).equals('content');
+      // zstd is not supported by fetch in Node.js 22
+      //expect(await resZstd.text()).equals('content');
 
       const resMulti = await fetch(url, {
         headers: { 'accept-encoding': 'deflate; q=0.1, br; q=0.8, gzip; q=0.2' },
