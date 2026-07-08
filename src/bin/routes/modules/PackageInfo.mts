@@ -3,6 +3,7 @@ import { dirname, join, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Queue } from '../../../index.mts';
 import { isArray } from '../../util/isArray.mts';
+import { UserError } from '../../UserError.mts';
 
 export interface PackageInfo {
   isRoot: boolean;
@@ -36,7 +37,7 @@ export async function readPackageGraph(packageJsonPath: string): Promise<Package
   if (inputStat.isDirectory()) {
     packageJsonPath = join(packageJsonPath, 'package.json');
   } else if (!inputStat.isFile()) {
-    throw new Error(`invalid package.json path: ${packageJsonPath}`);
+    throw new UserError(`invalid package.json path: ${packageJsonPath}`);
   }
   const rootPackage = await readPackage(await realpath(packageJsonPath));
   rootPackage.isRoot = true;
@@ -67,7 +68,7 @@ export async function readPackageGraph(packageJsonPath: string): Promise<Package
           if (optional) {
             return;
           }
-          throw new Error(`package ${name} not found (required by ${pkg.dir})`);
+          throw new UserError(`package ${name} not found (required by ${pkg.dir})`);
         }
         if (!seenIDs.has(dep.id)) {
           seenIDs.add(dep.id);
@@ -217,5 +218,5 @@ async function readNearestPackage(dir: string): Promise<PackageInfo> {
       return await readPackage(file);
     } catch {}
   }
-  throw new Error(`package.json not found in ${dir} or any parent folder`);
+  throw new UserError(`package.json not found in ${dir} or any parent folder`);
 }

@@ -16,6 +16,7 @@ import {
 import type { ConfigMount } from '../config/types.mts';
 import { TransientError } from '../TransientError.mts';
 import { readAnyFile } from '../zipCache.mts';
+import { UserError } from '../UserError.mts';
 import { dependencies } from './modules/dependencies.mts';
 import { loadCustomHandler } from './custom/loadCustomHandler.mts';
 import { anyFileFinder } from './anyFileFinder.mts';
@@ -164,9 +165,9 @@ export async function buildRouter(
                   }
                   break;
                 case 'hostnames':
-                  throw new Error('redirect-map does not support hostnames');
+                  throw new UserError('redirect-map does not support hostnames');
                 case 'include':
-                  throw new Error('redirect-map does not support nested mapping files');
+                  throw new UserError('redirect-map does not support nested mapping files');
                 case 'volatile':
                   // ignore
                   break;
@@ -175,7 +176,7 @@ export async function buildRouter(
             if (statement.length === 2) {
               mapper.add(key.token, statement[1]!.token);
             } else {
-              throw new Error(
+              throw new UserError(
                 `unknown statement in mapping file: ${statement.map((p) => JSON.stringify(p)).join(' ')}`,
               );
             }

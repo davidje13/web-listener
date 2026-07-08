@@ -1,4 +1,5 @@
 import type { MaybePromise } from '../../../util/MaybePromise.mts';
+import { UserError } from '../../UserError.mts';
 import {
   getResolvedExportMap,
   getResolvedImportMap,
@@ -90,7 +91,7 @@ export async function generateImportMap(
       } else if (target.startsWith('./')) {
         imports.set(importID, pkg._absPathEncoded + encodeURIPath(target.substring(1)));
       } else {
-        throw new Error(`unable to resolve import ${target}`);
+        throw new UserError(`unable to resolve import ${target}`);
       }
     }
     if (pkg._packageInfo.isRoot) {
@@ -163,7 +164,9 @@ export async function resolveMapping(
       !idValidator(id) ||
       (target !== null && (!targetValidator(target) || (targetWild !== -1) !== (idWild !== -1)))
     ) {
-      throw new Error(`invalid entry: ${JSON.stringify(id)} => ${JSON.stringify(target)}`);
+      throw new UserError(
+        `invalid package.json entry: ${JSON.stringify(id)} => ${JSON.stringify(target)}`,
+      );
     }
     if (idWild !== -1) {
       const idCheck: WildcardPattern = [

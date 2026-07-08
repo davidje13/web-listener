@@ -3,6 +3,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { SchemaObject } from 'ajv';
 import { isArray } from '../util/isArray.mts';
+import { UserError } from '../UserError.mts';
 
 export const loadSchema = async (): Promise<SchemaObject> =>
   JSON.parse(await readFile(join(dirname(fileURLToPath(import.meta.url)), 'schema.json'), 'utf-8'));
@@ -219,9 +220,18 @@ const mObject =
     for (const [k, v] of Object.entries(o)) {
       seen.add(k);
       const valueMapper = known.get(k) ?? other;
-      const val = valueMapper(v, { ...ctx, path: `${ctx.path}.${k}` });
-      if (val !== undefined) {
-        r.push([k, val]);
+      try {
+        const val = valueMapper(v, { ...ctx, path: `${ctx.path}.${k}` });
+        if (val !== undefined) {
+          r.push([k, val]);
+        }
+      } catch (error) {
+        if (error instanceof ConfigError) {
+          // prefer reporting errors which are deeper into the tree if all else
+          // is equal, as these are more likely to relate to the user's intent
+          error.p -= 0.001;
+        }
+        throw error;
       }
     }
     for (const req of required) {
@@ -253,8 +263,8 @@ interface Context {
 export type Mapper<T> = (o: unknown, context: Context) => T;
 export type Type<T extends Mapper<any>> = ReturnType<T>;
 
-class ConfigError extends Error {
-  declare readonly p: number;
+class ConfigError extends UserError {
+  declare p: number;
 
   constructor(message: string, ctx: Context, p: number = 0) {
     super(`${message} at ${ctx.path || 'root'}`);

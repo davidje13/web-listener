@@ -2,6 +2,7 @@ import { resolve } from 'node:path';
 import type { FallbackOptions, FileNegotiation, FileNegotiationOption } from '../../index.mts';
 import { isArray } from '../util/isArray.mts';
 import { readAnyFile } from '../zipCache.mts';
+import { UserError } from '../UserError.mts';
 import type { Mapper } from './schema.mts';
 import type {
   Config,
@@ -60,6 +61,9 @@ const params = new Map<string, { type: 'string' | 'number' | 'boolean'; multi?: 
   ['version', { type: 'boolean' }],
 ]);
 
+const BOOLEAN_TRUE = ['', 'on', 'true', 'yes', 'y', '1'];
+const BOOLEAN_ANY = [...BOOLEAN_TRUE, 'off', 'false', 'no', 'n', '0'];
+
 export function readArgs(argv: string[]) {
   const config: [string, string][] = [];
   for (let i = 0; i < argv.length; ++i) {
@@ -84,32 +88,38 @@ export function readArgs(argv: string[]) {
       if (i === 0) {
         config.push(['', arg]);
       } else {
-        throw new Error(`value without key: ${arg}`);
+        throw new UserError(`value without key: ${arg}`);
       }
       continue;
     }
+    if (arg[1] !== '-') {
+      for (const c of arg.slice(1, arg.length - 1)) {
+        config.push(['-' + c, '']);
+      }
+    }
+    const lastKey = arg[1] === '-' ? arg.slice(2) : `-${arg[arg.length - 1]}`;
     let next = argv[i + 1];
     if (next && next[0] === '-' && next.length > 1) {
       next = undefined;
     }
     if (next !== undefined) {
+      const key = (shorthands.get(lastKey) ?? lastKey).toLowerCase();
+      const type = params.get(key);
+      if (type?.type === 'boolean' && !BOOLEAN_ANY.includes(next.toLowerCase())) {
+        next = undefined;
+      }
+    }
+    if (next !== undefined) {
       ++i;
     }
-    if (arg[1] === '-') {
-      config.push([arg.slice(2), next ?? '']);
-    } else {
-      for (const c of arg.slice(1, arg.length - 1)) {
-        config.push(['-' + c, '']);
-      }
-      config.push(['-' + arg[arg.length - 1]!, next ?? '']);
-    }
+    config.push([lastKey, next ?? '']);
   }
   const lookup = new Map<string, unknown>();
   for (const [k, v] of config) {
     const key = (shorthands.get(k) ?? k).toLowerCase();
     const type = params.get(key);
     if (!type) {
-      throw new Error(`unknown flag: ${k}`);
+      throw new UserError(`unknown flag: ${k}`);
     }
     let value: unknown;
     switch (type.type) {
@@ -120,7 +130,11 @@ export function readArgs(argv: string[]) {
         value = Number.parseFloat(v);
         break;
       case 'boolean':
-        value = ['', 'on', 'true', 'yes', 'y', '1'].includes(v.toLowerCase());
+        const lower = v.toLowerCase();
+        if (!BOOLEAN_ANY.includes(lower)) {
+          throw new UserError(`unknown boolean value for ${k}: ${v}`);
+        }
+        value = BOOLEAN_TRUE.includes(lower);
         break;
     }
     if (type.multi) {
@@ -131,7 +145,7 @@ export function readArgs(argv: string[]) {
       }
       (list as unknown[]).push(value);
     } else if (lookup.has(key)) {
-      throw new Error(`multiple values for ${key}`);
+      throw new UserError(`multiple values for ${key}`);
     } else {
       lookup.set(key, value);
     }
@@ -168,7 +182,7 @@ export async function loadConfig(
   const logFormat = stringParam('log-format');
 
   if (Number(Boolean(file)) + Number(Boolean(json)) + Number(Boolean(proxy)) > 1) {
-    throw new Error('multiple config files are not supported');
+    throw new UserError('multiple config files are not supported');
   }
 
   let config: ResolvedConfig;
@@ -199,12 +213,12 @@ export async function loadConfig(
   const singleServer = config.servers.length === 1 ? config.servers[0] : undefined;
   if (port !== undefined) {
     if ((port | 0) !== port) {
-      throw new Error('port must be an integer');
+      throw new UserError('port must be an integer');
     }
     if (singleServer) {
       singleServer.port = port;
     } else {
-      throw new Error('cannot specify port on commandline when defining multiple servers');
+      throw new UserError('cannot specify port on commandline when defining multiple servers');
     }
   }
   if (host !== undefined) {
@@ -214,7 +228,7 @@ export async function loadConfig(
   }
   if (dirs.length || spa || err404) {
     if (!singleServer) {
-      throw new Error(
+      throw new UserError(
         'cannot specify dir, spa, or 404 on commandline when defining multiple servers',
       );
     }
@@ -237,7 +251,7 @@ export async function loadConfig(
   }
   if (proxy) {
     if (!singleServer) {
-      throw new Error('cannot specify proxy on commandline when defining multiple servers');
+      throw new UserError('cannot specify proxy on commandline when defining multiple servers');
     }
     singleServer.mount.push({ type: 'proxy', path: '/', target: proxy, options: {} });
   }
@@ -352,7 +366,7 @@ export async function loadConfig(
       config.log = 'progress';
       break;
     default:
-      throw new Error(`unknown log level: ${log}`);
+      throw new UserError(`unknown log level: ${log}`);
   }
   switch (logFormat) {
     case undefined:
@@ -362,7 +376,7 @@ export async function loadConfig(
       config.logFormat = logFormat;
       break;
     default:
-      throw new Error(`unknown log format: ${logFormat}`);
+      throw new UserError(`unknown log format: ${logFormat}`);
   }
   return config;
 }
@@ -414,15 +428,23 @@ async function loadConfigFileNetwork(
     const existing = seen.get(absFile);
     if (existing) {
       if (existing === true) {
-        throw new Error(`circular reference to ${absFile}`);
+        throw new UserError(`circular reference to ${absFile}`);
       }
       return existing;
     }
     seen.set(absFile, true);
+    let name = 'configuration';
     if (content === null) {
+      name = absFile;
       content = await readAnyFile(absFile);
     }
-    const config = parser(JSON.parse(content), { file: absFile, path: '' });
+    let json;
+    try {
+      json = JSON.parse(content);
+    } catch (error: unknown) {
+      throw new UserError(`invalid ${name}: ${error instanceof Error ? error.message : error}`);
+    }
+    const config = parser(json, { file: absFile, path: '' });
     for (let i = 0; i < config.servers.length;) {
       const server = config.servers[i]!;
       if (server.mount) {
@@ -431,7 +453,7 @@ async function loadConfigFileNetwork(
           if (mount.type === 'delegate') {
             const servers = await followLink(config, mount.config);
             if (servers.length !== 1) {
-              throw new Error(
+              throw new UserError(
                 `${servers.length > 1 ? 'multiple' : 'no'} servers found in ${mount.config.file} matching requirements`,
               );
             }
@@ -442,7 +464,7 @@ async function loadConfigFileNetwork(
       } else {
         const servers = await followLink(config, server);
         if (!servers) {
-          throw new Error(`no servers found in ${server.file} matching requirements`);
+          throw new UserError(`no servers found in ${server.file} matching requirements`);
         }
         config.servers.splice(i, 1, ...servers);
         i += servers.length;

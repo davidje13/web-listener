@@ -1,7 +1,8 @@
 import { join, sep } from 'node:path';
 import { readFile, stat } from 'node:fs/promises';
-import { readZip, type ZipDirectory, type ZipNode } from '../index.mts';
 import { text } from 'node:stream/consumers';
+import { readZip, type ZipDirectory, type ZipNode } from '../index.mts';
+import { UserError } from './UserError.mts';
 
 const CACHED_ZIPS: { path: string; root: ZipDirectory }[] = [];
 
@@ -68,7 +69,7 @@ export async function readAnyFile(path: string): Promise<string> {
         await handle.close();
       }
     } else {
-      throw new Error(`/${zip.remaining.join('/')} not found in ${zip.path}`);
+      throw new UserError(`/${zip.remaining.join('/')} not found in ${zip.path}`);
     }
   }
   return readFile(path, 'utf-8');

@@ -10,6 +10,7 @@ import {
 } from '../../index.mts';
 import { TransientError } from '../TransientError.mts';
 import { readZipPath } from '../zipCache.mts';
+import { UserError } from '../UserError.mts';
 
 export async function anyFileFinder(path: string, options: FileServerOptions): Promise<FileFinder> {
   const direct = await stat(path).catch(() => null);
@@ -28,7 +29,7 @@ export async function anyFileFinder(path: string, options: FileServerOptions): P
 
   const zipDir = zip.root.find(zip.remaining);
   if (!zipDir?.isDirectory) {
-    throw new Error(`/${zip.remaining.join('/')} in ${zip.path} is not a directory`);
+    throw new UserError(`/${zip.remaining.join('/')} in ${zip.path} is not a directory`);
   }
   const adjustedOptions = options;
   if (!adjustedOptions.negotiator) {

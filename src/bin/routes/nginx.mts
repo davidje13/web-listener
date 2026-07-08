@@ -1,3 +1,5 @@
+import { UserError } from '../UserError.mts';
+
 export class Mapper {
   declare private readonly _norm: (v: string) => string;
   declare private readonly _map: Map<string, string>;
@@ -19,7 +21,7 @@ export class Mapper {
       const pattern = key.substring(caseSensitive ? 1 : 2);
       this._patterns.push({ _key: new RegExp(pattern, caseSensitive ? '' : 'i'), _target: value });
     } else {
-      throw new Error(`invalid URL: ${key}`);
+      throw new UserError(`invalid URL: ${key}`);
     }
   }
 
@@ -58,7 +60,7 @@ export function* nginxTokenise(source: string) {
   while (token.lastIndex < source.length) {
     const m = token.exec(source);
     if (!m) {
-      throw new Error('invalid nginx syntax');
+      throw new UserError('invalid nginx syntax');
     }
     const [, separator, semicolon, dquot, squot, nquot] = m;
     if (separator) {
@@ -80,6 +82,6 @@ export function* nginxTokenise(source: string) {
     }
   }
   if (statement.length) {
-    throw new Error('unterminated statement - ensure all statements end with a semicolon');
+    throw new UserError('unterminated statement - ensure all statements end with a semicolon');
   }
 }

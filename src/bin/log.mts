@@ -1,4 +1,5 @@
 import type { Writable } from 'node:stream';
+import { UserError } from './UserError.mts';
 
 export const logLevels = ['none', 'ready', 'progress'] as const;
 export type LogLevel = (typeof logLevels)[number];
@@ -53,9 +54,8 @@ export const textLogger = (logTarget: Writable & { isTTY?: boolean }, level: Log
     if (parts.status !== undefined) {
       out.push(addColour(STATUS_COLOURS[(parts.status / 100) | 0] ?? '', String(parts.status)));
     }
-    if (parts.message) {
-      const message =
-        parts.message instanceof Error ? parts.message.message : String(parts.message);
+    const message = readBasicErrorMessage(parts.message);
+    if (message !== undefined) {
       if (parts.type === 'detail') {
         out.push(addColour('2', message));
       } else {
@@ -82,13 +82,23 @@ export const jsonLogger = (logTarget: Writable, level: LogLevel): Logger => {
     if (level > logLevel) {
       return;
     }
-    if (message instanceof Error) {
-      message = message.message;
-    } else if (message !== undefined) {
-      message = String(message);
-    }
-    logTarget.write(`${JSON.stringify({ ...parts, message })}\n`);
+    logTarget.write(`${JSON.stringify({ ...parts, message: readBasicErrorMessage(message) })}\n`);
   };
 };
+
+function readBasicErrorMessage(error: unknown): string | undefined {
+  if (error === undefined || error === null) {
+    return undefined;
+  } else if (error instanceof UserError) {
+    return error.message;
+  } else if (error instanceof AggregateError) {
+    const all = new Set(error.errors.map(readBasicErrorMessage));
+    return [...all].join(', ');
+  } else if (error instanceof Error) {
+    return error.stack ?? error.message;
+  } else {
+    return String(error);
+  }
+}
 
 const STATUS_COLOURS = ['', '37', '32', '36', '31', '41;97'];

@@ -6,6 +6,7 @@ import { closeSync, openSync, readSync, constants } from 'node:fs';
 import { inflateRawSync } from 'node:zlib';
 import type { ErrorHandler, HandlerResult, RequestHandler, ZipFile } from '../../../index.mts';
 import { findZipPath, readZipPath } from '../../zipCache.mts';
+import { UserError } from '../../UserError.mts';
 
 const EXTENSION_FORMATS = new Map([
   ['.mjs', 'module'],
@@ -83,7 +84,7 @@ export async function loadCustomHandler(
   const mod = await import(path);
   const handler = mod?.[namedExport || 'default'];
   if (!handler || (typeof handler !== 'function' && typeof handler !== 'object')) {
-    throw new Error(
+    throw new UserError(
       `${path} must export a request handler ${namedExport ? `named ${JSON.stringify(namedExport)}` : 'as default'}`,
     );
   }
