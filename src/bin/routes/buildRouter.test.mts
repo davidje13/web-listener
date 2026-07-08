@@ -713,7 +713,7 @@ default /other;
       });
     });
 
-    it('can mask the logged URL', { timeout: 3000 }, async () => {
+    it('can mask the logged URL for custom subrouters', { timeout: 3000 }, async () => {
       const loggedPaths: string[] = [];
       const router = await buildRouter(
         [
@@ -747,6 +747,35 @@ default /other;
 
         await fetch(url + '/custom/');
         expect(loggedPaths).contains('/custom/');
+        loggedPaths.length = 0;
+
+        await fetch(url + '/custom');
+        expect(loggedPaths).contains('/custom');
+      });
+    });
+
+    it('can mask the logged URL for specific custom endpoints', { timeout: 3000 }, async () => {
+      const loggedPaths: string[] = [];
+      const router = await buildRouter(
+        [
+          {
+            type: 'custom',
+            method: 'get',
+            path: '/custom',
+            import:
+              'data:text/javascript;base64,' +
+              btoa('export default (_, res) => res.end("Sensitive")'),
+            namedExport: null,
+            maskSubpaths: true,
+          },
+        ],
+        () => {},
+        (log) => loggedPaths.push(log.path),
+      );
+
+      return withServer(router, async (url) => {
+        await fetch(url + '/custom?query');
+        expect(loggedPaths).contains('/custom?[***]');
         loggedPaths.length = 0;
 
         await fetch(url + '/custom');

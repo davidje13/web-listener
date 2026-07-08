@@ -204,12 +204,13 @@ export async function buildRouter(
         break;
       case 'custom': {
         const handler = await loadCustomHandler(item.import, item.namedExport, warn);
+        const mask = item.maskSubpaths ? maskSubpath : null;
         if (typeof item.method === 'string' && item.method.toLowerCase() === 'get') {
-          router.get(item.path, handler);
+          router.get(item.path, mask, handler);
         } else if (item.method) {
-          router.onRequest(item.method, item.path, handler);
+          router.onRequest(item.method, item.path, mask, handler);
         } else {
-          router.mount(item.path, item.maskSubpaths ? maskSubpath : null, handler);
+          router.mount(item.path, mask, handler);
         }
         break;
       }
