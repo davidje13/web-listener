@@ -107,7 +107,7 @@ export async function readZip(source: string): Promise<ZipDirectory> {
       const extra = sub(cd, pos + 46 + nameLength, extraFieldLength);
       pos += 46 + nameLength + extraFieldLength + commentLength;
 
-      for (let extPos = 0; extPos < extraFieldLength; ) {
+      for (let extPos = 0; extPos < extraFieldLength;) {
         const size = read16LE(extra, extPos + 2);
         const field = sub(extra, extPos + 4, size);
         switch (read16LE(extra, extPos)) {

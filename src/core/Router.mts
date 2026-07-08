@@ -32,34 +32,18 @@ import {
 } from './handler.mts';
 
 export type CommonMethod =
-  | 'DELETE'
-  | 'GET'
-  | 'HEAD'
-  | 'OPTIONS'
-  | 'PATCH'
-  | 'POST'
-  | 'PUT'
-  | 'TRACE';
+  'DELETE' | 'GET' | 'HEAD' | 'OPTIONS' | 'PATCH' | 'POST' | 'PUT' | 'TRACE';
 
 export type CommonUpgrade = 'http/2' | 'http/3' | 'https' | 'h2c' | 'websocket';
 
 type RelaxedRequestHandler<Req = {}> =
-  | RequestHandlerFn<Req>
-  | RequestHandler<Req>
-  | ErrorHandler<Req>
-  | null
-  | undefined;
+  RequestHandlerFn<Req> | RequestHandler<Req> | ErrorHandler<Req> | null | undefined;
 
 type RelaxedRequestHandlerOrExplicitUpgrade<Req = {}> =
-  | RelaxedRequestHandler<Req>
-  | UpgradeHandler<Req>;
+  RelaxedRequestHandler<Req> | UpgradeHandler<Req>;
 
 type RelaxedUpgradeHandler<Req = {}> =
-  | UpgradeHandlerFn<Req>
-  | UpgradeHandler<Req>
-  | ErrorHandler<Req>
-  | null
-  | undefined;
+  UpgradeHandlerFn<Req> | UpgradeHandler<Req> | ErrorHandler<Req> | null | undefined;
 
 type MethodWrapper<Req, This> = <Path extends string>(
   path: ValidPath<Path>,

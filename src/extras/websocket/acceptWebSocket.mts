@@ -13,14 +13,7 @@ interface InternalWebSocketServerOptions {
 }
 
 type ForbiddenWebSocketServerOptions =
-  | 'backlog'
-  | 'server'
-  | 'noServer'
-  | 'clientTracking'
-  | 'host'
-  | 'port'
-  | 'path'
-  | 'verifyClient';
+  'backlog' | 'server' | 'noServer' | 'clientTracking' | 'host' | 'port' | 'path' | 'verifyClient';
 
 declare class WebSocketServer<T, Options> {
   constructor(options: Options);

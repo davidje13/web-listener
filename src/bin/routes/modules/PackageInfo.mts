@@ -29,9 +29,7 @@ export interface PackageJson {
 
 export type MaybeArray<T> = T | T[];
 export type ImportMapping =
-  | { [condition: string]: MaybeArray<ImportMapping> | undefined }
-  | string
-  | null;
+  { [condition: string]: MaybeArray<ImportMapping> | undefined } | string | null;
 
 export async function readPackageGraph(packageJsonPath: string): Promise<PackageInfo[]> {
   const inputStat = await stat(packageJsonPath);

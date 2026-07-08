@@ -17,8 +17,7 @@ interface BearerAuthOptions<Req, Token> {
     req: IncomingMessage & Req,
   ) => MaybePromise<Token | null | undefined>;
   fallbackTokenFetcher?:
-    | ((req: IncomingMessage & Req) => MaybePromise<string | null | undefined>)
-    | undefined;
+    ((req: IncomingMessage & Req) => MaybePromise<string | null | undefined>) | undefined;
   closeOnExpiry?: boolean | undefined;
   softCloseBufferTime?: number | undefined;
   onSoftCloseError?: ServerErrorCallback | undefined;

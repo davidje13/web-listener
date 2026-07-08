@@ -423,7 +423,7 @@ async function loadConfigFileNetwork(
       content = await readAnyFile(absFile);
     }
     const config = parser(JSON.parse(content), { file: absFile, path: '' });
-    for (let i = 0; i < config.servers.length; ) {
+    for (let i = 0; i < config.servers.length;) {
       const server = config.servers[i]!;
       if (server.mount) {
         for (let j = 0; j < server.mount.length; ++j) {

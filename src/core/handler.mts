@@ -71,8 +71,7 @@ export type ErrorHandlerFn<Req = {}> = (
 export interface ErrorHandler<Req = {}> {
   handleError: ErrorHandlerFn<Req>;
   shouldHandleError?:
-    | ((error: unknown, req: IncomingMessage & Req, output: ErrorOutput) => boolean)
-    | undefined;
+    ((error: unknown, req: IncomingMessage & Req, output: ErrorOutput) => boolean) | undefined;
 }
 
 export const errorHandler = <Req = {},>(

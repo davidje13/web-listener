@@ -487,7 +487,7 @@ function internalFileStreamRead(this: FileStream, _?: number) {
 }
 
 function osIndependentBasename(path: string) {
-  for (let i = path.length; i-- > 0; ) {
+  for (let i = path.length; i-- > 0;) {
     if (path[i] === '/' || path[i] === '\\') {
       path = path.slice(i + 1);
       break;

@@ -56,7 +56,7 @@ const implementations: ImplementationDef[] = [
       const h = haystack[0];
       const needleLen = needle.byteLength;
       const r: number[] = [];
-      for (let pos = 0; (pos = h.indexOf(needle, pos)) !== -1; ) {
+      for (let pos = 0; (pos = h.indexOf(needle, pos)) !== -1;) {
         r.push(pos);
         pos += needleLen;
       }
@@ -153,7 +153,7 @@ function buildHaystack(size: number, needle: Buffer, needlePositions: number[]) 
     }
   }
   // remove any occurrences of the needle that appeared by random chance
-  for (let pos = 0; (pos = haystack.indexOf(needle, pos)) !== -1; ) {
+  for (let pos = 0; (pos = haystack.indexOf(needle, pos)) !== -1;) {
     pos += needle.length - 1;
     haystack[pos] = (haystack[pos] + 1) & 0xff;
   }
