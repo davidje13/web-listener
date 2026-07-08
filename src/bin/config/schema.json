@@ -186,7 +186,7 @@
         "type": { "const": "delegate" },
         "path": { "type": "string", "default": "/" },
         "config": { "$ref": "#/$defs/server-ref" },
-        "maskSubpath": { "type": "boolean", "default": false }
+        "maskSubpaths": { "type": "boolean", "default": false }
       }
     },
     "mount-headers": {
@@ -444,7 +444,7 @@
         },
         "import": { "type": "string", "format": "uri-reference" },
         "namedExport": { "anyOf": [{ "type": "string" }, { "type": "null" }], "default": null },
-        "maskSubpath": { "type": "boolean", "default": false }
+        "maskSubpaths": { "type": "boolean", "default": false }
       }
     },
     "headers": {
