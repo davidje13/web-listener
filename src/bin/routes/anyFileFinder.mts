@@ -32,7 +32,7 @@ export async function anyFileFinder(path: string, options: FileServerOptions): P
   }
   const adjustedOptions = options;
   if (!adjustedOptions.negotiator) {
-    adjustedOptions.negotiator = new Negotiator([negotiateEncoding(['deflate'])]);
+    adjustedOptions.negotiator = new Negotiator([negotiateEncoding(['gzip'])]);
   }
   return zipFileFinder(zipDir, adjustedOptions);
 }

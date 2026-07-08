@@ -4,7 +4,7 @@ import { buffer, text } from 'node:stream/consumers';
 import { pipeline } from 'node:stream/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { inflateRaw } from 'node:zlib';
+import { gunzip, inflateRaw } from 'node:zlib';
 import { readZip, type ZipFile } from './readZip.mts';
 import type { ReadOnlyFileHandle } from '../../util/ReadOnlyFileHandle.mts';
 
@@ -34,8 +34,8 @@ describe('readZip', () => {
     expect(stats.isFile()).isTrue();
     expect(stats.isDirectory()).isFalse();
     expect(stats.mode).equals(0o100444);
-    expect(stats.mtimeMs).equals(Date.parse('2026-06-27T13:53:36Z'));
-    expect(stats.mtime).equals(new Date('2026-06-27T13:53:36Z'));
+    expect(stats.mtime).equals(new Date('2026-06-27T14:53:36Z'));
+    expect(stats.mtimeMs).equals(Date.parse('2026-06-27T14:53:36Z'));
   });
 
   it('provides read streams for uncompressed content', async () => {
@@ -68,9 +68,9 @@ describe('readZip', () => {
     }
   });
 
-  it('provides virtual .deflate files for compressed content', async () => {
+  it('provides virtual .deflate-raw files for compressed content', async () => {
     const root = await readZip(join(testZipDir, 'test.zip'));
-    const f = root.find(['test1.txt.deflate']) as ZipFile;
+    const f = root.find(['test1.txt.deflate-raw']) as ZipFile;
     expect(f.stat().size).equals(67);
     expect(f.crc32).equals(0x1e4adf82);
     expect(f.virtual).isTrue();
@@ -79,6 +79,23 @@ describe('readZip', () => {
       const content = await buffer(handle.createReadStream());
       const inflated = await new Promise<Buffer>((resolve, reject) =>
         inflateRaw(content, (err, result) => (err ? reject(err) : resolve(result))),
+      );
+      expect(inflated.toString('utf-8')).equals(LONG_CONTENT);
+    } finally {
+      await handle.close();
+    }
+  });
+
+  it('provides virtual .gz files for compressed content', async () => {
+    const root = await readZip(join(testZipDir, 'test.zip'));
+    const f = root.find(['test1.txt.gz']) as ZipFile;
+    expect(f.stat().size).equals(85);
+    expect(f.virtual).isTrue();
+    const handle = await f.open();
+    try {
+      const content = await buffer(handle.createReadStream());
+      const inflated = await new Promise<Buffer>((resolve, reject) =>
+        gunzip(content, (err, result) => (err ? reject(err) : resolve(result))),
       );
       expect(inflated.toString('utf-8')).equals(LONG_CONTENT);
     } finally {

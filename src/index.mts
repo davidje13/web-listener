@@ -7,7 +7,7 @@ export { findCause } from './util/findCause.mts';
 export { getAddressURL } from './util/getAddressURL.mts';
 export type { AnyHeaders } from './util/normaliseHeaders.mts';
 export { Queue } from './util/Queue.mts';
-export type { CloseableReadable, ReadOnlyFileHandle } from './util/ReadOnlyFileHandle.mts';
+export type { ReadOnlyFileHandle } from './util/ReadOnlyFileHandle.mts';
 export { stringPredicate } from './util/regexpFlags.mts';
 export { SharedFileHandle } from './util/SharedFileHandle.mts';
 

@@ -29,13 +29,13 @@ describe('zipFileFinder', () => {
 
   fileFinderTestSuite(initialise, (ctx) => ctx.getTyped(TEST_DIR));
 
-  it('makes deflated versions of files available for negotiation automatically', async (ctx) => {
+  it('makes non-standard deflated versions of files available for negotiation automatically', async (ctx) => {
     const fileFinder = await initialise(
       ctx,
       { 'long.txt': 'Long'.repeat(100), 'short.txt': 'Short' },
       {
         negotiator: new Negotiator([
-          { feature: 'encoding', options: [{ value: 'deflate', file: '{file}.deflate' }] },
+          { feature: 'encoding', options: [{ value: 'deflate', file: '{file}.deflate-raw' }] },
         ]),
       },
     );
@@ -48,7 +48,7 @@ describe('zipFileFinder', () => {
       expect(withDeflate!.headers['content-encoding']).equals('deflate');
       expect(withDeflate!.headers['vary']).equals('accept-encoding');
       expect(withDeflate!.canonicalFilename).equals('long.txt');
-      expect(withDeflate!.filesystemPath).endsWith(sep + 'long.txt.deflate');
+      expect(withDeflate!.filesystemPath).endsWith(sep + 'long.txt.deflate-raw');
       expect(withDeflate!.stats.size).isLessThan(400);
     } finally {
       withDeflate?.handle.close();
@@ -82,7 +82,68 @@ describe('zipFileFinder', () => {
       noDeflate?.handle.close();
     }
 
-    const directAccess = await fileFinder.find(['long.txt.deflate']);
+    const directAccess = await fileFinder.find(['long.txt.deflate-raw']);
+    try {
+      expect(directAccess).isNull();
+    } finally {
+      directAccess?.handle.close();
+    }
+  });
+
+  it('makes gzip versions of files available for negotiation automatically', async (ctx) => {
+    const fileFinder = await initialise(
+      ctx,
+      { 'long.txt': 'Long'.repeat(100), 'short.txt': 'Short' },
+      {
+        negotiator: new Negotiator([
+          { feature: 'encoding', options: [{ value: 'gzip', file: '{file}.gz' }] },
+        ]),
+      },
+    );
+
+    const withGzip = await fileFinder.find(['long.txt'], { 'accept-encoding': 'gzip;q=0.5' });
+    expect(withGzip).isTruthy();
+    try {
+      expect(withGzip!.headers['content-type']).isUndefined();
+      expect(withGzip!.headers['content-language']).isUndefined();
+      expect(withGzip!.headers['content-encoding']).equals('gzip');
+      expect(withGzip!.headers['vary']).equals('accept-encoding');
+      expect(withGzip!.canonicalFilename).equals('long.txt');
+      expect(withGzip!.filesystemPath).endsWith(sep + 'long.txt.gz');
+      expect(withGzip!.stats.size).isLessThan(400);
+    } finally {
+      withGzip?.handle.close();
+    }
+
+    const withoutGzip = await fileFinder.find(['long.txt'], {});
+    expect(withoutGzip).isTruthy();
+    try {
+      expect(withoutGzip!.headers['content-type']).isUndefined();
+      expect(withoutGzip!.headers['content-language']).isUndefined();
+      expect(withoutGzip!.headers['content-encoding']).isUndefined();
+      expect(withoutGzip!.headers['vary']).equals('accept-encoding');
+      expect(withoutGzip!.canonicalFilename).equals('long.txt');
+      expect(withoutGzip!.filesystemPath).endsWith(sep + 'long.txt');
+      expect(withoutGzip!.stats.size).equals(400);
+    } finally {
+      withoutGzip?.handle.close();
+    }
+
+    const noGzip = await fileFinder.find(['short.txt'], { 'accept-encoding': 'gzip;q=0.5' });
+    expect(noGzip).isTruthy();
+    try {
+      expect(noGzip!.headers['content-type']).isUndefined();
+      expect(noGzip!.headers['content-language']).isUndefined();
+      expect(noGzip!.headers['content-encoding']).isUndefined();
+      expect(noGzip!.headers['vary']).equals('accept-encoding');
+      expect(noGzip!.canonicalFilename).equals('short.txt');
+      expect(noGzip!.filesystemPath).endsWith(sep + 'short.txt');
+      expect(noGzip!.stats.size).equals(5);
+    } finally {
+      noGzip?.handle.close();
+    }
+
+    const directAccess = await fileFinder.find(['long.txt.gz']);
     try {
       expect(directAccess).isNull();
     } finally {

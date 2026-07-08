@@ -127,10 +127,7 @@ async function getSlicer(
       const slicer = new StreamSlicer(stream);
       return {
         _get: (start, end) => slicer.getRange(start, end),
-        _end: async () => {
-          await slicer.close();
-          stream.close();
-        },
+        _end: () => slicer.close(),
       };
     }
     return { _get: (start, end) => createSafeReadStream(file, { start, end, autoClose: false }) };

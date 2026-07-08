@@ -11,9 +11,9 @@ import {
 } from '../compress/encoders.mts';
 import { internalAddVary, internalSetContentEncoding } from './setHeaders.mts';
 
-const ENCODINGS = ['zstd', 'br', 'gzip', 'deflate'] as const;
+const ENCODINGS = ['zstd', 'br', 'gzip'] as const;
 const DYNAMIC_NEGOTIATOR = /*@__PURE__*/ new Negotiator([
-  /*@__PURE__*/ negotiateEncoding(ENCODINGS),
+  /*@__PURE__*/ negotiateEncoding(['zstd', 'br', 'gzip', 'deflate']),
 ]);
 
 export interface EncoderOptions {

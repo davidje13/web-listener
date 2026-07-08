@@ -302,35 +302,35 @@ describe('assetServer with zipFileFinder', () => {
     });
   });
 
-  it('serves deflate encoded files directly from the zip', { timeout: 3000 }, async () => {
+  it('serves gzip encoded files directly from the zip', { timeout: 3000 }, async () => {
     const handler = assetServer(
       zipFileFinder(await readZip(testZip), {
-        negotiator: new Negotiator([negotiateEncoding(['deflate', 'gzip'])]),
+        negotiator: new Negotiator([negotiateEncoding(['zstd', 'gzip'])]),
       }),
     );
 
     return withServer(handler, async (url) => {
-      const res = await fetch(url + '/file.txt', { headers: { 'accept-encoding': 'deflate' } });
+      const res = await fetch(url + '/file.txt', { headers: { 'accept-encoding': 'gzip' } });
       expect(res.status).equals(200);
       expect(res.headers.get('content-type')).equals('text/plain; charset=utf-8');
-      expect(res.headers.get('content-encoding')).equals('deflate');
+      expect(res.headers.get('content-encoding')).equals('gzip');
       expect(res.headers.get('etag')!).startsWith('W/\"');
       expect(res.headers.get('last-modified')).equals('Wed, 01 Jul 2026 10:20:46 GMT');
       expect(await res.text()).equals('Zipped Content CompressedCompressedCompressed');
     });
   });
 
-  it('serves gzip encoded files from the zip', { timeout: 3000 }, async () => {
+  it('serves brotli encoded files from the zip', { timeout: 3000 }, async () => {
     const handler = assetServer(
       zipFileFinder(await readZip(testZip), {
-        negotiator: new Negotiator([negotiateEncoding(['deflate', 'gzip'])]),
+        negotiator: new Negotiator([negotiateEncoding(['br'])]),
       }),
     );
 
     return withServer(handler, async (url) => {
-      const res = await rawRequest(url + '/file.txt', { headers: { 'accept-encoding': 'gzip' } });
-      expect(res).contains('Gzip Content');
-      expect(res).contains('content-encoding: gzip');
+      const res = await rawRequest(url + '/file.txt', { headers: { 'accept-encoding': 'br' } });
+      expect(res).contains('Brotli Content');
+      expect(res).contains('content-encoding: br');
       expect(res).contains('vary: accept-encoding');
     });
   });

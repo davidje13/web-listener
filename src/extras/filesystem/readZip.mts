@@ -1,11 +1,11 @@
-import { constants } from 'node:fs/promises';
+import { constants, type CreateReadStreamOptions } from 'node:fs/promises';
 import type { BigIntStats, StatOptions, Stats, StatsBase } from 'node:fs';
 import { join } from 'node:path';
 import { createInflateRaw } from 'node:zlib';
-import { Readable } from 'node:stream';
 import { SharedFileHandle } from '../../util/SharedFileHandle.mts';
-import type { CloseableReadable, ReadOnlyFileHandle } from '../../util/ReadOnlyFileHandle.mts';
+import type { ReadOnlyFileHandle } from '../../util/ReadOnlyFileHandle.mts';
 import { createSafeReadStream } from '../../util/createSafeReadStream.mts';
+import { joinStreams } from '../../util/joinStreams.mts';
 
 class ZipError extends Error {
   constructor(path: string, message: string) {
@@ -177,9 +177,17 @@ export async function readZip(source: string): Promise<ZipDirectory> {
 
       if (compression === 8) {
         root._append(new ZipFile(sharedHandle, path, details, true, false));
-        const deflatePath = [...path];
-        deflatePath[deflatePath.length - 1] += '.deflate';
-        root._append(new ZipFile(sharedHandle, deflatePath, details, false, true));
+        const deflateRawPath = [...path];
+        deflateRawPath[deflateRawPath.length - 1] += '.deflate-raw';
+        root._append(new ZipFile(sharedHandle, deflateRawPath, details, false, true));
+        const gzipPath = [...path];
+        gzipPath[gzipPath.length - 1] += '.gz';
+        const gzipSuffix = Buffer.alloc(8);
+        gzipSuffix.writeUint32LE(crc32, 0); // zip and gzip use same CRC32
+        gzipSuffix.writeUint32LE(uncompressedSize >>> 0, 4);
+        root._append(
+          new ZipFile(sharedHandle, gzipPath, details, false, true, [GZIP_HEADER, gzipSuffix]),
+        );
       } else {
         root._append(new ZipFile(sharedHandle, path, details, false, false));
       }
@@ -286,7 +294,7 @@ class ZipFile {
   /** @internal */ declare readonly _path: ReadonlyArray<string>;
   /** @internal */ declare private readonly _details: ZipFileDetails;
   /** @internal */ declare private readonly _inflate: boolean;
-  /** @internal */ declare private readonly _stats: Stats & BigIntStats;
+  /** @internal */ declare private readonly _wrapper: [Buffer, Buffer] | undefined;
   declare public readonly virtual: boolean;
 
   /** @internal */ constructor(
@@ -295,12 +303,14 @@ class ZipFile {
     details: ZipFileDetails,
     inflate: boolean,
     virtual: boolean,
+    wrapper?: [Buffer, Buffer],
   ) {
     this._path = path;
     this._source = source;
     this._details = details;
     this._inflate = inflate;
     this.virtual = virtual;
+    this._wrapper = wrapper;
   }
 
   get isDirectory(): false {
@@ -324,6 +334,13 @@ class ZipFile {
     return this._details._crc32;
   }
 
+  /** @internal */ private _seekableSize() {
+    return (
+      this._details._compressedSize +
+      (this._wrapper ? this._wrapper[0].byteLength + this._wrapper[1].byteLength : 0)
+    );
+  }
+
   stat(opts?: (StatOptions & { bigint?: false | undefined }) | undefined): Stats;
   stat(opts: StatOptions & { bigint: true }): BigIntStats;
   stat(opts?: StatOptions | undefined): Stats | BigIntStats;
@@ -333,7 +350,7 @@ class ZipFile {
     const data: Record<string | symbol, unknown> & Partial<StatsBase<number | bigint>> = {
       isFile: () => true,
       mode: map(0o100444),
-      size: map(this._inflate ? this._details._uncompressedSize : this._details._compressedSize),
+      size: map(this._inflate ? this._details._uncompressedSize : this._seekableSize()),
       mtimeMs: map(this._details._modified),
       mtime: new Date(this._details._modified),
     };
@@ -354,21 +371,18 @@ class ZipFile {
   }
 
   async open(): Promise<ReadOnlyFileHandle> {
-    const compressedSize = this._details._compressedSize;
+    const seekableSize = this._seekableSize();
     const stat = (options?: StatOptions | undefined): Promise<Stats & BigIntStats> =>
       Promise.resolve(this.stat(options) as Stats & BigIntStats);
 
-    if (!compressedSize) {
+    if (!seekableSize) {
       return {
         noRandomAccess: this._inflate,
-        createReadStream: ({ encoding, start = 0, end, ...options } = {}) => {
+        createReadStream: ({ start = 0, end, ...options } = {}) => {
           if (start !== 0) {
             throw new RangeError(`invalid byte range ${start}-${end}`);
           }
-          return Object.assign(
-            Readable.from([], { ...options, encoding: encoding ?? undefined, objectMode: false }),
-            { close: () => {} },
-          );
+          return joinStreams({ ...options, encoding: options.encoding ?? undefined });
         },
         stat,
         close: () => Promise.resolve(),
@@ -377,36 +391,52 @@ class ZipFile {
     }
 
     const handle = await this._source.open();
+    const l = this._details._compressedSize;
+
+    const openFileStream = (
+      start: number,
+      end: number,
+      options: Omit<CreateReadStreamOptions, 'start' | 'end'>,
+    ) =>
+      createSafeReadStream(handle, {
+        ...options,
+        start: this._details._dataOffset + Math.max(start, 0),
+        end: this._details._dataOffset + Math.min(end, l - 1),
+      });
+
     return {
       noRandomAccess: this._inflate,
-      createReadStream: ({
-        encoding,
-        start = 0,
-        end = compressedSize - 1,
-        highWaterMark,
-        ...options
-      } = {}) => {
+      createReadStream: ({ start = 0, end = seekableSize - 1, ...options } = {}) => {
         if (this._inflate) {
           if (start !== 0) {
             throw new RangeError('start offset must be 0 for compressed files');
           }
-          end = compressedSize - 1;
-        } else if (start < 0 || end < start || end >= compressedSize) {
+          const s = openFileStream(0, seekableSize - 1, {
+            ...options,
+            highWaterMark: undefined,
+            encoding: undefined,
+          }).compose(createInflateRaw({ chunkSize: options.highWaterMark }));
+          if (options.encoding) {
+            s.setEncoding(options.encoding);
+          }
+          return s;
+        }
+        if (start < 0 || end < start || end >= seekableSize) {
           throw new RangeError(`invalid byte range ${start}-${end}`);
         }
-        let s: CloseableReadable = createSafeReadStream(handle, {
-          start: this._details._dataOffset + start,
-          end: this._details._dataOffset + end,
-          highWaterMark: this._inflate ? undefined : highWaterMark,
-          ...options,
-        });
-        if (this._inflate) {
-          s = s.compose(createInflateRaw({ chunkSize: highWaterMark }));
-        }
-        if (encoding) {
-          s.setEncoding(encoding);
-        }
-        return s;
+        const w = this._wrapper;
+        const dataBegin = w ? w[0].byteLength : 0;
+        const suffixBegin = dataBegin + l;
+        return joinStreams(
+          { ...options, encoding: options.encoding ?? undefined },
+          w && start < dataBegin ? w[0].subarray(start, end + 1) : null,
+          start < suffixBegin && end >= dataBegin && l
+            ? () => openFileStream(start - dataBegin, end - dataBegin, options)
+            : null,
+          w && end >= suffixBegin
+            ? w[1].subarray(Math.max(start - suffixBegin, 0), end + 1 - suffixBegin)
+            : null,
+        );
       },
       stat,
       close: handle.close,
@@ -420,6 +450,8 @@ export type ZipNode = ZipDirectory | ZipFile;
 
 const CP437 =
   '\x00\u263A\u263B\u2665\u2666\u2663\u2660\u2022\u25D8\u25CB\u25D9\u2642\u2640\u266A\u266B\u263C\u25BA\u25C4\u2195\u203C\xB6\xA7\u25AC\u21A8\u2191\u2193\u2192\u2190\u221F\u2194\u25B2\u25BC !"#$%&\'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\u2302\xC7\xFC\xE9\xE2\xE4\xE0\xE5\xE7\xEA\xEB\xE8\xEF\xEE\xEC\xC4\xC5\xC9\xE6\xC6\xF4\xF6\xF2\xFB\xF9\xFF\xD6\xDC\xA2\xA3\xA5\u20A7\u0192\xE1\xED\xF3\xFA\xF1\xD1\xAA\xBA\xBF\u2310\xAC\xBD\xBC\xA1\xAB\xBB\u2591\u2592\u2593\u2502\u2524\u2561\u2562\u2556\u2555\u2563\u2551\u2557\u255D\u255C\u255B\u2510\u2514\u2534\u252C\u251C\u2500\u253C\u255E\u255F\u255A\u2554\u2569\u2566\u2560\u2550\u256C\u2567\u2568\u2564\u2565\u2559\u2558\u2552\u2553\u256B\u256A\u2518\u250C\u2588\u2584\u258C\u2590\u2580\u03B1\xDF\u0393\u03C0\u03A3\u03C3\xB5\u03C4\u03A6\u0398\u03A9\u03B4\u221E\u03C6\u03B5\u2229\u2261\xB1\u2265\u2264\u2320\u2321\xF7\u2248\xB0\u2219\xB7\u221A\u207F\xB2\u25A0\xA0';
+
+const GZIP_HEADER = /*@__PURE__*/ Buffer.from([0x1f, 0x8b, 0x08, 0x00, 0, 0, 0, 0, 0x00, 0xff]);
 
 const readDOSTimeDate = (time: number, date: number) =>
   Date.UTC(

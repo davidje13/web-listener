@@ -1,5 +1,5 @@
 import { tmpdir } from 'node:os';
-import { deflateRawSync } from 'node:zlib';
+import { crc32, deflateRawSync } from 'node:zlib';
 import { constants, mkdir, mkdtemp, open, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { Queue } from '../util/Queue.mts';
@@ -43,12 +43,13 @@ export async function makeFileStructure(dir: string, structure: FilesDefinition)
 
 export async function writeTestZip(path: string, structure: FilesDefinition) {
   // this writes enough data for readZip to understand the contents
-  // in particular, it does not write the modification time, permission flags, or crc32
+  // in particular, it does not write the modification time or permission flags
 
   const cdItems: {
     filename: Buffer;
     pos: number;
     compression: number;
+    crc: number;
     compressedSize: number;
     uncompressedSize: number;
   }[] = [];
@@ -63,11 +64,13 @@ export async function writeTestZip(path: string, structure: FilesDefinition) {
         const itemPath = [...path, name];
         let compressed = VOID_BUFFER;
         let uncompressedSize = 0;
+        let crc = 0;
         let compression = 0;
         let filename: Buffer;
         if (typeof content === 'string') {
           filename = Buffer.from(itemPath.join('/'), 'utf-8');
           const uncompressed = Buffer.from(content, 'utf-8');
+          crc = crc32(uncompressed);
           uncompressedSize = uncompressed.byteLength;
           if (uncompressedSize < 20) {
             compressed = uncompressed;
@@ -83,6 +86,7 @@ export async function writeTestZip(path: string, structure: FilesDefinition) {
           filename,
           pos,
           compression,
+          crc,
           compressedSize: compressed.byteLength,
           uncompressedSize,
         });
@@ -91,6 +95,7 @@ export async function writeTestZip(path: string, structure: FilesDefinition) {
         localFileHeader.writeUint16LE(20, 4);
         localFileHeader[6] = 0x40;
         localFileHeader.writeUint16LE(compression, 8);
+        localFileHeader.writeUint32LE(crc, 14);
         localFileHeader.writeUint32LE(compressed.byteLength, 18);
         localFileHeader.writeUint32LE(uncompressedSize, 22);
         localFileHeader.writeUint16LE(filename.byteLength, 26);
@@ -108,6 +113,7 @@ export async function writeTestZip(path: string, structure: FilesDefinition) {
       cdFileHeader.writeUint16LE(20, 6);
       cdFileHeader[8] = 0x40;
       cdFileHeader.writeUint16LE(item.compression, 10);
+      cdFileHeader.writeUint32LE(item.crc, 16);
       cdFileHeader.writeUint32LE(item.compressedSize, 20);
       cdFileHeader.writeUint32LE(item.uncompressedSize, 24);
       cdFileHeader.writeUint16LE(item.filename.byteLength, 28);

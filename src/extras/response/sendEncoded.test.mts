@@ -28,7 +28,7 @@ describe('sendEncoded', () => {
   it('applies compression if requested', { timeout: 3000 }, () => {
     const handler = requestHandler(async (req, res) => {
       const contentStream = Readable.from([Buffer.from('content', 'utf-8')]);
-      await sendEncoded(req, res, contentStream);
+      await sendEncoded(req, res, contentStream, { encodings: ['zstd', 'br', 'gzip', 'deflate'] });
     });
 
     return withServer(handler, async (url) => {
