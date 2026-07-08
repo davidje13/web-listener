@@ -18,29 +18,12 @@ export async function staticFileFinder(
   const rules = new FileFinderRules(options);
   const precomputed = new StaticFileFinder(rules, internalTryReturn);
 
-  const queue = new Queue<string[]>([]);
-  for (const path of queue) {
-    const dirEntries = await readdir(join(root, ...path), {
-      withFileTypes: true,
-      encoding: 'utf-8',
-    });
-    const siblings = new Map(
-      dirEntries.map((v) => [rules._normalise(v.name), join(root, ...path, v.name)]),
-    );
-    for (const file of dirEntries) {
-      if (rules._checkPermitted(file.name)) {
-        if (file.isDirectory()) {
-          const dirPath = [...path, file.name];
-          precomputed._addDir(dirPath);
-          if (path.length < rules._subDirectories) {
-            queue.push(dirPath);
-          }
-        } else if (file.isFile()) {
-          precomputed._addFile(path, file.name, join(root, ...path, file.name), siblings);
-        }
-      }
-    }
-  }
+  await internalDiscoverFiles(
+    root,
+    rules,
+    (path, name, siblings) => precomputed._addFile(path, name, join(root, ...path, name), siblings),
+    (path) => precomputed._addDir(path),
+  );
   return precomputed;
 }
 
@@ -139,6 +122,37 @@ export class StaticFileFinder<T> implements FileFinder {
 
   staticPaths() {
     return new Set([...this._lookup].filter(([_, v]) => v.basename).map(([k]) => k));
+  }
+}
+
+export async function internalDiscoverFiles(
+  root: string,
+  rules: FileFinderRules,
+  fileCallback: (path: string[], name: string, siblings: Map<string, string>) => void,
+  dirCallback?: (path: string[]) => void,
+) {
+  const queue = new Queue<string[]>([]);
+  for (const path of queue) {
+    const dirEntries = await readdir(join(root, ...path), {
+      withFileTypes: true,
+      encoding: 'utf-8',
+    });
+    const siblings = new Map(
+      dirEntries.map((v) => [rules._normalise(v.name), join(root, ...path, v.name)]),
+    );
+    for (const file of dirEntries) {
+      if (rules._checkPermitted(file.name)) {
+        if (file.isDirectory()) {
+          const dirPath = [...path, file.name];
+          dirCallback?.(dirPath);
+          if (path.length < rules._subDirectories) {
+            queue.push(dirPath);
+          }
+        } else if (file.isFile()) {
+          fileCallback(path, file.name, siblings);
+        }
+      }
+    }
   }
 }
 

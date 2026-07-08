@@ -1,9 +1,10 @@
 import { basename, dirname, extname, join } from 'node:path';
-import { readdir, readFile, writeFile, rm, utimes, stat } from 'node:fs/promises';
-import { Queue } from '../../util/Queue.mts';
+import { readFile, writeFile, rm, utimes, stat } from 'node:fs/promises';
 import { internalMutateName, type FileNegotiationOption } from '../request/Negotiator.mts';
 import { getMime } from '../registries/mime.mts';
 import { internalCompressBuffer, type ContentEncoding } from './encoders.mts';
+import { FileFinderRules, type FileFinderOptions } from '../filesystem/FileFinder.mts';
+import { internalDiscoverFiles } from '../filesystem/staticFileFinder.mts';
 
 export interface CompressionInfo {
   /** the path to the file */
@@ -109,19 +110,15 @@ export async function compressFileOffline(
 export async function compressFilesInDir(
   dir: string,
   encodings: ReadonlyArray<FileNegotiationOption>,
-  options: CompressionOptions = {},
+  options: CompressionOptions &
+    Pick<
+      FileFinderOptions,
+      'subDirectories' | 'allowAllDotfiles' | 'allowAllTildefiles' | 'hide' | 'allow'
+    > = {},
 ): Promise<CompressionInfo[]> {
+  const rules = new FileFinderRules(options);
   const files = new Set<string>();
-  const pathsQueue = new Queue(dir);
-  for (const base of pathsQueue) {
-    for (const f of await readdir(base, { withFileTypes: true, encoding: 'utf-8' })) {
-      if (f.isDirectory()) {
-        pathsQueue.push(join(base, f.name));
-      } else if (f.isFile()) {
-        files.add(join(base, f.name));
-      }
-    }
-  }
+  await internalDiscoverFiles(dir, rules, (path, name) => files.add(join(dir, ...path, name)));
 
   // remove existing compressed files from the set
   for (const file of files) {

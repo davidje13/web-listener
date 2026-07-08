@@ -20,6 +20,7 @@ export async function runCompression(servers: ConfigServer[], minCompression: nu
         });
         const filenameFilter = stringPredicate(config.match, true);
         const processed = await compressFilesInDir(mount.dir, config.options, {
+          ...mount.options,
           minCompression,
           filter: (file, mime) => {
             if (['image', 'video', 'audio', 'font'].includes(mime.split('/')[0]!)) {

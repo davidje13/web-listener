@@ -113,11 +113,15 @@ describe('compressFilesInDir', () => {
   const TEST_DIR = makeTestTempDir('compress-', {
     'compressible.txt': '.'.repeat(1000),
     'incompressible.txt': 'too small',
+    'skipped.txt': '.'.repeat(1000),
     'poor-compression.txt': '.'.repeat(310),
     'already-compressed.txt': 'original',
     'already-compressed.txt.gz': 'compressed',
     'image.png': '.'.repeat(1000), // not compressed even though it could be
     nested: {
+      'deep.txt': '.'.repeat(1000),
+    },
+    '.nope': {
       'deep.txt': '.'.repeat(1000),
     },
   });
@@ -126,6 +130,7 @@ describe('compressFilesInDir', () => {
     const dir = getTyped(TEST_DIR);
     const stats = await compressFilesInDir(dir, [{ value: 'gzip', file: '{file}.gz' }], {
       minCompression: 300,
+      hide: ['skipped.txt'],
     });
     expect(stats).hasLength(6);
 
@@ -155,7 +160,11 @@ describe('compressFilesInDir', () => {
     expect(stats5?.created).equals(1);
     expect(stats5!.bestSize).isLessThan(stats5!.rawSize);
 
+    expect(findStat(join('skipped.txt'))).isUndefined();
+    expect(findStat(join('.nope', 'deep.txt'))).isUndefined();
+
     expect((await readdir(dir)).sort()).equals([
+      '.nope',
       'already-compressed.txt',
       'already-compressed.txt.gz',
       'compressible.txt',
@@ -164,6 +173,7 @@ describe('compressFilesInDir', () => {
       'incompressible.txt',
       'nested',
       'poor-compression.txt',
+      'skipped.txt',
     ]);
     expect((await readdir(join(dir, 'nested'))).sort()).equals(['deep.txt', 'deep.txt.gz']);
   });

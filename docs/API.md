@@ -558,6 +558,20 @@ _not_ be compressed, as they are assumed to already be compressed as part of the
   - `filter` [`<Function>`] a function which decides which files to attempt to compress. Called with
     the full file path [`<string>`] and mime type [`<string>`], returns [`<boolean>`]. **Default:**
     a function which rejects known image, video, audio, and font mime types.
+  - `subDirectories` [`<boolean>`] | [`<number>`] `true` to compress files in all sub-directories
+    recursively, `false` to only compress files directly inside the base directory. If this is set
+    to a number, it is the depth of sub-directories which can be traversed (`0` is equivalent to
+    `false`). **Default:** `true`.
+  - `allowAllDotfiles` [`<boolean>`] `true` to compress all dotfiles and traverse into directories
+    which begin with a dot. This is not typically desired, as these filenames usually denote hidden
+    or private files. **Default:** `false`.
+  - `allowAllTildefiles` [`<boolean>`] `true` to compress all files beginning with a tilde. This is
+    not typically desired, as these filenames usually denote temporary files created by editors.
+    **Default:** `false`.
+  - `allow` [`<string[]>`][`<string>`] list of files and directories to explicitly allow compression
+    of (which may otherwise be blocked by another rule). **Default:** `['.well-known']`.
+  - `hide` [`<string[]>`][`<string>`] | [`<RegExp[]>`][`<RegExp>`] list of files and directories to
+    avoid compressing. **Default:** `[]`.
 - Returns: [`<Promise>`] Fulfills with [`<Object[]>`][`<Object>`] containing information about the
   compression once all files have been processed.
 
