@@ -37,8 +37,9 @@ when running on case-insensitive filesystems).
 ## Sensitive Data Leakage
 
 [`FileFinder`](./API.md#filefinder) and [`fileServer`](./API.md#fileserverbasedir-options) block
-access to "dotfiles" and "tildefiles" by default (except `.well-known`), preventing access to the
-majority of sensitive files and folders if they are accidentally left in a served folder. This
+access to "dotfiles" (files and directories starting with a dot) and "tildefiles" (files and
+directories starting or ending with a tilde) by default (except `.well-known`), preventing access to
+the majority of sensitive files and folders if they are accidentally left in a served folder. This
 should not be relied on, as it will not prevent access to sensitive files which do not match these
 common patterns, but serves as a rudamentary safety net to protect against common mistakes.
 

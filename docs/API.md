@@ -565,9 +565,9 @@ _not_ be compressed, as they are assumed to already be compressed as part of the
   - `allowAllDotfiles` [`<boolean>`] `true` to compress all dotfiles and traverse into directories
     which begin with a dot. This is not typically desired, as these filenames usually denote hidden
     or private files. **Default:** `false`.
-  - `allowAllTildefiles` [`<boolean>`] `true` to compress all files beginning with a tilde. This is
-    not typically desired, as these filenames usually denote temporary files created by editors.
-    **Default:** `false`.
+  - `allowAllTildefiles` [`<boolean>`] `true` to compress all files beginning or ending with a
+    tilde. This is not typically desired, as these filenames usually denote temporary files created
+    by editors. **Default:** `false`.
   - `allow` [`<string[]>`][`<string>`] list of files and directories to explicitly allow compression
     of (which may otherwise be blocked by another rule). **Default:** `['.well-known']`.
   - `hide` [`<string[]>`][`<string>`] | [`<RegExp[]>`][`<RegExp>`] list of files and directories to
@@ -702,9 +702,16 @@ completely.
     number, it is the depth of sub-directories which can be traversed (`0` is equivalent to
     `false`). **Default:** `true`.
   - `caseSensitive` `'exact'` | `'filesystem'` | `'force-lowercase'`. **Default:** `'exact'`.
-  - `allowAllDotfiles` [`<boolean>`] **Default:** `false`.
-  - `allowAllTildefiles` [`<boolean>`] **Default:** `false`.
-  - `allowDirectIndexAccess` [`<boolean>`] **Default:** `false`.
+  - `allowAllDotfiles` [`<boolean>`] allow access to files and folders which begin with a dot (`.`).
+    By default, access to these files is blocked as they are typically "hidden" files which may
+    contain sensitive data. To allow access to individual dotfiles, use `allow` (which defaults to
+    allowing access to `.well-known`) instead of setting `allowAllDotfiles`. **Default:** `false`.
+  - `allowAllTildefiles` [`<boolean>`] allow access to files and folders which begin or end with a
+    tilde (`~`). By default, access to these files is blocked as they are typically "temporary"
+    files created by editors, which are not intended to be served. To allow access to individual
+    tildefiles, use `allow` instead of setting `allowAllTildefiles`. **Default:** `false`.
+  - `allowDirectIndexAccess` [`<boolean>`] allow users to request index files by their full path
+    (e.g. `/folder/index.html`) as well as by their folder (e.g. `/folder/`). **Default:** `false`.
   - `allow` [`<string[]>`][`<string>`] list of files and directories to explicitly allow access to
     (which may otherwise be blocked by another rule). **Default:** `['.well-known']`.
   - `hide` [`<string[]>`][`<string>`] | [`<RegExp[]>`][`<RegExp>`] list of files and directories to
@@ -3581,9 +3588,16 @@ Example usage: [Serving static content]
     number, it is the depth of sub-directories which can be traversed (`0` is equivalent to
     `false`). **Default:** `true`.
   - `caseSensitive` `'exact'` | `'force-lowercase'`. **Default:** `'exact'`.
-  - `allowAllDotfiles` [`<boolean>`] **Default:** `false`.
-  - `allowAllTildefiles` [`<boolean>`] **Default:** `false`.
-  - `allowDirectIndexAccess` [`<boolean>`] **Default:** `false`.
+  - `allowAllDotfiles` [`<boolean>`] allow access to files and folders which begin with a dot (`.`).
+    By default, access to these files is blocked as they are typically "hidden" files which may
+    contain sensitive data. To allow access to individual dotfiles, use `allow` (which defaults to
+    allowing access to `.well-known`) instead of setting `allowAllDotfiles`. **Default:** `false`.
+  - `allowAllTildefiles` [`<boolean>`] allow access to files and folders which begin or end with a
+    tilde (`~`). By default, access to these files is blocked as they are typically "temporary"
+    files created by editors, which are not intended to be served. To allow access to individual
+    tildefiles, use `allow` instead of setting `allowAllTildefiles`. **Default:** `false`.
+  - `allowDirectIndexAccess` [`<boolean>`] allow users to request index files by their full path
+    (e.g. `/folder/index.html`) as well as by their folder (e.g. `/folder/`). **Default:** `false`.
   - `allow` [`<string[]>`][`<string>`] list of files and directories to explicitly allow access to
     (which may otherwise be blocked by another rule). **Default:** `['.well-known']`.
   - `hide` [`<string[]>`][`<string>`] | [`<RegExp[]>`][`<RegExp>`] list of files and directories to
@@ -3958,9 +3972,16 @@ connection can be reused _without_ needing to consume the body if `willSendBody`
     number, it is the depth of sub-directories which can be traversed (`0` is equivalent to
     `false`). **Default:** `true`.
   - `caseSensitive` `'exact'` | `'force-lowercase'`. **Default:** `'exact'`.
-  - `allowAllDotfiles` [`<boolean>`] **Default:** `false`.
-  - `allowAllTildefiles` [`<boolean>`] **Default:** `false`.
-  - `allowDirectIndexAccess` [`<boolean>`] **Default:** `false`.
+  - `allowAllDotfiles` [`<boolean>`] allow access to files and folders which begin with a dot (`.`).
+    By default, access to these files is blocked as they are typically "hidden" files which may
+    contain sensitive data. To allow access to individual dotfiles, use `allow` (which defaults to
+    allowing access to `.well-known`) instead of setting `allowAllDotfiles`. **Default:** `false`.
+  - `allowAllTildefiles` [`<boolean>`] allow access to files and folders which begin or end with a
+    tilde (`~`). By default, access to these files is blocked as they are typically "temporary"
+    files created by editors, which are not intended to be served. To allow access to individual
+    tildefiles, use `allow` instead of setting `allowAllTildefiles`. **Default:** `false`.
+  - `allowDirectIndexAccess` [`<boolean>`] allow users to request index files by their full path
+    (e.g. `/folder/index.html`) as well as by their folder (e.g. `/folder/`). **Default:** `false`.
   - `allow` [`<string[]>`][`<string>`] list of files and directories to explicitly allow access to
     (which may otherwise be blocked by another rule). **Default:** `['.well-known']`.
   - `hide` [`<string[]>`][`<string>`] | [`<RegExp[]>`][`<RegExp>`] list of files and directories to

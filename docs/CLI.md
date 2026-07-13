@@ -34,9 +34,10 @@ npx web-listener . --port 8080
 ```
 
 Serves files from the current working directory (`.`) on port `8080`, bound to `localhost` (i.e.
-_not_ available remotely). Dotfiles and tilde-files are hidden by default (except `.well-known`),
-and the server is protected against directory traversal attacks. `index.htm` and `index.html` are
-automatically recognised as index files for directories.
+_not_ available remotely). Dotfiles (files and directories starting with a dot) and tilde-files
+(files and directories starting or ending with a tilde) are hidden by default (except
+`.well-known`), and the server is protected against directory traversal attacks. `index.htm` and
+`index.html` are automatically recognised as index files for directories.
 
 The server can be stopped by sending SIGINT (Ctrl+C in most terminals).
 
