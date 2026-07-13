@@ -391,6 +391,7 @@ describe('router', () => {
     router.patch('/', writeAndReturn('patched'));
     router.post('/', writeAndReturn('posted'));
     router.put('/', writeAndReturn('put'));
+    router.query('/', writeAndReturn('queried'));
 
     return withServer(router, async (url) => {
       await expect(fetch(url, { method: 'DELETE' }), responds({ body: 'deleted' }));
@@ -399,6 +400,7 @@ describe('router', () => {
       await expect(fetch(url, { method: 'PATCH' }), responds({ body: 'patched' }));
       await expect(fetch(url, { method: 'POST' }), responds({ body: 'posted' }));
       await expect(fetch(url, { method: 'PUT' }), responds({ body: 'put' }));
+      await expect(fetch(url, { method: 'QUERY' }), responds({ body: 'queried' }));
     });
   });
 

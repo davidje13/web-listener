@@ -2976,6 +2976,7 @@ For common methods, you can use the convenience shorthand functions:
 - [`router.patch`]
 - [`router.post`]
 - [`router.put`]
+- [`router.query`]
 
 The [`<http.IncomingMessage>`] (request) passed to the handlers will have a `url` with the matching
 path removed. You can retrieve or restore the full absolute path if needed with [`getAbsolutePath`]
@@ -3056,6 +3057,13 @@ Handle [`POST`] requests. Shorthand for
 
 Handle [`PUT`] requests. Shorthand for
 [`router.onRequest('PUT', path, ...handlers)`][`router.onRequest`].
+
+#### `router.query(path, ...handlers)`
+
+[`router.query`]: #routerquerypath-handlers
+
+Handle [`QUERY`] requests. Shorthand for
+[`router.onRequest('QUERY', path, ...handlers)`][`router.onRequest`].
 
 #### `router.use(...handlers)`
 
@@ -4821,6 +4829,7 @@ your upgrade handler (i.e. provide a `shouldUpgrade` function to [`upgradeHandle
 [`PATCH`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods/PATCH
 [`POST`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods/POST
 [`PUT`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods/PUT
+[`QUERY`]: https://www.rfc-editor.org/rfc/rfc10008.html
 [WebSocket]:
   https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Protocol_upgrade_mechanism#upgrading_to_a_websocket_connection
 [HTTP status code]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status

@@ -32,7 +32,7 @@ import {
 } from './handler.mts';
 
 export type CommonMethod =
-  'DELETE' | 'GET' | 'HEAD' | 'OPTIONS' | 'PATCH' | 'POST' | 'PUT' | 'TRACE';
+  'DELETE' | 'GET' | 'HEAD' | 'OPTIONS' | 'PATCH' | 'POST' | 'PUT' | 'QUERY' | 'TRACE';
 
 export type CommonUpgrade = 'http/2' | 'http/3' | 'https' | 'h2c' | 'websocket';
 
@@ -246,6 +246,8 @@ export class Router<Req = {}> implements Handler<Req> {
   post: MethodWrapper<Req, this> = (...args) => this.onRequest('POST', ...args);
   /** Alias for `onRequest('PUT', path, ...handlers)` */
   put: MethodWrapper<Req, this> = (...args) => this.onRequest('PUT', ...args);
+  /** Alias for `onRequest('QUERY', path, ...handlers)` */
+  query: MethodWrapper<Req, this> = (...args) => this.onRequest('QUERY', ...args);
 
   /** Alias for `onUpgrade('GET', 'websocket', path, ...handlers)` */
   ws: UpgradeWrapper<Req, this> = (...args) => this.onUpgrade('GET', 'websocket', ...args);
