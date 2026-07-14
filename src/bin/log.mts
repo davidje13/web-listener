@@ -18,7 +18,11 @@ export type Logger = (
   },
 ) => void;
 
-export const textLogger = (logTarget: Writable & { isTTY?: boolean }, level: LogLevel): Logger => {
+export const textLogger = (
+  logTarget: Writable & { isTTY?: boolean },
+  level: LogLevel,
+  logTime: boolean,
+): Logger => {
   const addColour: (id: string, message: string) => string =
     logTarget.isTTY && !process.env['NO_COLOR']
       ? (id, message) => (id ? `\x1b[${id}m${message}\x1b[0m` : message)
@@ -30,6 +34,9 @@ export const textLogger = (logTarget: Writable & { isTTY?: boolean }, level: Log
       return;
     }
     const out: string[] = [];
+    if (logTime) {
+      out.push(addColour('2', new Date().toISOString()));
+    }
     if (parts.service) {
       if (parts.serviceCol) {
         out.push(addColour(parts.serviceCol, parts.service));
@@ -76,13 +83,19 @@ export const textLogger = (logTarget: Writable & { isTTY?: boolean }, level: Log
   };
 };
 
-export const jsonLogger = (logTarget: Writable, level: LogLevel): Logger => {
+export const jsonLogger = (logTarget: Writable, level: LogLevel, logTime: boolean): Logger => {
   const logLevel = logLevels.indexOf(level);
   return (level, { serviceCol: _, message, ...parts }) => {
     if (level > logLevel) {
       return;
     }
-    logTarget.write(`${JSON.stringify({ ...parts, message: readBasicErrorMessage(message) })}\n`);
+    const entity: Record<string, string | number | undefined> = {};
+    if (logTime) {
+      entity['time'] = Date.now();
+    }
+    Object.assign(entity, parts);
+    entity['message'] = readBasicErrorMessage(message);
+    logTarget.write(`${JSON.stringify(entity)}\n`);
   };
 };
 

@@ -18,7 +18,7 @@ process.on('SIGUSR1', () => {
 });
 
 const logTarget = process.stderr;
-let log = textLogger(logTarget, 'progress');
+let log = textLogger(logTarget, 'progress', true);
 
 function handleError(error: unknown) {
   process.stdin.destroy();
@@ -62,9 +62,9 @@ async function run() {
     clearZipCache();
     const config = await loadConfig(parser, args);
     if (config.logFormat === 'json') {
-      log = jsonLogger(logTarget, config.log);
+      log = jsonLogger(logTarget, config.log, config.logTime);
     } else {
-      log = textLogger(logTarget, config.log);
+      log = textLogger(logTarget, config.log, config.logTime);
     }
     await loadMime(config.mime);
     if (config.writeCompressed) {

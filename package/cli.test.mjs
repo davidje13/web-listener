@@ -159,7 +159,7 @@ describe('cli', () => {
     teardown(() => rm(compressedPath).catch(() => {}));
     const output = await text(p.stderr);
     expect(output).matches(
-      /^compressing files in .* using gzip\n.*\n1 compressed file written\n$/s,
+      /^[\d+\-:.TZ]+ compressing files in .* using gzip\n.*\n[\d+\-:.TZ]+ 1 compressed file written\n$/s,
     );
     const stats = await stat(compressedPath);
     expect(stats.size).isGreaterThan(30);
@@ -243,7 +243,7 @@ describe('cli', () => {
       { env: { NO_COLOR: '1' } },
     );
     teardown(p.close);
-    if (!(await awaitLine(p.stderr, /circular reference/))) {
+    if (!(await awaitLine(p.stderr, 'circular reference'))) {
       fail('no error printed');
     }
     await p.closed;
@@ -315,7 +315,7 @@ async function awaitLine(readable, expected) {
   const lines = createInterface(readable);
   for await (const line of lines) {
     console.log(line);
-    if (typeof expected === 'string' ? line === expected : expected.test(line)) {
+    if (line.includes(expected)) {
       // pipe all remaining output to console in the background
       (async () => {
         for await (const line of lines) {

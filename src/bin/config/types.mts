@@ -153,6 +153,7 @@ export interface Config {
   noServe: boolean;
   log: LogLevel;
   logFormat: 'text' | 'json';
+  logTime: boolean;
 }
 
 export type ResolvedConfig = Omit<Config, 'servers'> & { servers: ConfigServer[] };

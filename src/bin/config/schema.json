@@ -42,6 +42,11 @@
       "title": "Set the logging format. \"text\" is the most human-readable, \"json\" prints each log message as a machine-readable JSON document (one per line).",
       "enum": ["text", "json"],
       "default": "text"
+    },
+    "logTime": {
+      "title": "Include a timestamp with each log message.",
+      "type": "boolean",
+      "default": true
     }
   },
 
