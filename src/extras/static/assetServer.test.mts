@@ -109,6 +109,13 @@ describe('assetServer', () => {
         expect(res2.status).equals(308);
         expect(res2.headers.get('location')).equals('./sub/');
 
+        const res2q = await fetch(url + '/sub?foo', { redirect: 'manual' });
+        expect(res2q.status).equals(308);
+        expect(res2q.headers.get('location')).equals('./sub/?foo');
+
+        // note: fragments are preserved on the client side, and we cannot see them on the server side
+        // (see https://www.rfc-editor.org/info/rfc7231/#section-7.1.2)
+
         const res3 = await fetch(url + '/sub/', { redirect: 'manual' });
         expect(res3.status).equals(200);
         expect(await res3.text()).equals('Sub Index');
@@ -136,6 +143,10 @@ describe('assetServer', () => {
         const res2 = await fetch(url + '/sub/', { redirect: 'manual' });
         expect(res2.status).equals(308);
         expect(res2.headers.get('location')).equals('../sub');
+
+        const res2q = await fetch(url + '/sub/?foo', { redirect: 'manual' });
+        expect(res2q.status).equals(308);
+        expect(res2q.headers.get('location')).equals('../sub?foo');
 
         const res3 = await fetch(url + '/sub', { redirect: 'manual' });
         expect(res3.status).equals(200);

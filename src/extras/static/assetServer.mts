@@ -2,6 +2,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { extname } from 'node:path';
 import { CONTINUE } from '../../core/RoutingInstruction.mts';
 import type { RequestHandler } from '../../core/handler.mts';
+import { getSearch } from '../../core/queryParameters.mts';
 import { HTTPError } from '../../core/HTTPError.mts';
 import type { MaybePromise } from '../../util/MaybePromise.mts';
 import { internalNormaliseHeaders, type AnyHeaders } from '../../util/normaliseHeaders.mts';
@@ -170,13 +171,14 @@ export const assetServer = (
           const requestIsDir = !path[path.length - 1];
           if (requestIsDir === (directories === 'no-slash')) {
             const dirName = path[path.length - (requestIsDir ? 2 : 1)]!;
+            const search = getSearch(req);
             if (dirName) {
               const encDirName = encodeURIComponent(dirName);
               res.setHeader(
                 'location',
                 requestIsDir
-                  ? `../${encDirName}` // remove slash
-                  : `./${encDirName}/`, // add slash
+                  ? `../${encDirName}${search}` // remove slash
+                  : `./${encDirName}/${search}`, // add slash
               );
               res.statusCode = 308;
               return res.end();
