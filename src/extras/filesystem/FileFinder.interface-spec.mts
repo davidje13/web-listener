@@ -48,7 +48,13 @@ export function fileFinderTestSuite(
     expect(await fileExists(fileFinder, ['three.txt'])).isFalse();
   });
 
-  it('serves index files if a directory is requested', async (ctx) => {
+  it('does not resolve files if they are requested with a trailing slash', async (ctx) => {
+    const fileFinder = await initialise(ctx, { 'one.txt': 'Content' });
+
+    expect(await fileExists(fileFinder, ['one.txt', ''])).isFalse();
+  });
+
+  it('serves index files if a directory is requested without a trailing slash', async (ctx) => {
     const fileFinder = await initialise(ctx, {
       sub1: {
         'index.htm': 'Index Content',
@@ -74,7 +80,21 @@ export function fileFinderTestSuite(
     expect(await fileExists(fileFinder, ['sub2'])).isFalse();
   });
 
-  it('serves the root index file if the root is requested', async (ctx) => {
+  it('serves index files if a directory is requested with a trailing slash', async (ctx) => {
+    const fileFinder = await initialise(ctx, { sub: { 'index.htm': 'Index Content' } });
+
+    const index = await fileFinder.find(['sub', '']);
+    expect(index).isTruthy();
+    try {
+      expect(index!.canonicalFilename).equals('index.htm');
+      expect(index!.filesystemPath).endsWith(sep + join('sub', 'index.htm'));
+      expect(index!.stats.size).equals(13);
+    } finally {
+      index?.handle.close();
+    }
+  });
+
+  it('serves the root index file if the root is requested without a trailing slash', async (ctx) => {
     const fileFinder = await initialise(ctx, {
       'index.htm': 'Index Content',
     });
@@ -91,6 +111,36 @@ export function fileFinderTestSuite(
 
     // direct access to file is blocked
     expect(await fileExists(fileFinder, ['index.htm'])).isFalse();
+  });
+
+  it('serves the root index file if the root is requested with a trailing slash', async (ctx) => {
+    const fileFinder = await initialise(ctx, { 'index.htm': 'Index Content' });
+
+    const index = await fileFinder.find(['']);
+    expect(index).isTruthy();
+    try {
+      expect(index!.canonicalFilename).equals('index.htm');
+      expect(index!.filesystemPath).endsWith(sep + join('index.htm'));
+      expect(index!.stats.size).equals(13);
+    } finally {
+      index?.handle.close();
+    }
+  });
+
+  it('does not consider slashes inside components as directory separators', async (ctx) => {
+    const fileFinder = await initialise(ctx, {
+      'index.htm': 'Index Content',
+      sub: { 'index.htm': 'Index Content', 'foo.txt': 'Foo content' },
+    });
+
+    // slash inside component (e.g. url-encoded) is invalid
+    expect(await fileExists(fileFinder, ['/'])).isFalse();
+
+    // slash inside component (e.g. url-encoded) is invalid
+    expect(await fileExists(fileFinder, ['sub/'])).isFalse();
+
+    // slash inside component (e.g. url-encoded) is invalid
+    expect(await fileExists(fileFinder, ['sub/foo.txt'])).isFalse();
   });
 
   it('uses configured index files', async (ctx) => {

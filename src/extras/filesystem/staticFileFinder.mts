@@ -68,6 +68,7 @@ export class StaticFileFinder<T> implements FileFinder {
       this._set(this._rules._normalise(path.join('/')), {
         ...entity,
         p: this._rules._indexFiles.length + 1 - indexPos,
+        d: true,
       });
       if (!this._rules._allowDirectIndexAccess && !this._rules._allow.has(normFileName)) {
         return;
@@ -91,9 +92,19 @@ export class StaticFileFinder<T> implements FileFinder {
   }
 
   async find(path: ReadonlyArray<string>, reqHeaders = {}, warnings: string[] | undefined) {
+    if (path.some((component) => component.includes('/'))) {
+      return null;
+    }
+    const isDir = Boolean(path.length && !path[path.length - 1]);
+    if (isDir) {
+      path = path.slice(0, path.length - 1);
+    }
     const entity = this._lookup.get(this._rules._normalise(path.join('/')));
     if (!entity || entity.data === undefined) {
       warnings?.push(`${JSON.stringify(path.join('/'))} not found in static file paths`);
+      return null;
+    }
+    if (isDir && !entity.d) {
       return null;
     }
     if (!this._rules._negotiator) {
@@ -161,6 +172,7 @@ interface StaticFileInfo<T> {
   basename: string;
   siblings: Map<string, T>;
   p: number;
+  d?: boolean;
 }
 
 const DIR: StaticFileInfo<never> = {
@@ -168,4 +180,5 @@ const DIR: StaticFileInfo<never> = {
   basename: '',
   siblings: new Map<string, never>(),
   p: 1,
+  d: true,
 };

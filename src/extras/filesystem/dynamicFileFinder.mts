@@ -45,6 +45,14 @@ export class DynamicFileFinder implements FileFinder {
     reqHeaders: IncomingHttpHeaders = {},
     warnings?: string[] | undefined,
   ): Promise<ResolvedFileInfo | null> {
+    const isDir = Boolean(pathParts.length && !pathParts[pathParts.length - 1]);
+    if (isDir) {
+      pathParts = pathParts.slice(0, pathParts.length - 1);
+    }
+    if (pathParts.some((part) => part.includes(sep))) {
+      warnings?.push(`${JSON.stringify(pathParts)} contains encoded ${sep}`);
+      return null;
+    }
     let subPath = pathParts.join(sep);
     if (this._rules._caseSensitive === 'force-lowercase') {
       subPath = subPath.toLowerCase();
@@ -64,6 +72,9 @@ export class DynamicFileFinder implements FileFinder {
     let parts: string[] | null = null;
     let realPath: string | null = null;
     for (const suffix of this._rules._implicitSuffixes) {
+      if (isDir && suffix) {
+        continue;
+      }
       const suffixedPath = resolvedPath + suffix;
       parts = suffixedPath
         .substring(this._baseDir.length)
@@ -81,6 +92,7 @@ export class DynamicFileFinder implements FileFinder {
       }
       const name = parts[parts.length - 1] ?? '';
       if (
+        !isDir &&
         !this._rules._allowDirectIndexAccess &&
         this._rules._indexFilesSet.has(this._rules._normalise(name)) &&
         !this._rules._allow.has(this._rules._normalise(name))
@@ -126,10 +138,13 @@ export class DynamicFileFinder implements FileFinder {
           break;
         }
       }
+    } else if (isDir) {
+      warnings?.push(`${JSON.stringify(realPath)} exists but is not a directory`);
+      return null;
     }
     if (!stats?.isFile()) {
       warnings?.push(`${JSON.stringify(realPath)} exists but is not a file`);
-      return null; // requested path exists but is not a regular file: fail
+      return null;
     }
 
     const base = basename(canonicalPath);
