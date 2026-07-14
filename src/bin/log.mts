@@ -25,8 +25,8 @@ export const textLogger = (
 ): Logger => {
   const addColour: (id: string, message: string) => string =
     logTarget.isTTY && !process.env['NO_COLOR']
-      ? (id, message) => (id ? `\x1b[${id}m${message}\x1b[0m` : message)
-      : (_, message) => message;
+      ? (id, message) => (id ? `\x1b[${id}m${makeSafe(message)}\x1b[0m` : makeSafe(message))
+      : (_, message) => makeSafe(message);
   const logLevel = logLevels.indexOf(level);
 
   return (level, parts) => {
@@ -41,7 +41,7 @@ export const textLogger = (
       if (parts.serviceCol) {
         out.push(addColour(parts.serviceCol, parts.service));
       } else {
-        out.push(parts.service);
+        out.push(makeSafe(parts.service));
       }
     }
     if (parts.thread) {
@@ -56,7 +56,7 @@ export const textLogger = (
       out.push(addColour('1', parts.method.replaceAll(/[^a-zA-Z0-9\-_]/g, '?') || '?'));
     }
     if (parts.path !== undefined) {
-      out.push(parts.path);
+      out.push(makeSafe(parts.path));
     }
     if (parts.status !== undefined) {
       out.push(addColour(STATUS_COLOURS[(parts.status / 100) | 0] ?? '', String(parts.status)));
@@ -66,7 +66,7 @@ export const textLogger = (
       if (parts.type === 'detail') {
         out.push(addColour('2', message));
       } else {
-        out.push(message);
+        out.push(makeSafe(message));
       }
     }
     if (parts.stats) {
@@ -98,6 +98,9 @@ export const jsonLogger = (logTarget: Writable, level: LogLevel, logTime: boolea
     logTarget.write(`${JSON.stringify(entity)}\n`);
   };
 };
+
+const makeSafe = (str: string) =>
+  str.replaceAll(/[\x00-\x1F\x7F]/g, (v) => `<${v.charCodeAt(0).toString(16).padStart(2, '0')}>`);
 
 function readBasicErrorMessage(error: unknown): string | undefined {
   if (error === undefined || error === null) {

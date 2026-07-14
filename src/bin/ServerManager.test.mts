@@ -4,8 +4,8 @@ import { findAvailablePort } from '../test-helpers/findAvailablePort.mts';
 import { makeTestTempDir } from '../test-helpers/makeFileStructure.mts';
 import type { ConfigServer } from './config/types.mts';
 import { ServerManager } from './ServerManager.mts';
-import 'lean-test';
 import type { Logger } from './log.mts';
+import 'lean-test';
 
 describe('ServerManager', () => {
   it('launches a server based on the given config', { timeout: 3000 }, async () => {
