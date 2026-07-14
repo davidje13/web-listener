@@ -473,6 +473,7 @@ const FULL_DEFAULT_FILES_OPTIONS: ConfigMountFilesOptions = {
   mode: 'dynamic',
   headers: {},
   dynamicHeaders: ['etag', 'last-modified'],
+  directories: 'slash',
   verbose: false,
   subDirectories: true,
   caseSensitive: 'exact',

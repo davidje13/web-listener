@@ -354,6 +354,13 @@ Wraps the given request or upgrade handling function in a `Handler`. Equivalent 
     helpful for debugging why a file is not being served. **Default:** `false`.
   - `headers` [`<Headers>`] | [`<Object>`] | [`<string[]>`][`<string>`] additional headers to set on
     the response.
+  - `directories` [`<string>`] one of `'slash'`, `'no-slash'`, or `'any'`. Controls whether
+    directories are served at URLs with or without a trailing slash. **Default:** `'slash'`
+    - `'slash'` requires a trailing slash, redirecting requests which do not end in a slash;
+    - `'no-slash'` requires no trailing slash, redirecting requests which do end in a slash;
+    - `'any'` allows both forms of URL and does not redirect anything. Note that relative paths in
+      HTML files will behave differently depending on whether the URL ends with a slash or not.
+      Caches and search engines may also consider the two paths to be separate pages.
   - `dynamicHeaders` [`<string[]>`][`<string>`] a list of headers to set dynamically. Can contain
     [`ETag`] (which will be set using [`generateWeakETag`]) and [`Last-Modified`] (set from the
     requested file's `mtime`). **Default:** `['etag', 'last-modified']`.
@@ -938,6 +945,13 @@ Value to send in the corresponding `Content-*` response header for the [`fileneg
     helpful for debugging why a file is not being served. **Default:** `false`.
   - `headers` [`<Headers>`] | [`<Object>`] | [`<string[]>`][`<string>`] additional headers to set on
     the response.
+  - `directories` [`<string>`] one of `'slash'`, `'no-slash'`, or `'any'`. Controls whether
+    directories are served at URLs with or without a trailing slash. **Default:** `'slash'`
+    - `'slash'` requires a trailing slash, redirecting requests which do not end in a slash;
+    - `'no-slash'` requires no trailing slash, redirecting requests which do end in a slash;
+    - `'any'` allows both forms of URL and does not redirect anything. Note that relative paths in
+      HTML files will behave differently depending on whether the URL ends with a slash or not.
+      Caches and search engines may also consider the two paths to be separate pages.
   - `dynamicHeaders` [`<string[]>`][`<string>`] a list of headers to set dynamically. Can contain
     [`ETag`] (which will be set using [`generateWeakETag`]) and [`Last-Modified`] (set from the
     requested file's `mtime`). **Default:** `['etag', 'last-modified']`.
@@ -2822,6 +2836,13 @@ This can include:
 
 You can assign these directly (e.g. `res.setHeaders(new Headers(resolvedfileinfo.headers))`), or
 merge them with existing headers manually.
+
+#### `resolvedfileinfo.index`
+
+- Type: [`<boolean>`]
+
+`true` if the resolved file is being served as an index file (i.e. if the request was for a
+directory).
 
 #### `resolvedfileinfo.stats`
 

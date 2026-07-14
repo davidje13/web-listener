@@ -62,7 +62,12 @@ export class StaticFileFinder<T> implements FileFinder {
     siblings: Map<string, T>,
   ) {
     const normFileName = this._rules._normalise(filename);
-    const entity: Omit<StaticFileInfo<T>, 'p'> = { data, basename: normFileName, siblings };
+    const entity: Omit<StaticFileInfo<T>, 'p'> = {
+      data,
+      basename: normFileName,
+      siblings,
+      d: false,
+    };
     const indexPos = this._rules._indexFiles.indexOf(normFileName);
     if (indexPos !== -1) {
       this._set(this._rules._normalise(path.join('/')), {
@@ -110,7 +115,7 @@ export class StaticFileFinder<T> implements FileFinder {
     if (!this._rules._negotiator) {
       return this._responder(
         entity.data,
-        { canonicalFilename: entity.basename, headers: {} },
+        { canonicalFilename: entity.basename, headers: {}, index: entity.d },
         warnings,
       );
     }
@@ -121,7 +126,7 @@ export class StaticFileFinder<T> implements FileFinder {
       }
       const result = await this._responder(
         sibling,
-        { canonicalFilename: entity.basename, headers: option.headers },
+        { canonicalFilename: entity.basename, headers: option.headers, index: entity.d },
         warnings,
       );
       if (result) {
@@ -171,14 +176,14 @@ interface StaticFileInfo<T> {
   data: T | undefined;
   basename: string;
   siblings: Map<string, T>;
+  d: boolean;
   p: number;
-  d?: boolean;
 }
 
 const DIR: StaticFileInfo<never> = {
   data: undefined,
   basename: '',
   siblings: new Map<string, never>(),
-  p: 1,
   d: true,
+  p: 1,
 };

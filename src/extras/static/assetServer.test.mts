@@ -69,18 +69,20 @@ describe('assetServer', () => {
     'serves index pages when directories are requested',
     { timeout: 3000 },
     async ({ getTyped }) => {
-      const handler = assetServer(await dynamicFileFinder(getTyped(TEST_DIR)));
+      const handler = assetServer(await dynamicFileFinder(getTyped(TEST_DIR)), {
+        directories: 'any',
+      });
 
       return withServer(handler, async (url, { expectError }) => {
-        const res1 = await fetch(url);
+        const res1 = await fetch(url, { redirect: 'manual' });
         expect(res1.status).equals(200);
         expect(await res1.text()).equals('Root Index');
 
-        const res2 = await fetch(url + '/sub');
+        const res2 = await fetch(url + '/sub', { redirect: 'manual' });
         expect(res2.status).equals(200);
         expect(await res2.text()).equals('Sub Index');
 
-        const res3 = await fetch(url + '/sub/');
+        const res3 = await fetch(url + '/sub/', { redirect: 'manual' });
         expect(res3.status).equals(200);
         expect(await res3.text()).equals('Sub Index');
 
@@ -88,6 +90,60 @@ describe('assetServer', () => {
         expect(res4.status).equals(404);
         expect(await res4.text()).equals('');
         expectError('handling request /none/: HTTPError(404 Not Found)');
+      });
+    },
+  );
+
+  it(
+    'enforces trailing slashes after directory URLs by default',
+    { timeout: 3000 },
+    async ({ getTyped }) => {
+      const handler = assetServer(await dynamicFileFinder(getTyped(TEST_DIR)));
+
+      return withServer(handler, async (url) => {
+        const res1 = await fetch(url, { redirect: 'manual' });
+        expect(res1.status).equals(200);
+        expect(await res1.text()).equals('Root Index');
+
+        const res2 = await fetch(url + '/sub', { redirect: 'manual' });
+        expect(res2.status).equals(308);
+        expect(res2.headers.get('location')).equals('./sub/');
+
+        const res3 = await fetch(url + '/sub/', { redirect: 'manual' });
+        expect(res3.status).equals(200);
+        expect(await res3.text()).equals('Sub Index');
+
+        const res2redir = await fetch(url + '/sub', { redirect: 'follow' });
+        expect(res2redir.status).equals(200);
+        expect(await res2redir.text()).equals('Sub Index');
+      });
+    },
+  );
+
+  it(
+    'enforces no trailing slashes after directory URLs if configured',
+    { timeout: 3000 },
+    async ({ getTyped }) => {
+      const handler = assetServer(await dynamicFileFinder(getTyped(TEST_DIR)), {
+        directories: 'no-slash',
+      });
+
+      return withServer(handler, async (url) => {
+        const res1 = await fetch(url, { redirect: 'manual' });
+        expect(res1.status).equals(200);
+        expect(await res1.text()).equals('Root Index');
+
+        const res2 = await fetch(url + '/sub/', { redirect: 'manual' });
+        expect(res2.status).equals(308);
+        expect(res2.headers.get('location')).equals('../sub');
+
+        const res3 = await fetch(url + '/sub', { redirect: 'manual' });
+        expect(res3.status).equals(200);
+        expect(await res3.text()).equals('Sub Index');
+
+        const res2redir = await fetch(url + '/sub/', { redirect: 'follow' });
+        expect(res2redir.status).equals(200);
+        expect(await res2redir.text()).equals('Sub Index');
       });
     },
   );

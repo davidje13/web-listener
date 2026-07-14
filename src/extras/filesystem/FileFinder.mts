@@ -210,4 +210,6 @@ export interface ResolvedFileInfo {
   stats: Stats;
   /** Response headers relevant to the negotiation of this file */
   headers: NegotiationOutputHeaders;
+  /** true if this file is being served as a directory index */
+  index: boolean;
 }

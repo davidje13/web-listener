@@ -37,6 +37,19 @@ export interface AssetServerOptions {
   headers?: AnyHeaders | undefined;
 
   /**
+   * Requirements for serving directories. 'slash' requires a trailing slash in the URL,
+   * 'no-slash' requires NO trailing slash in the URL, and 'any' allows either form.
+   * Users who request the wrong URL will receive a HTTP 308 redirect.
+   *
+   * When using 'any', note that relative paths in HTML files will behave differently
+   * depending on whether the URL ends with a slash or not. Caches and search engines
+   * may also consider the two paths to be separate pages.
+   *
+   * @default 'slash'
+   */
+  directories?: 'slash' | 'no-slash' | 'any' | undefined;
+
+  /**
    * A list of dynamic headers to generate for responses. Note that headers specified in
    * `headers` or set by `callback` will override the dynamically generated values. Set to an
    * empty list or `false` to disable all dynamic headers.
@@ -103,6 +116,7 @@ export const assetServer = (
     fallback,
     verbose,
     headers,
+    directories = 'slash',
     dynamicHeaders = ['etag', 'last-modified'],
     callback,
   }: AssetServerOptions = {},
@@ -152,6 +166,22 @@ export const assetServer = (
       try {
         if (isFallback) {
           res.statusCode = fallbackStatusCode;
+        } else if (file.index && directories !== 'any') {
+          const requestIsDir = !path[path.length - 1];
+          if (requestIsDir === (directories === 'no-slash')) {
+            const dirName = path[path.length - (requestIsDir ? 2 : 1)]!;
+            if (dirName) {
+              const encDirName = encodeURIComponent(dirName);
+              res.setHeader(
+                'location',
+                requestIsDir
+                  ? `../${encDirName}` // remove slash
+                  : `./${encDirName}/`, // add slash
+              );
+              res.statusCode = 308;
+              return res.end();
+            }
+          }
         }
 
         const contentType =

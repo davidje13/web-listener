@@ -228,6 +228,7 @@
               }
             },
             "headers": { "$ref": "#/$defs/headers" },
+            "directories": { "enum": ["slash", "no-slash", "any"], "default": "slash" },
             "dynamicHeaders": {
               "type": "array",
               "items": { "enum": ["etag", "last-modified"] },
@@ -402,6 +403,7 @@
             "modulesBasePath": { "type": "string", "default": "/node_modules" },
             "mode": { "enum": ["dynamic", "static-paths"], "default": "dynamic" },
             "headers": { "$ref": "#/$defs/headers" },
+            "directories": { "enum": ["slash", "no-slash", "any"], "default": "slash" },
             "dynamicHeaders": {
               "type": "array",
               "items": { "enum": ["etag", "last-modified"] },

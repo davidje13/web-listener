@@ -45,8 +45,8 @@ export class DynamicFileFinder implements FileFinder {
     reqHeaders: IncomingHttpHeaders = {},
     warnings?: string[] | undefined,
   ): Promise<ResolvedFileInfo | null> {
-    const isDir = Boolean(pathParts.length && !pathParts[pathParts.length - 1]);
-    if (isDir) {
+    const requestIsDir = Boolean(pathParts.length && !pathParts[pathParts.length - 1]);
+    if (requestIsDir) {
       pathParts = pathParts.slice(0, pathParts.length - 1);
     }
     if (pathParts.some((part) => part.includes(sep))) {
@@ -72,7 +72,7 @@ export class DynamicFileFinder implements FileFinder {
     let parts: string[] | null = null;
     let realPath: string | null = null;
     for (const suffix of this._rules._implicitSuffixes) {
-      if (isDir && suffix) {
+      if (requestIsDir && suffix) {
         continue;
       }
       const suffixedPath = resolvedPath + suffix;
@@ -92,7 +92,7 @@ export class DynamicFileFinder implements FileFinder {
       }
       const name = parts[parts.length - 1] ?? '';
       if (
-        !isDir &&
+        !requestIsDir &&
         !this._rules._allowDirectIndexAccess &&
         this._rules._indexFilesSet.has(this._rules._normalise(name)) &&
         !this._rules._allow.has(this._rules._normalise(name))
@@ -123,7 +123,8 @@ export class DynamicFileFinder implements FileFinder {
       warnings?.push(`file ${JSON.stringify(realPath)} does not exist`);
       return null; // requested path does not exist: fail
     }
-    if (stats.isDirectory()) {
+    const foundIsDirectory = stats.isDirectory();
+    if (foundIsDirectory) {
       if (parts.length > this._rules._subDirectories) {
         warnings?.push(
           `${JSON.stringify(realPath)} index file is nested too deeply (${parts.length} > ${this._rules._subDirectories})`,
@@ -138,7 +139,7 @@ export class DynamicFileFinder implements FileFinder {
           break;
         }
       }
-    } else if (isDir) {
+    } else if (requestIsDir) {
       warnings?.push(`${JSON.stringify(realPath)} exists but is not a directory`);
       return null;
     }
@@ -149,7 +150,11 @@ export class DynamicFileFinder implements FileFinder {
 
     const base = basename(canonicalPath);
     if (!this._rules._negotiator) {
-      return internalTryReturn(canonicalPath, { canonicalFilename: base, headers: {} }, warnings);
+      return internalTryReturn(
+        canonicalPath,
+        { canonicalFilename: base, headers: {}, index: foundIsDirectory },
+        warnings,
+      );
     }
 
     const dir = dirname(canonicalPath);
@@ -159,7 +164,7 @@ export class DynamicFileFinder implements FileFinder {
       }
       const result = await internalTryReturn(
         join(dir, option.filename),
-        { canonicalFilename: base, headers: option.headers },
+        { canonicalFilename: base, headers: option.headers, index: foundIsDirectory },
         warnings,
       );
       if (result) {
