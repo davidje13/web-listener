@@ -62,23 +62,30 @@ describe('SharedFileHandle', () => {
     }
   });
 
-  it('closes the handle if all consumers are closed for a time', { timeout: 3000 }, async () => {
-    const sharedHandle = new SharedFileHandle(testPath, constants.O_RDONLY, 0o666, 50);
-    let handle1: FileHandle | undefined;
-    let handle2: FileHandle | undefined;
-    try {
-      handle1 = await sharedHandle.open();
-      const fd = handle1.fd;
-      await handle1.close();
-      handle1 = undefined;
-      await new Promise((resolve) => setTimeout(resolve, 300));
-      handle2 = await sharedHandle.open();
-      expect(handle2.fd).not(equals(fd));
-    } finally {
-      await handle1?.close();
-      await handle2?.close();
-    }
-  });
+  it(
+    'closes the handle if all consumers are closed for a time',
+    {
+      timeout: 3000,
+      retry: 5, // we allow retries because the OS may give us the same file descriptor number again after we have closed it, making this test potentially flakey
+    },
+    async () => {
+      const sharedHandle = new SharedFileHandle(testPath, constants.O_RDONLY, 0o666, 50);
+      let handle1: FileHandle | undefined;
+      let handle2: FileHandle | undefined;
+      try {
+        handle1 = await sharedHandle.open();
+        const fd = handle1.fd;
+        await handle1.close();
+        handle1 = undefined;
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        handle2 = await sharedHandle.open();
+        expect(handle2.fd).not(equals(fd));
+      } finally {
+        await handle1?.close();
+        await handle2?.close();
+      }
+    },
+  );
 
   it('does not close for other consumers if a handle is closed', { timeout: 3000 }, async () => {
     const sharedHandle = new SharedFileHandle(testPath, constants.O_RDONLY, 0o666, 100);
