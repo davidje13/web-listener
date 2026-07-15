@@ -355,7 +355,8 @@ Wraps the given request or upgrade handling function in a `Handler`. Equivalent 
   - `headers` [`<Headers>`] | [`<Object>`] | [`<string[]>`][`<string>`] additional headers to set on
     the response.
   - `directories` [`<string>`] one of `'slash'`, `'no-slash'`, or `'any'`. Controls whether
-    directories are served at URLs with or without a trailing slash. **Default:** `'slash'`
+    directories are served at URLs with or without a trailing slash. Incorrect URLs receive a HTTP
+    [308 Permanent Redirect] response. **Default:** `'slash'`
     - `'slash'` requires a trailing slash, redirecting requests which do not end in a slash;
     - `'no-slash'` requires no trailing slash, redirecting requests which do end in a slash;
     - `'any'` allows both forms of URL and does not redirect anything. Note that relative paths in
@@ -946,7 +947,8 @@ Value to send in the corresponding `Content-*` response header for the [`fileneg
   - `headers` [`<Headers>`] | [`<Object>`] | [`<string[]>`][`<string>`] additional headers to set on
     the response.
   - `directories` [`<string>`] one of `'slash'`, `'no-slash'`, or `'any'`. Controls whether
-    directories are served at URLs with or without a trailing slash. **Default:** `'slash'`
+    directories are served at URLs with or without a trailing slash. Incorrect URLs receive a HTTP
+    [308 Permanent Redirect] response. **Default:** `'slash'`
     - `'slash'` requires a trailing slash, redirecting requests which do not end in a slash;
     - `'no-slash'` requires no trailing slash, redirecting requests which do end in a slash;
     - `'any'` allows both forms of URL and does not redirect anything. Note that relative paths in
@@ -4877,6 +4879,7 @@ your upgrade handler (i.e. provide a `shouldUpgrade` function to [`upgradeHandle
 [HTTP status code]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status
 [100 Continue]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/100
 [304 Not Modified]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/304
+[308 Permanent Redirect]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/308
 [404 Not Found]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/404
 [400 Bad Request]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/400
 [401 Unauthorized]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/401
