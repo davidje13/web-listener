@@ -1,4 +1,5 @@
 import { dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { FileNegotiation } from '../../index.mts';
 import { loadSchema, makeSchemaParser } from './schema.mts';
 import type {
@@ -10,6 +11,8 @@ import type {
 } from './types.mts';
 import { loadConfig, readArgs } from './loader.mts';
 import 'lean-test';
+
+const testDir = dirname(fileURLToPath(import.meta.url));
 
 describe('readArgs', () => {
   it('loads known arguments', () => {
@@ -129,6 +132,110 @@ describe('loadConfig', () => {
               options: [{ value: 'deflate', file: '{file}.deflate' }],
             },
           ]),
+        },
+        {
+          name: 'zstd off, set in config',
+          args: [
+            '-C',
+            JSON.stringify({
+              servers: [
+                {
+                  port: 8080,
+                  mount: [
+                    {
+                      type: 'files',
+                      dir: testDir,
+                      options: {
+                        negotiation: [
+                          {
+                            feature: 'encoding',
+                            options: [
+                              { value: 'br', file: '{file}.br' },
+                              { value: 'zstd', file: '{file}.zst' },
+                            ],
+                          },
+                        ],
+                      },
+                    },
+                  ],
+                },
+              ],
+            }),
+            '--zstd=no',
+          ],
+          expected: {
+            ...DEFAULT_CONFIG,
+            servers: [
+              {
+                ...DEFAULT_SERVER,
+                mount: [
+                  {
+                    ...DEFAULT_FILES,
+                    dir: testDir,
+                    options: {
+                      ...FULL_DEFAULT_FILES_OPTIONS,
+                      negotiation: [
+                        { feature: 'encoding', options: [{ value: 'br', file: '{file}.br' }] },
+                      ],
+                    },
+                  },
+                ],
+              },
+            ],
+          },
+        },
+        {
+          name: 'zstd off, not set',
+          args: [
+            '-C',
+            JSON.stringify({
+              servers: [
+                {
+                  port: 8080,
+                  mount: [
+                    {
+                      type: 'files',
+                      dir: testDir,
+                      options: {
+                        negotiation: [
+                          {
+                            feature: 'encoding',
+                            options: [{ value: 'br', file: '{file}.br' }],
+                          },
+                        ],
+                      },
+                    },
+                  ],
+                },
+              ],
+            }),
+            '--zstd=no',
+          ],
+          expected: {
+            ...DEFAULT_CONFIG,
+            servers: [
+              {
+                ...DEFAULT_SERVER,
+                mount: [
+                  {
+                    ...DEFAULT_FILES,
+                    dir: testDir,
+                    options: {
+                      ...FULL_DEFAULT_FILES_OPTIONS,
+                      negotiation: [
+                        { feature: 'encoding', options: [{ value: 'br', file: '{file}.br' }] },
+                      ],
+                    },
+                  },
+                ],
+              },
+            ],
+          },
+        },
+        {
+          name: 'zstd off, no negotiation',
+          args: ['--zstd=no'],
+          expected: DEFAULT_CONFIG,
         },
         {
           name: 'proxy',

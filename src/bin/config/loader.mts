@@ -292,9 +292,21 @@ export async function loadConfig(
         }
       }
     });
+  const removeNegotiation = (feature: FileNegotiation['feature'], encodingValue: string) =>
+    forAllMounts(config.servers, (mount) => {
+      if (mount.type === 'files' && mount.options.negotiation) {
+        const enc = mount.options.negotiation.find((n) => n.feature === feature);
+        if (enc) {
+          enc.options = enc.options.filter((o) => o.value !== encodingValue);
+        }
+      }
+    });
   for (const [flag, enc] of ENCODINGS) {
-    if (args.get(flag)) {
+    const state = args.get(flag);
+    if (state) {
       addNegotiation('encoding', enc);
+    } else if (state === false) {
+      removeNegotiation('encoding', enc.value);
     }
   }
   if (ext.length) {
@@ -338,14 +350,14 @@ export async function loadConfig(
   if (mime.length || mimeTypes.length) {
     config.mime = [...asArray(config.mime), ...mime, ...mimeTypes.map((path) => `file://${path}`)];
   }
-  if (args.get('write-compressed')) {
-    config.writeCompressed = true;
+  if (args.has('write-compressed')) {
+    config.writeCompressed = Boolean(args.get('write-compressed'));
   }
   if (minCompress !== undefined) {
     config.minCompress = minCompress;
   }
-  if (args.get('no-serve')) {
-    config.noServe = true;
+  if (args.has('no-serve')) {
+    config.noServe = Boolean(args.get('no-serve'));
   }
   switch (log) {
     case undefined:

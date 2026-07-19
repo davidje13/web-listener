@@ -59,6 +59,9 @@ Will look for files ending
 .Qq \\$2
 to serve for these requests
 .Pq "content will not be dynamically compressed" .
+You can also set
+.Fl \\$3 Ns = Ns Ar no
+to remove this compression option from any existing configuration.
 Set
 .Fl -write-compressed
 to automatically generate these files at startup.
@@ -100,7 +103,7 @@ If used with JSON configuration, this will override the host for all configured
 servers.
 .
 .It Fl b , Fl -br , Fl -brotli
-.compression Brotli .br
+.compression Brotli .br -brotli
 .
 .It Fl C Ar document , Fl -config-json Ar document
 An inline JSON configuration document specifying more advanced configuration.
@@ -137,7 +140,7 @@ unless JSON configuration is being used.
 .onejson
 .
 .It Fl -deflate
-.compression Deflate .deflate
+.compression Deflate .deflate -deflate
 .
 .It Fl -dependencies Ar packageJsonPath
 If set, this mounts all the dependencies from the package.json file at
@@ -167,7 +170,7 @@ If found, the file is sent as a direct response to the user
 .Pq "i.e. the user is not issued a redirect" .
 .
 .It Fl g , Fl -gz , Fl -gzip
-.compression Gzip .gz
+.compression Gzip .gz -gzip
 .
 .It Fl H Ar name : Ns Ar value , Fl -header Ar name : Ns Ar value
 Set a header key/value pair on all responses.
@@ -333,7 +336,7 @@ files for each configured
 section individually.
 .
 .It Fl -zst , Fl -zstd
-.compression Zstd .zstd
+.compression Zstd .zstd -zstd
 .
 .El
 .
