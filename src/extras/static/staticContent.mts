@@ -9,8 +9,22 @@ import { generateStrongETagStatic } from '../cache/etag.mts';
 import { internalCompressBuffer, type ContentEncoding } from '../compress/encoders.mts';
 
 export interface StaticContentOptions {
+  /**
+   * Headers to set when serving this content.
+   */
   headers?: AnyHeaders | undefined;
+
+  /**
+   * Content-Encoding variants to pre-compute for this content.
+   * @default []
+   */
   encodings?: ReadonlyArray<ContentEncoding> | undefined;
+
+  /**
+   * Minimum compression (in bytes) that `encodings` must achieve.
+   * Any encoding which does not achieve at least this amount of compression will be discarded.
+   * @default 0
+   */
   minCompression?: number | undefined;
 }
 

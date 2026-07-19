@@ -171,15 +171,21 @@ const DISCONNECTED: Address = {
 };
 
 export interface ProxyChain {
+  /** A list of the trusted connections in the proxy chain (closest to server first). Always contains at least one entry. */
   trusted: ProxyNode[];
+  /** A list of the untrusted connections in the proxy chain (closest to last trusted node first). May be empty. */
   untrusted: ProxyNode[];
+  /** A list of all connections in the proxy chain. Equal to [...trusted, ...untrusted]. */
   outwardChain: ProxyNode[];
+  /** The last (client-most) trusted node in the proxy chain. */
   edge: ProxyNode;
 }
 
 export interface ProxyNode {
   client: Address | undefined;
   server: Address | undefined;
+  /** The requested hostname, if known */
   host: string | undefined;
+  /** The connection protocol, if known (typically 'https' or 'http') */
   proto: string | undefined;
 }

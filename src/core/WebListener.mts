@@ -164,12 +164,21 @@ export class WebListener extends (EventTarget as TypedEventTarget<
 }
 
 export interface RequestErrorDetail {
+  /** The server which triggered this error. */
   server: Server;
+  /** The current error. */
   error: unknown;
+  /**
+   * The approximate source of this error.
+   * This can be set when calling `emitError`.
+   * By default, it is 'handling request' or 'handling upgrade'.
+   */
   context: string;
+  /** The request which triggered this error, or `undefined` if the request has not yet been wrapped as an `IncomingMessage`. */
   request: IncomingMessage | undefined;
 }
 
 export interface AugmentedServer extends Server {
+  /** Soft-close the server, with a hard-close after `timeout` milliseconds. */
   closeWithTimeout(reason: string, timeout: number): Promise<void>;
 }

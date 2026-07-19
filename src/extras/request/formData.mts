@@ -166,10 +166,33 @@ export interface PostCheckFileInfo {
 export type { FormField };
 
 export interface AugmentedFormData extends FormData {
+  /**
+   * Return the full path to the temporary file created for an uploaded file.
+   * This can be used for some optimisations. For example, it is usually faster
+   * to move this temporary file to a desired location than to write a new file
+   * by streaming the content.
+   *
+   * @param file the file to find. This should be the value returned by `getFile(name)` or `getAllFiles(name)`.
+   * @returns the absolute path to the requested file.
+   */
   getTempFilePath(file: Blob): string;
+  /**
+   * Return the first field with the requested field name, as a boolean.
+   * The values 'true' and 'on' are recognised as `true`. Everything else is `false`.
+   */
   getBoolean(name: string): boolean | null;
+  /**
+   * Return the first field with the requested field name, as a string.
+   * If the field is not present, or is a file, this returns `null`.
+   */
   getString(name: string): string | null;
+  /** Return all fields with the requested field name, as strings. Ignores files. */
   getAllStrings(name: string): string[];
+  /**
+   * Return the first file with the requested field name.
+   * If the field is not present, or is not a file, this returns `null`.
+   */
   getFile(name: string): File | null;
+  /** Return all files with the requested field name. */
   getAllFiles(name: string): File[];
 }

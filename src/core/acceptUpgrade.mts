@@ -12,8 +12,14 @@ export type AcceptUpgradeHandler<T, Req = {}> = (
 ) => Promise<AcceptUpgradeResult<T>>;
 
 export interface AcceptUpgradeResult<T> {
+  /** A value to return from `acceptUpgrade`. */
   return: T;
+  /** An error handler to attach to the current connection. */
   onError?: UpgradeErrorHandler | undefined;
+  /**
+   * A (possibly asynchronous) function to invoke if `softClose` is called.
+   * This should negotiate a graceful shutdown of the connection with the client.
+   */
   softCloseHandler?: SoftCloseHandler | undefined;
 }
 

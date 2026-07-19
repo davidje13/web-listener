@@ -1,15 +1,29 @@
 export interface HTTPRange {
+  /** A list of ranges. May not be in order and/or include overlapping ranges. */
   ranges: RangePart[];
+  /** The total size of the resource, for anchoring negative values in ranges. */
   totalSize?: number | undefined;
 }
 
 export interface RangePart {
+  /** The start of the range (inclusive). Negative values count from the end of the content. */
   start: number;
+  /** The end of the range (inclusive). Negative values count from the end of the content. */
   end: number;
 }
 
 export interface SimplifyRangeOptions {
+  /**
+   * Re-order all ranges so that the start indices are increasing.
+   * @default false
+   */
   forceSequential?: boolean | undefined;
+  /**
+   * Combine any ranges which are within this distance.
+   * Set to 0 to only merge ranges which touch or overlap.
+   * Set to -1 to not merge any ranges.
+   * @default 100
+   */
   mergeOverlapDistance?: number | undefined;
 }
 

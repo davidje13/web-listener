@@ -2,10 +2,31 @@ import { STATUS_CODES } from 'node:http';
 import { internalNormaliseHeaders, type AnyHeaders } from '../util/normaliseHeaders.mts';
 
 export interface HTTPErrorOptions {
+  /**
+   * A message to include in system logs.
+   * Use `body` to specify a client-facing error message.
+   *
+   * @default body
+   */
   message?: string | undefined;
+  /**
+   * A HTTP status message to send along with the status code.
+   * If not set, this is chosen automatically based on the status code.
+   */
   statusMessage?: string | undefined;
+  /**
+   * HTTP headers to send when reporting this error to the client.
+   */
   headers?: AnyHeaders | undefined;
+  /**
+   * A client-facing error message.
+   * Use `message` to specify an internal message for logging.
+   */
   body?: string | undefined;
+  /**
+   * Another error which was the cause of this error.
+   * Not included in the client-facing message.
+   */
   cause?: unknown;
 }
 

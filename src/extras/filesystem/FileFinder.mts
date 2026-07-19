@@ -125,8 +125,14 @@ export interface FileFinder {
 
   toNormalisedPath(pathParts: ReadonlyArray<string>): ReadonlyArray<string>;
 
-  isStaticListing: boolean;
-  staticPaths?: () => Set<string>;
+  /**
+   * If `true` (e.g. for `staticFileFinder` and `zipFileFinder`), fewer protections will be applied by `assetServer`
+   * to avoid directory traversal attacks, as it is assumed that the `FileFinder` will only return pre-defined content.
+   * Ensure this is `false` if you are creating a custom `FileFinder` which has the ability to load from dynamic paths.
+   */
+  readonly isStaticListing: boolean;
+
+  readonly staticPaths?: () => Set<string>;
 }
 
 export class FileFinderRules {

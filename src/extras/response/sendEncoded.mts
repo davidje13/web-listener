@@ -17,9 +17,28 @@ const DYNAMIC_NEGOTIATOR = /*@__PURE__*/ new Negotiator([
 ]);
 
 export interface EncoderOptions {
+  /**
+   * Set of encodings to support.
+   * Only encodings which the current client accepts will be used.
+   * @default ['zstd', 'br', 'gzip']
+   */
   encodings?: ReadonlyArray<ContentEncoding> | undefined;
+  /**
+   * Guide for compression vs. speed trade-off.
+   * @default 'fast'
+   */
   encodingQuality?: EncodingQuality | undefined;
+  /**
+   * Estimated content size.
+   * Used to decide whether to perform compression, and to adjust some compression options.
+   * Does not need to be an accurate estimate.
+   */
   estimatedLength?: number | undefined;
+  /**
+   * Minimum content size to attempt compression.
+   * Ignored if the content size cannot be determined upfront and `estimatedLength` is not set.
+   * @default 0
+   */
   compressionSizeThreshold?: number | undefined;
 }
 

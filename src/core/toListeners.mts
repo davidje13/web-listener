@@ -53,13 +53,35 @@ export type ServerGeneralErrorCallback = (
 ) => void;
 
 export interface NativeListeners {
+  /** Listener compatible with 'request' and 'checkExpectation' events. */
   request: RequestListener;
+  /** Listener compatible with 'checkContinue' event. */
   checkContinue: RequestListener;
+  /** Listener compatible with 'upgrade' event. */
   upgrade: UpgradeListener;
+  /** Listener compatible with 'shouldUpgradeCallback'. */
   shouldUpgrade: ShouldUpgradeCallback;
+  /** Listener compatible with 'clientError' event. */
   clientError: ClientErrorListener;
+  /**
+   * Gracefully close the server, allowing current connections to complete if possible.
+   * Note that this will not force any connections to close, even if they do not respond to the soft close request.
+   * Call `hardClose` (typically after a few seconds) to force lingering connections to close.
+   *
+   * @param reason a reason for the shutdown. This is propagated to connection `softClose` handlers.
+   * @param onError called if a `softClose` handler throws an error.
+   * @param callback called once the server has successfully closed.
+   */
   softClose(reason: string, onError: ServerErrorCallback, callback?: () => void): void;
+  /**
+   * Forcefully close the server, killing all existing connections immediately.
+   *
+   * @param callback called once the server has successfully closed.
+   */
   hardClose(callback?: () => void): void;
+  /**
+   * @return the current number of active connections
+   */
   countConnections(): number;
 }
 
