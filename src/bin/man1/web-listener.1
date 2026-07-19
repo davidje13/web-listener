@@ -260,6 +260,12 @@ via the
 flag
 .Pc ,
 then exit successfully.
+.Pp
+When using this flag, the configuration will be validated against the schema
+and all mounts will be loaded (including loading any custom handlers), but no
+servers will be launched.
+Note that this does not validate whether background tasks will be able to run.
+If any stage fails, the process will exit with exit code 1.
 .
 .It Fl P Ar proxy , Fl -proxy Ar proxy
 A server to proxy requests to which do not match any files in

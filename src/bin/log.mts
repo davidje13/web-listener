@@ -1,4 +1,5 @@
 import type { Writable } from 'node:stream';
+import { TransientError } from './TransientError.mts';
 import { UserError } from './UserError.mts';
 
 export const logLevels = ['none', 'ready', 'progress'] as const;
@@ -105,7 +106,7 @@ const makeSafe = (str: string) =>
 function readBasicErrorMessage(error: unknown): string | undefined {
   if (error === undefined || error === null) {
     return undefined;
-  } else if (error instanceof UserError) {
+  } else if (error instanceof UserError || error instanceof TransientError) {
     return error.message;
   } else if (error instanceof AggregateError) {
     const all = new Set(error.errors.map(readBasicErrorMessage));

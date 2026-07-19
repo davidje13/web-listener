@@ -71,7 +71,15 @@ async function run() {
       await runCompression(config.servers, config.minCompress, log);
     }
     if (config.noServe) {
-      stop();
+      try {
+        await manager.validate(config.servers);
+      } catch (error: unknown) {
+        log(0, { type: 'error', message: error });
+        process.stdin.destroy();
+        process.exit(1);
+      } finally {
+        stop();
+      }
     } else {
       manager.set(config.servers, config.backgroundTasks, log, (error) => {
         if (error instanceof AggregateError) {

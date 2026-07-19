@@ -8,6 +8,7 @@ import { markImportingDone } from './routes/custom/loadCustomHandler.mts';
 import { clearZipCache } from './zipCache.mts';
 import type { Logger } from './log.mts';
 import { TransientError } from './TransientError.mts';
+import { UserError } from './UserError.mts';
 
 export class ServerManager {
   declare private _started: boolean;
@@ -23,6 +24,23 @@ export class ServerManager {
     this._stopping = false;
     this._servers = new Map();
     this._backgroundTasks = new Set();
+  }
+
+  async validate(servers: ConfigServer[]) {
+    const ports = new Set<number>();
+    for (const serverConfig of servers) {
+      const port = serverConfig.port;
+      if (port <= 0 || port > 65535) {
+        throw new UserError(`port ${port} is invalid`);
+      }
+      if (ports.has(port)) {
+        throw new UserError(`port ${port} defined multiple times`);
+      }
+      ports.add(port);
+      // perform these actions just to check for errors:
+      createServer(serverConfig.options);
+      await buildRouter(serverConfig.mount);
+    }
   }
 
   async set(

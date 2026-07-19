@@ -249,6 +249,28 @@ describe('cli', () => {
     await p.closed;
   });
 
+  it(
+    'validates config if run with --no-serve',
+    { timeout: 3000 },
+    async ({ [TEARDOWN]: teardown }) => {
+      const pOK = spawnProcess(
+        join(...binDir, 'web-listener'),
+        [join(selfDir, 'cli', 'sample'), '--no-serve'],
+        { stdio: ['ignore', 'inherit', 'pipe'] },
+      );
+      teardown(pOK.close);
+      expect(await pOK.closed).equals(0);
+
+      const pFail = spawnProcess(
+        join(...binDir, 'web-listener'),
+        [join(selfDir, 'cli', 'nope'), '--no-serve'],
+        { stdio: ['ignore', 'inherit', 'pipe'] },
+      );
+      teardown(pFail.close);
+      expect(await pFail.closed).equals(1);
+    },
+  );
+
   const TEARDOWN = beforeEach(({ setParameter }) => {
     const tasks = [];
     setParameter((fn) => tasks.push(fn));
