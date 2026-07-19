@@ -2,6 +2,8 @@ import type { ServerResponse, IncomingMessage } from 'node:http';
 import { Readable, type Writable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { internalIsPrematureCloseError } from '../../util/isPrematureCloseError.mts';
+import { internalDrainUncorked } from '../../util/drain.mts';
+import { VOID_BUFFER } from '../../util/voidBuffer.mts';
 import { STOP } from '../../core/RoutingInstruction.mts';
 import { negotiateEncoding, Negotiator } from '../request/Negotiator.mts';
 import {
@@ -43,7 +45,7 @@ export interface EncoderOptions {
 }
 
 export function makeResponseEncoder(
-  req: IncomingMessage,
+  req: Pick<IncomingMessage, 'headers'>,
   res: ServerResponse,
   {
     encodings = ENCODINGS,
@@ -75,23 +77,34 @@ export function makeResponseEncoder(
 }
 
 export function sendEncoded(
-  req: IncomingMessage,
+  req: Pick<IncomingMessage, 'method' | 'headers'>,
   res: ServerResponse,
-  content: string,
+  content: string | Generator<string | ArrayBufferView> | AsyncGenerator<string | ArrayBufferView>,
   options?: (EncoderOptions & { encoding?: BufferEncoding | undefined }) | undefined,
 ): Promise<void>;
 
 export function sendEncoded(
-  req: IncomingMessage,
+  req: Pick<IncomingMessage, 'method' | 'headers'>,
   res: ServerResponse,
-  content: ArrayBufferView | Readable | ReadableStream<Uint8Array>,
+  content:
+    | ArrayBufferView
+    | Readable
+    | ReadableStream<Uint8Array>
+    | Generator<ArrayBufferView>
+    | AsyncGenerator<ArrayBufferView>,
   options?: EncoderOptions | undefined,
 ): Promise<void>;
 
 export async function sendEncoded(
-  req: IncomingMessage,
+  req: Pick<IncomingMessage, 'method' | 'headers'>,
   res: ServerResponse,
-  content: string | ArrayBufferView | Readable | ReadableStream<Uint8Array>,
+  content:
+    | string
+    | ArrayBufferView
+    | Readable
+    | ReadableStream<Uint8Array>
+    | Generator<string | ArrayBufferView>
+    | AsyncGenerator<string | ArrayBufferView>,
   {
     encoding = 'utf-8',
     ...options
@@ -124,9 +137,40 @@ export async function sendEncoded(
     res.end();
     return;
   }
-  try {
-    await pipeline(content, writer);
-  } catch (error: unknown) {
-    throw internalIsPrematureCloseError(res, error) ? STOP : error;
+  if (content instanceof Readable || 'getReader' in content) {
+    try {
+      await pipeline(content, writer);
+    } catch (error: unknown) {
+      throw internalIsPrematureCloseError(res, error) ? STOP : error;
+    }
+  } else {
+    try {
+      if (writer === res) {
+        // flush headers before we try streaming the content
+        // (else the first value will be in its own chunk, despite using cork())
+        writer.write(VOID_BUFFER);
+      }
+      writer.cork();
+      if (Symbol.iterator in content) {
+        for (const chunk of content) {
+          if (!writer.write(chunk, encoding)) {
+            await internalDrainUncorked(writer);
+          }
+        }
+      } else {
+        for await (const chunk of content) {
+          if (!writer.write(chunk, encoding)) {
+            await internalDrainUncorked(writer);
+          }
+        }
+      }
+      writer.uncork();
+      writer.end();
+    } catch (error: unknown) {
+      if (writer.writable) {
+        writer.destroy(error instanceof Error ? error : new Error(String(error)));
+      }
+      throw internalIsPrematureCloseError(res, error) ? STOP : error;
+    }
   }
 }

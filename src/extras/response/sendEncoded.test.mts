@@ -1,6 +1,8 @@
 import { ReadableStream } from 'node:stream/web';
+import type { ServerResponse } from 'node:http';
 import { Readable } from 'node:stream';
-import { rawRequestStream } from '../../test-helpers/rawRequest.mts';
+import { rawRequest, rawRequestStream } from '../../test-helpers/rawRequest.mts';
+import { writableString } from '../../test-helpers/writableString.mts';
 import { withServer } from '../../test-helpers/withServer.mts';
 import { requestHandler } from '../../core/handler.mts';
 import { sendEncoded } from './sendEncoded.mts';
@@ -58,6 +60,56 @@ describe('sendEncoded', () => {
       });
       expect(resMulti.status).equals(200);
       expect(resMulti.headers.get('content-encoding')).equals('br');
+    });
+  });
+
+  it('streams and compresses generator content', { timeout: 3000 }, () => {
+    const handler = requestHandler(async (req, res) => {
+      await sendEncoded(
+        req,
+        res,
+        (function* () {
+          yield Buffer.from('Foo', 'utf-8');
+          yield Buffer.from('Bar', 'utf-8');
+        })(),
+        { encodings: ['zstd', 'br', 'gzip', 'deflate'] },
+      );
+    });
+
+    return withServer(handler, async (url) => {
+      const res = await fetch(url, { headers: { 'accept-encoding': 'identity' } });
+      expect(res.status).equals(200);
+      expect(await res.text()).equals('FooBar');
+
+      const resGzip = await fetch(url, { headers: { 'accept-encoding': 'gzip' } });
+      expect(resGzip.status).equals(200);
+      expect(resGzip.headers.get('content-encoding')).equals('gzip');
+      expect(await resGzip.text()).equals('FooBar');
+    });
+  });
+
+  it('streams and compresses async generator content', { timeout: 3000 }, () => {
+    const handler = requestHandler(async (req, res) => {
+      await sendEncoded(
+        req,
+        res,
+        (async function* () {
+          yield Buffer.from('Foo', 'utf-8');
+          yield Buffer.from('Bar', 'utf-8');
+        })(),
+        { encodings: ['zstd', 'br', 'gzip', 'deflate'] },
+      );
+    });
+
+    return withServer(handler, async (url) => {
+      const res = await fetch(url, { headers: { 'accept-encoding': 'identity' } });
+      expect(res.status).equals(200);
+      expect(await res.text()).equals('FooBar');
+
+      const resGzip = await fetch(url, { headers: { 'accept-encoding': 'gzip' } });
+      expect(resGzip.status).equals(200);
+      expect(resGzip.headers.get('content-encoding')).equals('gzip');
+      expect(await resGzip.text()).equals('FooBar');
     });
   });
 
@@ -197,6 +249,68 @@ describe('sendEncoded', () => {
       await new Promise((resolve) => setTimeout(resolve, 200));
 
       expect(seen).isLessThan(70000);
+    });
+  });
+
+  it('sends generator data on the wire efficiently', { timeout: 3000 }, async () => {
+    const handler = requestHandler(async (req, res) => {
+      await sendEncoded(
+        req,
+        res,
+        (function* () {
+          yield 'Foo';
+          yield 'Bar';
+        })(),
+      );
+    });
+
+    return withServer(handler, async (url) => {
+      const response = await rawRequest(url);
+      expect(response).contains('FooBar');
+    });
+  });
+
+  it('writes large values provided the stream is being consumed', { timeout: 3000 }, async () => {
+    const large = 'x'.repeat(100000);
+    const output = Object.assign(writableString(), {
+      hasHeader: () => false,
+      getHeader: () => undefined,
+      setHeader: () => {},
+    });
+    await sendEncoded(
+      { method: 'GET', headers: {} },
+      output as unknown as ServerResponse,
+      (function* () {
+        yield 'before';
+        yield large;
+        yield 'after';
+      })(),
+    );
+    const content = output.currentText();
+    expect(content).startsWith('beforexxx');
+    expect(content).endsWith('xxxafter');
+    expect(content).hasLength(11 + large.length);
+  });
+
+  it('flushes to the wire if a large value is written', { timeout: 3000 }, async () => {
+    const large = 'x'.repeat(100000);
+    const handler = requestHandler(async (req, res) => {
+      await sendEncoded(
+        req,
+        res,
+        (function* () {
+          yield 'before';
+          yield large;
+          yield 'after1';
+          yield 'after2';
+        })(),
+      );
+    });
+
+    return withServer(handler, async (url) => {
+      const res = await rawRequest(url);
+      // chunk ends after large value, then shorter values are still combined into 1 chunk
+      expect(res).contains('xxx\r\nc\r\nafter1after2\r\n0\r\n\r\n');
     });
   });
 });
