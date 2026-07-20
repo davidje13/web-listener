@@ -28,7 +28,14 @@ function handleError(error: unknown) {
 process.on('unhandledRejection', handleError);
 process.on('uncaughtException', handleError);
 
-const args = readArgs(process.argv.slice(2));
+let args: Map<string, unknown>;
+try {
+  args = readArgs(process.argv.slice(2));
+} catch (error: unknown) {
+  log(0, { type: 'error', message: error });
+  process.stdin.destroy();
+  process.exit(1);
+}
 const selfDir = dirname(fileURLToPath(import.meta.url));
 
 if (args.get('version') || args.get('help')) {
@@ -59,39 +66,38 @@ async function run() {
   }
 
   async function load() {
-    clearZipCache();
-    const config = await loadConfig(parser, args);
-    if (config.logFormat === 'json') {
-      log = jsonLogger(logTarget, config.log, config.logTime);
-    } else {
-      log = textLogger(logTarget, config.log, config.logTime);
-    }
-    await loadMime(config.mime);
-    if (config.writeCompressed) {
-      await runCompression(config.servers, config.minCompress, log);
-    }
-    if (config.noServe) {
-      try {
-        await manager.validate(config.servers);
-      } catch (error: unknown) {
-        log(0, { type: 'error', message: error });
-        process.stdin.destroy();
-        process.exit(1);
-      } finally {
-        stop();
+    try {
+      clearZipCache();
+      const config = await loadConfig(parser, args);
+      if (config.logFormat === 'json') {
+        log = jsonLogger(logTarget, config.log, config.logTime);
+      } else {
+        log = textLogger(logTarget, config.log, config.logTime);
       }
-    } else {
-      manager.set(config.servers, config.backgroundTasks, log, (error) => {
-        if (error instanceof AggregateError) {
-          for (const subError of error.errors) {
-            log(0, { type: 'error', message: subError });
+      await loadMime(config.mime);
+      if (config.writeCompressed) {
+        await runCompression(config.servers, config.minCompress, log);
+      }
+      if (config.noServe) {
+        await manager.validate(config.servers);
+        stop();
+      } else {
+        manager.set(config.servers, config.backgroundTasks, log, (error) => {
+          if (error instanceof AggregateError) {
+            for (const subError of error.errors) {
+              log(0, { type: 'error', message: subError });
+            }
+          } else {
+            log(0, { type: 'error', message: error });
           }
-        } else {
-          log(0, { type: 'error', message: error });
-        }
-        process.stdin.destroy();
-        process.exit(1);
-      });
+          process.stdin.destroy();
+          process.exit(1);
+        });
+      }
+    } catch (error: unknown) {
+      log(0, { type: 'error', message: error });
+      process.stdin.destroy();
+      process.exit(1);
     }
   }
 

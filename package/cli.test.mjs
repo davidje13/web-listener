@@ -246,7 +246,7 @@ describe('cli', () => {
     if (!(await awaitLine(p.stderr, 'circular reference'))) {
       fail('no error printed');
     }
-    await p.closed;
+    expect(await p.closed).equals(1);
   });
 
   it(
@@ -256,18 +256,26 @@ describe('cli', () => {
       const pOK = spawnProcess(
         join(...binDir, 'web-listener'),
         [join(selfDir, 'cli', 'sample'), '--no-serve'],
-        { stdio: ['ignore', 'inherit', 'pipe'] },
+        { stdio: ['ignore', 'inherit', 'inherit'] },
       );
       teardown(pOK.close);
       expect(await pOK.closed).equals(0);
 
-      const pFail = spawnProcess(
+      const pFail1 = spawnProcess(
         join(...binDir, 'web-listener'),
         [join(selfDir, 'cli', 'nope'), '--no-serve'],
-        { stdio: ['ignore', 'inherit', 'pipe'] },
+        { stdio: ['ignore', 'inherit', 'inherit'] },
       );
-      teardown(pFail.close);
-      expect(await pFail.closed).equals(1);
+      teardown(pFail1.close);
+      expect(await pFail1.closed).equals(1);
+
+      const pFail2 = spawnProcess(
+        join(...binDir, 'web-listener'),
+        [join(selfDir, 'cli', 'sample'), '--no-serve', '--unknown'],
+        { stdio: ['ignore', 'inherit', 'inherit'] },
+      );
+      teardown(pFail2.close);
+      expect(await pFail2.closed).equals(1);
     },
   );
 
