@@ -24,16 +24,19 @@ export function internalBeginPathScope(
   const oldEncodedPathname = props._encodedPathname;
   const oldPathParameters = props._pathParams ?? EMPTY;
 
-  if (props._encodedPathname) {
-    // re-encode the scoped path so that native handlers (which expect to have to decode it themselves) work without modification
-    const cut = posEncoded(props._encodedPathname, props._decodedPathname.length - pathRest.length);
-    const newEncodedPathname = '/' + props._encodedPathname.substring(cut);
-    props._request.url = newEncodedPathname + props._originalURL.search;
-    props._encodedPathname = newEncodedPathname.includes('%') ? newEncodedPathname : undefined;
-  } else {
-    props._request.url = `/${pathRest}${props._originalURL.search}`;
-  }
   props._decodedPathname = `/${pathRest}`;
+  let newURL: string;
+  let newEncodedPathname: string | undefined;
+  if (props._encodedPathname && pathRest) {
+    // re-encode the scoped path so that native handlers (which expect to have to decode it themselves) work without modification
+    const cut = posEncoded(props._encodedPathname, oldDecodedPathname.length - pathRest.length);
+    newEncodedPathname = '/' + props._encodedPathname.substring(cut);
+    newURL = newEncodedPathname;
+  } else {
+    newURL = props._decodedPathname;
+  }
+  props._request.url = newURL + props._originalURL.search;
+  props._encodedPathname = newEncodedPathname?.includes('%') ? newEncodedPathname : undefined;
   if (scopedPathParameters.length > 0) {
     props._pathParams = Object.freeze(
       Object.fromEntries([...Object.entries(oldPathParameters), ...scopedPathParameters]),
