@@ -16,7 +16,7 @@ interface PathParametersProps {
 
 export function internalBeginPathScope(
   props: MessageProps & Partial<PathParametersProps>,
-  scopedPathname: string,
+  pathRest: string,
   scopedPathParameters: [string, unknown][],
 ) {
   const oldURL = props._request.url;
@@ -26,17 +26,14 @@ export function internalBeginPathScope(
 
   if (props._encodedPathname) {
     // re-encode the scoped path so that native handlers (which expect to have to decode it themselves) work without modification
-    const cut = posEncoded(
-      props._encodedPathname,
-      props._decodedPathname.length - scopedPathname.length,
-    );
-    const newEncodedPathname = props._encodedPathname.substring(cut);
+    const cut = posEncoded(props._encodedPathname, props._decodedPathname.length - pathRest.length);
+    const newEncodedPathname = '/' + props._encodedPathname.substring(cut);
     props._request.url = newEncodedPathname + props._originalURL.search;
     props._encodedPathname = newEncodedPathname.includes('%') ? newEncodedPathname : undefined;
   } else {
-    props._request.url = scopedPathname + props._originalURL.search;
+    props._request.url = `/${pathRest}${props._originalURL.search}`;
   }
-  props._decodedPathname = scopedPathname;
+  props._decodedPathname = `/${pathRest}`;
   if (scopedPathParameters.length > 0) {
     props._pathParams = Object.freeze(
       Object.fromEntries([...Object.entries(oldPathParameters), ...scopedPathParameters]),

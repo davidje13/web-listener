@@ -119,6 +119,75 @@ describe('router', () => {
         fetch(url + '/foo/a+b'),
         responds({ status: 200, body: 'request - method: GET, handler URL: /a+b' }),
       );
+
+      await expect(
+        fetch(url + '/foo%2fa%2fb'),
+        responds({ status: 200, body: 'request - method: GET, handler URL: /a%2fb' }),
+      );
+    });
+  });
+
+  it('preserves URL encoding of remaining path after a path parameter', { timeout: 3000 }, () => {
+    const router = new Router();
+    router.mount('/foo/:v', testHandler);
+
+    return withServer(router, async (url) => {
+      await expect(
+        fetch(url + '/foo/a%61b'),
+        responds({ status: 200, body: 'request - method: GET, handler URL: /' }),
+      );
+
+      await expect(
+        fetch(url + '/foo/a%61b/'),
+        responds({ status: 200, body: 'request - method: GET, handler URL: /' }),
+      );
+
+      await expect(
+        fetch(url + '/foo/a%61b/a%61b'),
+        responds({ status: 200, body: 'request - method: GET, handler URL: /a%61b' }),
+      );
+
+      await expect(
+        fetch(url + '/%66oo/a%61b'),
+        responds({ status: 200, body: 'request - method: GET, handler URL: /' }),
+      );
+
+      await expect(
+        fetch(url + '/%66oo/a%61b/'),
+        responds({ status: 200, body: 'request - method: GET, handler URL: /' }),
+      );
+
+      await expect(
+        fetch(url + '/foo/a%2fb'),
+        responds({ status: 200, body: 'request - method: GET, handler URL: /b' }),
+      );
+
+      await expect(
+        fetch(url + '/foo/a%2fb%2fc'),
+        responds({ status: 200, body: 'request - method: GET, handler URL: /b%2fc' }),
+      );
+    });
+  });
+
+  it('has no remaining path if mounted at an exact path', { timeout: 3000 }, () => {
+    const router = new Router();
+    router.get('/foo/:v', testHandler);
+
+    return withServer(router, async (url) => {
+      await expect(
+        fetch(url + '/foo/a%61b'),
+        responds({ status: 200, body: 'request - method: GET, handler URL: /' }),
+      );
+
+      await expect(
+        fetch(url + '/%66oo/a%61b'),
+        responds({ status: 200, body: 'request - method: GET, handler URL: /' }),
+      );
+
+      await expect(
+        fetch(url + '/%66oo%2fa'),
+        responds({ status: 200, body: 'request - method: GET, handler URL: /' }),
+      );
     });
   });
 

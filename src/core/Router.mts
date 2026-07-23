@@ -311,7 +311,7 @@ export class Router<Req = {}> implements Handler<Req> {
       let teardownScope = () => {};
       if (match !== true) {
         try {
-          teardownScope = internalBeginPathScope(props, match._remainingURL, []);
+          teardownScope = internalBeginPathScope(props, match._rest, []);
         } catch {
           continue;
         }
@@ -354,7 +354,7 @@ export class Router<Req = {}> implements Handler<Req> {
       if (match !== true) {
         try {
           const pathParameters = match._getPathParameters();
-          teardownScope = internalBeginPathScope(props, match._remainingURL, pathParameters);
+          teardownScope = internalBeginPathScope(props, match._rest, pathParameters);
         } catch (error: unknown) {
           // e.g. malformed URI
           currentError._add(error);
@@ -416,7 +416,7 @@ function internalCheckMatch(props: MessageProps, route: RegisteredRoute) {
     return false;
   }
   return {
-    _remainingURL: '/' + (matched.groups?.['rest'] ?? ''),
+    _rest: matched.groups?.['rest'] ?? '',
     _getPathParameters: () =>
       route._namedParameters.map((parameter, index): [string, unknown] => [
         parameter._name,

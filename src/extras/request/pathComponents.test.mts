@@ -98,8 +98,45 @@ describe('getRemainingPathComponents', () => {
     return withServer(router, async (url) => {
       expect(await fetchJSON(url + '/a/foo%2fbar')).equals(['foo/bar']);
       expect(await fetchJSON(url + '/%61/foo%2fbar')).equals(['foo/bar']);
+      expect(await fetchJSON(url + '/%61%2ffoo%2fbar')).equals(['foo/bar']);
     });
   });
+
+  it('preserves url-encoded slashes in parameterised sub-routes', { timeout: 3000 }, () => {
+    const router = new Router();
+    router.mount('/:v/', (req, res) => {
+      res.end(JSON.stringify(getRemainingPathComponents(req, { rejectPotentiallyUnsafe: false })));
+    });
+
+    return withServer(router, async (url) => {
+      expect(await fetchJSON(url + '/a/foo%2fbar')).equals(['foo/bar']);
+      expect(await fetchJSON(url + '/%61/foo%2fbar')).equals(['foo/bar']);
+      expect(await fetchJSON(url + '/a%2ffoo%2fbar')).equals(['foo/bar']);
+      expect(await fetchJSON(url + '/a/')).equals([]);
+      expect(await fetchJSON(url + '/a%2f')).equals([]);
+    });
+  });
+
+  it(
+    'preserves url-encoded slashes in parameterised sub-routes without trailing slash',
+    { timeout: 3000 },
+    () => {
+      const router = new Router();
+      router.mount('/:v', (req, res) => {
+        res.end(
+          JSON.stringify(getRemainingPathComponents(req, { rejectPotentiallyUnsafe: false })),
+        );
+      });
+
+      return withServer(router, async (url) => {
+        expect(await fetchJSON(url + '/a/foo%2fbar')).equals(['foo/bar']);
+        expect(await fetchJSON(url + '/%61/foo%2fbar')).equals(['foo/bar']);
+        expect(await fetchJSON(url + '/a%2ffoo%2fbar')).equals(['foo/bar']);
+        expect(await fetchJSON(url + '/a/')).equals([]);
+        expect(await fetchJSON(url + '/a%2f')).equals([]);
+      });
+    },
+  );
 });
 
 const fetchJSON = (url: string) => fetch(url).then((res) => res.json());

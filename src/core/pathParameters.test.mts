@@ -209,6 +209,28 @@ describe('getPathParameters', () => {
       });
     }),
   );
+
+  it('supports various characters in paths', { timeout: 3000 }, () => {
+    let capturedParameter: unknown;
+    const router = new Router().get('!%/:v', (req, res) => {
+      capturedParameter = getPathParameter(req, 'v');
+      res.end();
+    });
+
+    return withServer(router, async (url) => {
+      await expect(fetch(url + '/a'), responds({ status: 200 }));
+      expect(capturedParameter).equals('a');
+
+      await expect(fetch(url + '/%25'), responds({ status: 200 }));
+      expect(capturedParameter).equals('%');
+
+      await expect(fetch(url + '/%2f'), responds({ status: 200 }));
+      expect(capturedParameter).equals('/');
+
+      await expect(fetch(url + '/' + encodeURIComponent('\u{1F468}')), responds({ status: 200 }));
+      expect(capturedParameter).equals('\u{1F468}');
+    });
+  });
 });
 
 describe('getPathParameter', () => {
