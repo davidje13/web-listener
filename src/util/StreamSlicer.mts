@@ -12,7 +12,7 @@ export class StreamSlicer {
   /** @internal */ declare private _state: number;
 
   constructor(stream: Readable | ReadableStream<Uint8Array>) {
-    if (internalIsNodeReadable(stream)) {
+    if (!('getReader' in stream)) {
       stream = Readable.toWeb(stream);
     }
     this._reader = stream.getReader();
@@ -93,10 +93,4 @@ export class StreamSlicer {
     await this._reader.cancel();
     this._reader.releaseLock();
   }
-}
-
-function internalIsNodeReadable(stream: Readable | ReadableStream<any>): stream is Readable {
-  const test = stream as Readable;
-  // note: the syntax here is chosen to ensure it is not mangled by terser
-  return '_read' in test && typeof test.pipe === 'function';
 }

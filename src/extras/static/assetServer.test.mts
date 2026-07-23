@@ -1,9 +1,15 @@
 import { platform } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { buffer } from 'node:stream/consumers';
 import { makeTestTempDir } from '../../test-helpers/makeFileStructure.mts';
 import { withServer } from '../../test-helpers/withServer.mts';
-import { makeRequestOnSocket, openRawSocket, rawRequest } from '../../test-helpers/rawRequest.mts';
+import {
+  makeRequestOnSocket,
+  openRawSocket,
+  rawRequest,
+  rawRequestStream,
+} from '../../test-helpers/rawRequest.mts';
 import { requestHandler } from '../../core/handler.mts';
 import { Router } from '../../core/Router.mts';
 import { negotiateEncoding, Negotiator } from '../request/Negotiator.mts';
@@ -369,6 +375,21 @@ describe('assetServer with zipFileFinder', () => {
     });
   });
 
+  it('supports range requests', { timeout: 3000 }, async () => {
+    const handler = assetServer(zipFileFinder(await readZip(testZip)));
+
+    return withServer(handler, async (url) => {
+      const res = await fetch(url + '/file.txt', {
+        headers: { 'accept-encoding': 'identity', range: 'bytes=1-5' },
+      });
+      expect(res.status).equals(206);
+      expect(res.headers.get('content-type')).equals('text/plain; charset=utf-8');
+      expect(res.headers.get('etag')!).startsWith('W/\"');
+      expect(res.headers.get('last-modified')).equals('Wed, 01 Jul 2026 10:20:46 GMT');
+      expect(await res.text()).equals('ipped');
+    });
+  });
+
   it('serves gzip encoded files directly from the zip', { timeout: 3000 }, async () => {
     const handler = assetServer(
       zipFileFinder(await readZip(testZip), {
@@ -384,6 +405,46 @@ describe('assetServer with zipFileFinder', () => {
       expect(res.headers.get('etag')!).startsWith('W/\"');
       expect(res.headers.get('last-modified')).equals('Wed, 01 Jul 2026 10:20:46 GMT');
       expect(await res.text()).equals('Zipped Content CompressedCompressedCompressed');
+    });
+  });
+
+  it('supports range requests for compressed content', { timeout: 3000 }, async () => {
+    const handler = assetServer(
+      zipFileFinder(await readZip(testZip), {
+        negotiator: new Negotiator([negotiateEncoding(['zstd', 'gzip'])]),
+      }),
+    );
+
+    return withServer(handler, async (url) => {
+      const fullSocket = await rawRequestStream(url + '/file.txt', {
+        headers: { 'accept-encoding': 'gzip' },
+      });
+      const fullResponse = await buffer(fullSocket);
+      const fullBody = fullResponse.subarray(
+        fullResponse.indexOf(Buffer.from('\r\n\r\n', 'utf-8')) + 4,
+      );
+      expect(fullBody[0]).equals(0x1f);
+      expect(fullBody[1]).equals(0x8b);
+
+      // request a range which includes some header, all content, and some trailer
+      const rangeSocket1 = await rawRequestStream(url + '/file.txt', {
+        headers: { 'accept-encoding': 'gzip', range: `bytes=1-${fullBody.byteLength - 4}` },
+      });
+      const rangeResponse1 = await buffer(rangeSocket1);
+      const rangeBody1 = rangeResponse1.subarray(
+        rangeResponse1.indexOf(Buffer.from('\r\n\r\n', 'utf-8')) + 4,
+      );
+      expect(rangeBody1).equals(fullBody.subarray(1, fullBody.byteLength - 3));
+
+      // request a range which includes only content
+      const rangeSocket2 = await rawRequestStream(url + '/file.txt', {
+        headers: { 'accept-encoding': 'gzip', range: `bytes=15-${fullBody.byteLength - 10}` },
+      });
+      const rangeResponse2 = await buffer(rangeSocket2);
+      const rangeBody2 = rangeResponse2.subarray(
+        rangeResponse2.indexOf(Buffer.from('\r\n\r\n', 'utf-8')) + 4,
+      );
+      expect(rangeBody2).equals(fullBody.subarray(15, fullBody.byteLength - 9));
     });
   });
 

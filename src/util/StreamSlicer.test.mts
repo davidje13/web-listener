@@ -1,5 +1,6 @@
 import { Readable } from 'node:stream';
 import { ReadableStream } from 'node:stream/web';
+import { joinStreams } from './joinStreams.mts';
 import { StreamSlicer } from './StreamSlicer.mts';
 import 'lean-test';
 
@@ -54,6 +55,16 @@ describe('StreamSlicer', () => {
     const slicer = new StreamSlicer(Readable.from(['hello']));
     expect(await read(slicer.getRange(1, 2))).equals([Buffer.from('el')]);
     expect(await read(slicer.getRange(3, 3))).equals([Buffer.from('l')]);
+    slicer.close();
+  });
+
+  it('works with joinStreams', async () => {
+    const input = Buffer.from(sequence(6));
+    const slicer = new StreamSlicer(
+      joinStreams({}, input.subarray(0, 3), () => Readable.from([input.subarray(3, 6)])),
+    );
+    expect(await read(slicer.getRange(0, 1))).equals([new Uint8Array([0, 1])]);
+    expect(await read(slicer.getRange(2, 3))).equals([new Uint8Array([2]), new Uint8Array([3])]);
     slicer.close();
   });
 

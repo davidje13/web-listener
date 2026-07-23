@@ -1,7 +1,7 @@
 import { constants, type CreateReadStreamOptions } from 'node:fs/promises';
 import type { BigIntStats, StatOptions, Stats, StatsBase } from 'node:fs';
 import { join } from 'node:path';
-import { createInflateRaw } from 'node:zlib';
+import { createInflateRaw, type InflateRaw } from 'node:zlib';
 import { SharedFileHandle } from '../../util/SharedFileHandle.mts';
 import type { ReadOnlyFileHandle } from '../../util/ReadOnlyFileHandle.mts';
 import { createSafeReadStream } from '../../util/createSafeReadStream.mts';
@@ -411,11 +411,14 @@ class ZipFile {
           if (start !== 0) {
             throw new RangeError('start offset must be 0 for compressed files');
           }
-          const s = openFileStream(0, seekableSize - 1, {
+          const fileStream = openFileStream(0, seekableSize - 1, {
             ...options,
             highWaterMark: undefined,
             encoding: undefined,
-          }).compose(createInflateRaw({ chunkSize: options.highWaterMark }));
+          });
+          const inflate = createInflateRaw({ chunkSize: options.highWaterMark });
+          inflate.once('error', () => fileStream.close()); // pipeline errors get handled elsewhere; avoid an unhandled error
+          const s = fileStream.compose<InflateRaw>(inflate);
           if (options.encoding) {
             s.setEncoding(options.encoding);
           }

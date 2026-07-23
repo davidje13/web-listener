@@ -114,6 +114,13 @@ describe('getRange', () => {
     });
   });
 
+  it('supports requesting just the first byte', () => {
+    expect(getRange({ headers: { range: 'bytes=0-0' } } as IncomingMessage, 1000)).equals({
+      ranges: [{ start: 0, end: 0 }],
+      totalSize: 1000,
+    });
+  });
+
   it('clamps ranges to the size of the content', () => {
     expect(
       getRange({ headers: { range: 'bytes=100-199,2000-2999' } } as IncomingMessage, 1000),

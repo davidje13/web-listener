@@ -214,6 +214,12 @@ describe('sendFile', () => {
       expect(bodyTwo).contains('content-range: bytes 5-10/24\r\n\r\nis my \r\n');
       expect(bodyTwo).contains('content-range: bytes 19-23/24\r\n\r\ntent.\r\n');
 
+      const resFirstByte = await fetch(url, { headers: { range: 'bytes=0-0' } });
+      expect(resFirstByte.status).equals(206);
+      expect(resFirstByte.headers.get('accept-ranges')).equals('bytes');
+      expect(resFirstByte.headers.get('content-range')).equals('bytes 0-0/24');
+      expect(await resFirstByte.text()).equals('T');
+
       const resBad = await fetch(url, { headers: { range: 'bytes=999-999' } });
       expect(resBad.status).equals(416);
       expect(resBad.headers.get('content-range')).equals('bytes */24');

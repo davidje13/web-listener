@@ -108,14 +108,17 @@ function readBasicErrorMessage(error: unknown): string | undefined {
     return undefined;
   } else if (error instanceof UserError || error instanceof TransientError) {
     return error.message;
-  } else if (error instanceof AggregateError) {
-    const all = new Set(error.errors.map(readBasicErrorMessage));
-    return [...all].join(', ');
-  } else if (error instanceof Error) {
-    return error.stack ?? error.message;
-  } else {
-    return String(error);
+  } else if (typeof error === 'object') {
+    if ('error' in error && 'suppressed' in error) {
+      return `${readBasicErrorMessage(error.error)}, and suppressed ${readBasicErrorMessage(error.suppressed)}`;
+    } else if ('errors' in error && Array.isArray(error.errors)) {
+      const all = new Set(error.errors.map(readBasicErrorMessage));
+      return [...all].join(', ');
+    } else if ('stack' in error && typeof error.stack === 'string' && error.stack) {
+      return error.stack;
+    }
   }
+  return String(error);
 }
 
 const STATUS_COLOURS = ['', '37', '32', '36', '31', '41;97'];
