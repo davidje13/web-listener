@@ -13,9 +13,9 @@ import {
   getAbsolutePath,
   Property,
 } from '../../index.mts';
+import { readAnyFile } from '../util/readAnyFile.mts';
 import type { ConfigMount } from '../config/types.mts';
 import { TransientError } from '../TransientError.mts';
-import { readAnyFile } from '../zipCache.mts';
 import { UserError } from '../UserError.mts';
 import { dependencies } from './modules/dependencies.mts';
 import { loadCustomHandler } from './custom/loadCustomHandler.mts';

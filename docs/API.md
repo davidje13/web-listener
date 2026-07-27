@@ -142,6 +142,7 @@ path parameters from a parent, which can be typed with
   - [`staticFileFinder`]
   - [`zipFileFinder`]
   - [`readZip`]
+  - [`<AssetOpener>`]
   - [`<Negotiator>`]
   - [`negotiateEncoding`]
   - Cache
@@ -337,6 +338,76 @@ Wraps the given request or upgrade handling function in a `Handler`. Equivalent 
   shouldUpgrade: shouldUpgrade ?? () => false,
 }
 ```
+
+### `AssetOpener`
+
+[`<AssetOpener>`]: #assetopener
+
+Helper class for reading data from regular files and zipped files.
+
+#### `SHARED_ASSET_OPENER`
+
+[`SHARED_ASSET_OPENER`]: #shared_asset_opener
+
+A global instance of [`<AssetOpener>`]. This is used internally by the CLI to read configuration
+files, content to serve, and custom handler scripts. If you are creating a custom handler for use
+with the CLI and you need to load a data file, use this instance to avoid loading the same metadata
+into memory multiple times.
+
+#### `assetopener.open(path)`
+
+[`assetopener.open`]: #assetopeneropenpath
+
+- `path` [`<string>`] path to the file to open, which may be inside a zip.
+- Returns: [`<Promise>`] Fulfills with [`<fs.FileHandle>`]
+
+Get a (read-only) file handle for the given path. Paths inside zips can be denoted as
+`/path/to/file.zip/path/inside/zip`.
+
+This function is particularly useful for loading data for custom handlers deployed from a zipped
+bundle using the CLI. For example:
+
+```js
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { text } from 'node:stream/consumers';
+import { SHARED_ASSET_OPENER, requestHandler } from 'web-listener';
+
+const myDir = dirname(fileURLToPath(import.meta.url));
+const myData = await text(await SHARED_ASSET_OPENER.open(join(myDir, 'data.txt')));
+
+export default requestHandler((req, res) => res.end(myData));
+```
+
+This will load the sibling file `data.txt` even if both the code and the data file have been bundled
+into a zip.
+
+#### `assetopener.findZipNode(path)`
+
+[`assetopener.findZipNode`]: #assetopenerfindzipnodepath
+
+- `path` [`<string>`] path to the file or directory, which may be inside a zip.
+- Returns: [`<Promise>`] Fulfills with [`<ZipNode>`] or [`<undefined>`]
+
+Get a reference to a file or directory inside a zip. Paths inside zips can be denoted as
+`/path/to/file.zip/path/inside/zip`.
+
+This function is particularly useful for serving static content from custom handlers deployed from a
+zipped bundle using the CLI. For example:
+
+```js
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { SHARED_ASSET_OPENER, assetServer, zipFileFinder } from 'web-listener';
+
+const myDir = dirname(fileURLToPath(import.meta.url));
+const staticDir = join(myDir, 'static');
+
+export default assetServer(zipFileFinder(await SHARED_ASSET_OPENER.findZipNode(staticDir)));
+```
+
+This will serve the content from the sibling folder `static` once both the code and the `static`
+directory have been bundled into a zip.
 
 ### `assetServer(fileFinder[, options])`
 

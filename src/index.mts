@@ -87,6 +87,7 @@ export {
   type JSONErrorHandlerOptions,
 } from './extras/error/jsonErrorHandler.mts';
 
+export { AssetOpener, SHARED_ASSET_OPENER } from './extras/filesystem/AssetOpener.mts';
 export type {
   FileFinder,
   FileFinderOptions,

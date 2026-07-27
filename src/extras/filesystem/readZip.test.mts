@@ -1,12 +1,11 @@
-import { access, mkdir } from 'node:fs/promises';
-import { createWriteStream } from 'node:fs';
 import { buffer, text } from 'node:stream/consumers';
-import { pipeline } from 'node:stream/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gunzip, inflateRaw } from 'node:zlib';
-import { readZip, type ZipFile } from './readZip.mts';
+import { unpack } from '../../test-helpers/unpack.mts';
 import type { ReadOnlyFileHandle } from '../../util/ReadOnlyFileHandle.mts';
+import { readZip, type ZipFile } from './readZip.mts';
+import 'lean-test';
 
 const selfDir = dirname(fileURLToPath(import.meta.url));
 const testZipDir = join(selfDir, 'test-zips');
@@ -181,35 +180,6 @@ describe('readZip', () => {
     expect(files.length).equals(0x10000);
   });
 
-  beforeAll(async () => {
-    // test zip archives are compressed to save space in the repository - expand them for testing
-    if (
-      !(await access(testZipDir).then(
-        () => true,
-        () => false,
-      ))
-    ) {
-      await mkdir(testZipDir);
-      const data = await readZip(join(selfDir, 'test-zips.zip'));
-      for (const file of data.allFiles()) {
-        if (file.node.virtual) {
-          continue;
-        }
-        if (file.path.some((p) => p.startsWith('.') || p.includes('/') || p.includes('\\') || !p)) {
-          throw new Error('invalid file path in test zip');
-        }
-        const handle = await file.node.open();
-        try {
-          const target = createWriteStream(join(testZipDir, ...file.path));
-          try {
-            await pipeline(handle.createReadStream(), target);
-          } finally {
-            target.close();
-          }
-        } finally {
-          handle.close();
-        }
-      }
-    }
-  });
+  // test zip archives are compressed to save space in the repository - expand them for testing
+  beforeAll(() => unpack(join(selfDir, 'test-zips.zip'), testZipDir));
 });

@@ -1,11 +1,16 @@
 import { spawn } from 'node:child_process';
 import { createServer, type Server, type ServerOptions } from 'node:http';
 import type { Readable } from 'node:stream';
-import { findCause, HTTPError, WebListener, type ListenOptions } from '../index.mts';
+import {
+  findCause,
+  SHARED_ASSET_OPENER,
+  HTTPError,
+  WebListener,
+  type ListenOptions,
+} from '../index.mts';
 import type { ConfigServer, ConfigServerOptions, ConfigBackgroundTask } from './config/types.mts';
 import { buildRouter } from './routes/buildRouter.mts';
 import { markImportingDone } from './routes/custom/loadCustomHandler.mts';
-import { clearZipCache } from './zipCache.mts';
 import type { Logger } from './log.mts';
 import { TransientError } from './TransientError.mts';
 import { UserError } from './UserError.mts';
@@ -148,7 +153,7 @@ export class ServerManager {
         this._shutdown(log);
       } else if (doRetry) {
         this._autoRetry = setTimeout(() => {
-          clearZipCache();
+          SHARED_ASSET_OPENER.clearMetadataCache();
           this.set(servers, backgroundTasks, log, errorHandler);
         }, 1000);
       } else if (this._servers.size) {

@@ -1,7 +1,7 @@
 import { decompressMime, readMimeTypes, registerMime, resetMime } from '../index.mts';
+import { readAnyFile } from './util/readAnyFile.mts';
 import { isArray } from './util/isArray.mts';
 import type { ConfigMime } from './config/types.mts';
-import { readAnyFile } from './zipCache.mts';
 
 export async function loadMime(mime: ConfigMime | ConfigMime[]) {
   const newMimes: Map<string, string>[] = [];

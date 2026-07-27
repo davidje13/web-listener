@@ -1,6 +1,7 @@
 import { stat } from 'node:fs/promises';
 import {
   dynamicFileFinder,
+  SHARED_ASSET_OPENER,
   negotiateEncoding,
   Negotiator,
   staticFileFinder,
@@ -9,7 +10,6 @@ import {
   type FileServerOptions,
 } from '../../index.mts';
 import { TransientError } from '../TransientError.mts';
-import { readZipPath } from '../zipCache.mts';
 import { UserError } from '../UserError.mts';
 
 export async function anyFileFinder(path: string, options: FileServerOptions): Promise<FileFinder> {
@@ -22,14 +22,12 @@ export async function anyFileFinder(path: string, options: FileServerOptions): P
     }
   }
 
-  const zip = await readZipPath(path, false);
-  if (!zip) {
+  const zipDir = await SHARED_ASSET_OPENER.findZipNode(path);
+  if (!zipDir) {
     throw new TransientError(`content to serve not found at ${path}`);
   }
-
-  const zipDir = zip.root.find(zip.remaining);
   if (!zipDir?.isDirectory) {
-    throw new UserError(`/${zip.remaining.join('/')} in ${zip.path} is not a directory`);
+    throw new UserError(`${path} is not a directory`);
   }
   const adjustedOptions = options;
   if (!adjustedOptions.negotiator) {

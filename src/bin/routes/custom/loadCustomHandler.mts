@@ -4,8 +4,13 @@ import { fileURLToPath } from 'node:url';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { closeSync, openSync, readSync, constants } from 'node:fs';
 import { inflateRawSync } from 'node:zlib';
-import type { ErrorHandler, HandlerResult, RequestHandler, ZipFile } from '../../../index.mts';
-import { findZipPath, readZipPath } from '../../zipCache.mts';
+import {
+  type ErrorHandler,
+  type HandlerResult,
+  type RequestHandler,
+  type ZipFile,
+  SHARED_ASSET_OPENER,
+} from '../../../index.mts';
 import { UserError } from '../../UserError.mts';
 
 const EXTENSION_FORMATS = new Map([
@@ -27,7 +32,7 @@ registerHooks({
       const url = URL.parse(specifier, context.parentURL);
       if (url && url.protocol === 'file:') {
         // allow loading sources from a .zip archive
-        if (findZipPath(fileURLToPath(url))) {
+        if (SHARED_ASSET_OPENER.findCachedZipNodeSync(fileURLToPath(url))) {
           return {
             url: url.toString(),
             format: EXTENSION_FORMATS.get(extname(url.pathname)),
@@ -42,7 +47,7 @@ registerHooks({
   load(url, context, nextLoad) {
     if (url.startsWith('file://')) {
       const path = fileURLToPath(url);
-      const zipFile = findZipPath(path);
+      const zipFile = SHARED_ASSET_OPENER.findCachedZipNodeSync(path);
       if (zipFile && !zipFile.isDirectory) {
         const source = readZipFileSync(zipFile);
         return {
@@ -80,7 +85,7 @@ export async function loadCustomHandler(
     LOADED_THIS_TIME.add(path);
   }
 
-  await readZipPath(path, true); // load hook is synchronous, so we must open the zip (asynchronously) upfront
+  await SHARED_ASSET_OPENER.preloadMetadata(path); // load hook is synchronous, so we must open the zip (asynchronously) upfront
   const mod = await import(path);
   const handler = mod?.[namedExport || 'default'];
   if (!handler || (typeof handler !== 'function' && typeof handler !== 'object')) {

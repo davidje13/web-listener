@@ -1,7 +1,7 @@
 import { resolve } from 'node:path';
 import type { FallbackOptions, FileNegotiation, FileNegotiationOption } from '../../index.mts';
+import { readAnyFile } from '../util/readAnyFile.mts';
 import { isArray } from '../util/isArray.mts';
-import { readAnyFile } from '../zipCache.mts';
 import { UserError } from '../UserError.mts';
 import type { Mapper } from './schema.mts';
 import type {
