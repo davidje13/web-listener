@@ -1,4 +1,3 @@
-import type { Writable } from 'node:stream';
 import { TransientError } from './TransientError.mts';
 import { UserError } from './UserError.mts';
 
@@ -20,12 +19,12 @@ export type Logger = (
 ) => void;
 
 export const textLogger = (
-  logTarget: Writable & { isTTY?: boolean },
+  log: { write: (content: string) => void; isTTY?: boolean },
   level: LogLevel,
   logTime: boolean,
 ): Logger => {
   const addColour: (id: string, message: string) => string =
-    logTarget.isTTY && !process.env['NO_COLOR']
+    log.isTTY && !process.env['NO_COLOR']
       ? (id, message) => (id ? `\x1b[${id}m${makeSafe(message)}\x1b[0m` : makeSafe(message))
       : (_, message) => makeSafe(message);
   const logLevel = logLevels.indexOf(level);
@@ -62,7 +61,7 @@ export const textLogger = (
     if (parts.status !== undefined) {
       out.push(addColour(STATUS_COLOURS[(parts.status / 100) | 0] ?? '', String(parts.status)));
     }
-    const message = readBasicErrorMessage(parts.message);
+    const message = readMessage(parts.message);
     if (message !== undefined) {
       if (parts.type === 'detail') {
         out.push(addColour('2', message));
@@ -80,11 +79,15 @@ export const textLogger = (
         ),
       );
     }
-    logTarget.write(`${out.join(' ')}\n`);
+    log.write(`${out.join(' ')}\n`);
   };
 };
 
-export const jsonLogger = (logTarget: Writable, level: LogLevel, logTime: boolean): Logger => {
+export const jsonLogger = (
+  log: { write: (content: string) => void },
+  level: LogLevel,
+  logTime: boolean,
+): Logger => {
   const logLevel = logLevels.indexOf(level);
   return (level, { serviceCol: _, message, ...parts }) => {
     if (level > logLevel) {
@@ -95,13 +98,20 @@ export const jsonLogger = (logTarget: Writable, level: LogLevel, logTime: boolea
       entity['time'] = Date.now();
     }
     Object.assign(entity, parts);
-    entity['message'] = readBasicErrorMessage(message);
-    logTarget.write(`${JSON.stringify(entity)}\n`);
+    entity['message'] = readMessage(message);
+    log.write(`${JSON.stringify(entity)}\n`);
   };
 };
 
 const makeSafe = (str: string) =>
   str.replaceAll(/[\x00-\x1F\x7F]/g, (v) => `<${v.charCodeAt(0).toString(16).padStart(2, '0')}>`);
+
+function readMessage(message: unknown) {
+  if (typeof message === 'function') {
+    message = message();
+  }
+  return readBasicErrorMessage(message);
+}
 
 function readBasicErrorMessage(error: unknown): string | undefined {
   if (error === undefined || error === null) {
@@ -117,6 +127,8 @@ function readBasicErrorMessage(error: unknown): string | undefined {
     } else if ('stack' in error && typeof error.stack === 'string' && error.stack) {
       return error.stack;
     }
+  } else if (typeof error === 'symbol') {
+    return `symbol: ${error.description ?? 'unnamed'}`;
   }
   return String(error);
 }

@@ -187,7 +187,8 @@ Defaults to
 .Qq "full" .
 .Bl -tag -width "progress"
 .It Cm none
-Print nothing except errors.
+Print nothing except errors
+.Pq "including console.warn and console.error from custom handlers" .
 .It Cm ready
 Print errors, and
 .Qq all servers ready
@@ -196,12 +197,18 @@ line once all servers have started successfully.
 Print everything from
 .Cm ready
 and also startup, reload, and shutdown progress messages for each server.
+This also includes console.log from custom handlers.
 .It Cm full
 Print everything from
 .Cm progress
 and also a line for each requested resource, showing the status code and
 processing time.
 .El
+.
+.It Fl -log-file Ar file
+File to write logs to.
+Defaults to
+.Qq /dev/stderr .
 .
 .It Fl -log-format Cm text | json
 Logging format.
@@ -213,7 +220,8 @@ Write human-friendly log lines, in colour unless
 .Ev NO_COLOR
 is set.
 .It Cm json
-Write JSON-formatted log lines (one single-line JSON document per log).
+Write JSON-formatted log lines
+.Pq "one single-line JSON document per log" .
 .El
 .
 .It Fl -mime Ar mapping
@@ -476,7 +484,9 @@ is:
   "minCompress": 300,
   "noServe": false,
   "log": "progress",
-  "logFormat": "text"
+  "logFile": null,
+  "logFormat": "text",
+  "logTime": true
 }
 .Ed
 .Pp

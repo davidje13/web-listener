@@ -616,6 +616,7 @@ const DEFAULT_CONFIG: Config = {
   minCompress: 300,
   noServe: false,
   log: 'progress',
+  logFile: null,
   logFormat: 'text',
   logTime: true,
 };

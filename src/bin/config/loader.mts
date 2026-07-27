@@ -57,6 +57,7 @@ const params = new Map<string, { type: 'string' | 'number' | 'boolean'; multi?: 
   ['no-serve', { type: 'boolean' }],
   ['log', { type: 'string' }],
   ['log-format', { type: 'string' }],
+  ['log-file', { type: 'string' }],
   ['help', { type: 'boolean' }],
   ['version', { type: 'boolean' }],
 ]);
@@ -180,6 +181,7 @@ export async function loadConfig(
   const redirectMap = stringListParam('redirect-map');
   const log = stringParam('log');
   const logFormat = stringParam('log-format');
+  const logFile = stringParam('log-file');
 
   if (Number(Boolean(file)) + Number(Boolean(json)) + Number(Boolean(proxy)) > 1) {
     throw new UserError('multiple config files are not supported');
@@ -379,6 +381,9 @@ export async function loadConfig(
       break;
     default:
       throw new UserError(`unknown log level: ${log}`);
+  }
+  if (logFile) {
+    config.logFile = logFile;
   }
   switch (logFormat) {
     case undefined:

@@ -152,6 +152,7 @@ export interface Config {
   minCompress: number;
   noServe: boolean;
   log: LogLevel;
+  logFile: string | null;
   logFormat: 'text' | 'json';
   logTime: boolean;
 }

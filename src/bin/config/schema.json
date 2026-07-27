@@ -38,6 +38,11 @@
       "enum": ["none", "ready", "progress"],
       "default": "progress"
     },
+    "logFile": {
+      "title": "The file to log to, or null to log to stderr.",
+      "anyOf": [{ "type": "string", "format": "uri-reference" }, { "type": "null" }],
+      "default": null
+    },
     "logFormat": {
       "title": "Set the logging format. \"text\" is the most human-readable, \"json\" prints each log message as a machine-readable JSON document (one per line).",
       "enum": ["text", "json"],

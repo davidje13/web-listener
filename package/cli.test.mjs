@@ -1,10 +1,11 @@
-import { rm, stat } from 'node:fs/promises';
+import { mkdtemp, readFile, rename, rm, stat } from 'node:fs/promises';
 import { text } from 'node:stream/consumers';
 import { spawn } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { createServer } from 'node:net';
 import { fileURLToPath } from 'node:url';
 import { createInterface } from 'node:readline/promises';
+import { tmpdir } from 'node:os';
 import 'lean-test';
 
 const selfDir = dirname(fileURLToPath(import.meta.url));
@@ -113,6 +114,49 @@ describe('cli', () => {
     const resCustom = await fetch(`http://localhost:${port}/custom`);
     expect(resCustom.status).equals(200);
     expect(await resCustom.text()).equals('custom response');
+  });
+
+  it('logs to a given file', { timeout: 3000 }, async ({ [TEARDOWN]: teardown }) => {
+    const dir = await mkdtemp(join(tmpdir(), 'cli-log'));
+    try {
+      const [port] = await findAvailablePorts(1);
+      const logPath = join(dir, 'out.log');
+
+      const p = spawnProcess(join(...binDir, 'web-listener'), [
+        '-c',
+        join('cli', 'sample-config.json'),
+        '--port',
+        String(port),
+        '--log-file',
+        logPath,
+      ]);
+      teardown(p.close);
+
+      await expect.poll(
+        () => readFile(logPath, { encoding: 'utf-8' }).catch(() => {}),
+        resolves(contains('all servers ready')),
+        { timeout: 2000, interval: 100 },
+      );
+
+      const logContent = await readFile(logPath, { encoding: 'utf-8' });
+      expect(logContent).contains('[stdout] custom handler startup log\n');
+      expect(logContent).contains('[stderr] warning: custom handler startup warning\n');
+      expect(logContent).contains('[stderr] warning: custom handler startup error\n');
+
+      await rename(logPath, logPath + '-old');
+      p.signal('SIGHUP');
+
+      await expect.poll(
+        () => readFile(logPath, { encoding: 'utf-8' }).catch(() => {}),
+        resolves(contains('updated')),
+        { timeout: 2000, interval: 100 },
+      );
+      expect(await readFile(logPath + '-old', { encoding: 'utf-8' })).endsWith(
+        'refreshing config\n',
+      );
+    } finally {
+      await rm(dir, { recursive: true });
+    }
   });
 
   it('runs background tasks if requested', { timeout: 3000 }, async ({ [TEARDOWN]: teardown }) => {
@@ -331,6 +375,7 @@ function spawnProcess(path, args, options = {}) {
     stdout: p.stdout,
     stderr: p.stderr,
     errors,
+    signal: (id) => p.kill(id),
     close: () => {
       p.off('error', errorListener);
       p.on('error', () => {});
