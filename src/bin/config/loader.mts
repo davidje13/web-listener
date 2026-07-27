@@ -29,6 +29,7 @@ const shorthands = new Map<string, string>([
   ['-v', 'version'],
   ['br', 'brotli'],
   ['gz', 'gzip'],
+  ['log', 'log-level'],
   ['zst', 'zstd'],
 ]);
 const params = new Map<string, { type: 'string' | 'number' | 'boolean'; multi?: boolean }>([
@@ -55,9 +56,9 @@ const params = new Map<string, { type: 'string' | 'number' | 'boolean'; multi?: 
   ['min-compress', { type: 'number' }],
   ['no-cache', { type: 'boolean' }],
   ['no-serve', { type: 'boolean' }],
-  ['log', { type: 'string' }],
   ['log-format', { type: 'string' }],
   ['log-file', { type: 'string' }],
+  ['log-level', { type: 'string' }],
   ['help', { type: 'boolean' }],
   ['version', { type: 'boolean' }],
 ]);
@@ -179,9 +180,9 @@ export async function loadConfig(
   const mime = stringListParam('mime');
   const mimeTypes = stringListParam('mime-types');
   const redirectMap = stringListParam('redirect-map');
-  const log = stringParam('log');
   const logFormat = stringParam('log-format');
   const logFile = stringParam('log-file');
+  const logLevel = stringParam('log-level');
 
   if (Number(Boolean(file)) + Number(Boolean(json)) + Number(Boolean(proxy)) > 1) {
     throw new UserError('multiple config files are not supported');
@@ -361,13 +362,13 @@ export async function loadConfig(
   if (args.has('no-serve')) {
     config.noServe = Boolean(args.get('no-serve'));
   }
-  switch (log) {
+  switch (logLevel) {
     case undefined:
       break;
     case 'none':
     case 'ready':
     case 'progress':
-      config.log = log;
+      config.log.level = logLevel;
       for (const server of config.servers) {
         server.options.logRequests = false;
       }
@@ -377,20 +378,20 @@ export async function loadConfig(
       }
       break;
     case 'full':
-      config.log = 'progress';
+      config.log.level = 'progress';
       break;
     default:
-      throw new UserError(`unknown log level: ${log}`);
+      throw new UserError(`unknown log level: ${logLevel}`);
   }
   if (logFile) {
-    config.logFile = logFile;
+    config.log.file = logFile;
   }
   switch (logFormat) {
     case undefined:
       break;
     case 'text':
     case 'json':
-      config.logFormat = logFormat;
+      config.log.format = logFormat;
       break;
     default:
       throw new UserError(`unknown log format: ${logFormat}`);
@@ -486,6 +487,21 @@ async function loadConfigFileNetwork(
         config.servers.splice(i, 1, ...servers);
         i += servers.length;
       }
+    }
+    // convert legacy log config
+    if (typeof config.log !== 'object') {
+      config.log = {
+        file: null,
+        format: 'text',
+        level: config.log,
+        time: true,
+      };
+    }
+    if (config.logFormat) {
+      config.log.format = config.logFormat;
+    }
+    if (config.logTime !== undefined) {
+      config.log.time = config.logTime;
     }
     const resolvedConfig = config as ResolvedConfig;
     seen.set(absFile, resolvedConfig);

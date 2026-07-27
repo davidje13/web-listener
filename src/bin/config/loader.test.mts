@@ -4,6 +4,7 @@ import type { FileNegotiation } from '../../index.mts';
 import { loadSchema, makeSchemaParser } from './schema.mts';
 import type {
   Config,
+  ConfigLog,
   ConfigMount,
   ConfigMountFilesOptions,
   ConfigServer,
@@ -422,7 +423,7 @@ describe('loadConfig', () => {
             servers: [
               { ...DEFAULT_SERVER, options: { ...DEFAULT_SERVER_OPTIONS, logRequests: false } },
             ],
-            log: 'none',
+            log: { ...DEFAULT_LOG, level: 'none' },
           },
         },
         {
@@ -433,7 +434,7 @@ describe('loadConfig', () => {
             servers: [
               { ...DEFAULT_SERVER, options: { ...DEFAULT_SERVER_OPTIONS, logRequests: false } },
             ],
-            log: 'ready',
+            log: { ...DEFAULT_LOG, level: 'ready' },
           },
         },
         {
@@ -444,13 +445,13 @@ describe('loadConfig', () => {
             servers: [
               { ...DEFAULT_SERVER, options: { ...DEFAULT_SERVER_OPTIONS, logRequests: false } },
             ],
-            log: 'progress',
+            log: { ...DEFAULT_LOG, level: 'progress' },
           },
         },
         {
           name: 'log=full',
           args: ['--log', 'full'],
-          expected: { ...DEFAULT_CONFIG, log: 'progress' },
+          expected: { ...DEFAULT_CONFIG, log: { ...DEFAULT_LOG, level: 'progress' } },
         },
         {
           name: 'config-json',
@@ -608,6 +609,8 @@ const DEFAULT_SERVER: ConfigServer = {
   options: DEFAULT_SERVER_OPTIONS,
 };
 
+const DEFAULT_LOG: ConfigLog = { file: null, format: 'text', level: 'progress', time: true };
+
 const DEFAULT_CONFIG: Config = {
   servers: [DEFAULT_SERVER],
   backgroundTasks: [],
@@ -615,10 +618,7 @@ const DEFAULT_CONFIG: Config = {
   writeCompressed: false,
   minCompress: 300,
   noServe: false,
-  log: 'progress',
-  logFile: null,
-  logFormat: 'text',
-  logTime: true,
+  log: DEFAULT_LOG,
 };
 
 const withNegotiation = (negotiation: FileNegotiation[]) => ({

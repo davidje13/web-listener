@@ -17,7 +17,7 @@ cd - >/dev/null;
 MANDOC_FILE="$BASE_DIR/package/node_modules/web-listener/man1/web-listener.1.gz"
 if which mandoc >/dev/null; then
   # macOS
-  gzip -dc "$MANDOC_FILE" | mandoc -T lint -W style;
+  gzip -dc "$MANDOC_FILE" | MANPATH="$BASE_DIR/src/bin/man1/refs" mandoc -T lint -W style;
 elif which nroff >/dev/null; then
   # Linux
   WARNINGS="$(gzip -dc "$MANDOC_FILE" | nroff -mandoc -w all -W break 2>&1 >/dev/null)";

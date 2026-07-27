@@ -1,10 +1,10 @@
-#!/usr/bin/env -S node --disable-proto=delete --disallow-code-generation-from-strings --force-node-api-uncaught-exceptions-policy --no-addons --experimental-import-meta-resolve
+#!/usr/bin/env -S node --disable-proto=delete --disallow-code-generation-from-strings --force-node-api-uncaught-exceptions-policy --no-addons --disable-sigusr1 --experimental-import-meta-resolve
 import { open, readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { loadConfig, readArgs } from './config/loader.mts';
-import type { Config } from './config/types.mts';
+import type { Config, ConfigLog } from './config/types.mts';
 import { loadSchema, makeSchemaParser } from './config/schema.mts';
 import { clearZipCache } from './zipCache.mts';
 import { ServerManager } from './ServerManager.mts';
@@ -17,17 +17,24 @@ process.on('SIGUSR1', () => {
   // ignore (disable default behaviour of opening inspector port)
 });
 
+process.on('SIGUSR2', () => {
+  log(1, { service: 'logger', message: 'reopening log file' });
+  void updateLog(logConfig);
+});
+
 const originalStdErrWrite = process.stderr.write.bind(process.stderr);
 const originalStdErrTTY = process.stderr.isTTY;
 const STDERR = '/dev/stderr';
 const LOG_TARGET_STDERR = { write: originalStdErrWrite, isTTY: originalStdErrTTY };
 
+let logConfig: ConfigLog = { file: STDERR, format: 'json', level: 'progress', time: true };
 let logTarget: {
   write: (content: string) => void;
   isTTY?: boolean;
   close?: () => void;
 } = LOG_TARGET_STDERR;
-let log = textLogger(logTarget, 'progress', true);
+
+let log = buildLogger();
 let startup = true;
 
 function handleError(error: unknown) {
@@ -40,7 +47,7 @@ function handleError(error: unknown) {
 }
 
 const wrapLog =
-  (level: number, type: 'error' | 'warn' | 'detail', thread: string) =>
+  (level: number, type: 'error' | 'warn' | 'detail' | undefined, thread: string) =>
   (content: string | Uint8Array) => {
     if (typeof content === 'string') {
       log(level, {
@@ -101,27 +108,7 @@ async function run() {
       clearZipCache();
       const config = await loadConfig(parser, args);
 
-      // update log destination
-      // (we re-open even if the path hasn't changed to allow log rotation on SIGHUP)
-      const newLogFile = config.logFile ?? STDERR;
-      const toClose = logTarget.close;
-      if (newLogFile === STDERR) {
-        logTarget = LOG_TARGET_STDERR;
-      } else {
-        const fd = await open(newLogFile, 'a', 0o640);
-        const s = fd.createWriteStream();
-        logTarget = {
-          write: s.write.bind(s),
-          close: () => s.end(() => fd.close().catch(() => {})),
-        };
-      }
-      process.stdout.isTTY = process.stderr.isTTY = logTarget.isTTY ?? false;
-      if (config.logFormat === 'json') {
-        log = jsonLogger(logTarget, config.log, config.logTime);
-      } else {
-        log = textLogger(logTarget, config.log, config.logTime);
-      }
-      toClose?.();
+      await updateLog(config.log);
 
       await loadMime(config.mime);
       if (config.writeCompressed) {
@@ -163,7 +150,7 @@ async function run() {
   }
 
   // wrap console.log / .warn / etc with logger
-  process.stdout.write = wrapLog(2, 'detail', 'stdout');
+  process.stdout.write = wrapLog(2, undefined, 'stdout');
   process.stderr.write = wrapLog(0, 'warn', 'stderr');
 
   load();
@@ -187,3 +174,36 @@ async function run() {
 }
 
 run();
+
+async function updateLog(newLogConfig: ConfigLog) {
+  // we re-open even if the path hasn't changed to allow log rotation on SIGHUP/SIGUSR2
+  const newLogFile = newLogConfig.file ?? STDERR;
+  const toClose = logTarget.close;
+  if (newLogFile === STDERR) {
+    logTarget = LOG_TARGET_STDERR;
+  } else {
+    try {
+      const fd = await open(newLogFile, 'a', 0o640);
+      const s = fd.createWriteStream();
+      logTarget = {
+        write: s.write.bind(s),
+        close: () => s.end(() => fd.close().catch(() => {})),
+      };
+    } catch (err) {
+      log(0, { type: 'error', service: 'logger', message: err });
+      return;
+    }
+  }
+  logConfig = newLogConfig;
+  log = buildLogger();
+  toClose?.();
+}
+
+function buildLogger() {
+  process.stdout.isTTY = process.stderr.isTTY = logTarget.isTTY ?? false;
+  if (logConfig.format === 'json') {
+    return jsonLogger(logTarget, logConfig.level, logConfig.time);
+  } else {
+    return textLogger(logTarget, logConfig.level, logConfig.time);
+  }
+}

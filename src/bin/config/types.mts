@@ -144,6 +144,13 @@ export interface ConfigBackgroundTask {
 
 export type ConfigMime = string | Record<string, string>;
 
+export interface ConfigLog {
+  level: LogLevel;
+  file: string | null;
+  format: 'text' | 'json';
+  time: boolean;
+}
+
 export interface Config {
   servers: (ConfigServer | ConfigServerRef)[];
   backgroundTasks: ConfigBackgroundTask[];
@@ -151,10 +158,12 @@ export interface Config {
   writeCompressed: boolean;
   minCompress: number;
   noServe: boolean;
-  log: LogLevel;
-  logFile: string | null;
-  logFormat: 'text' | 'json';
-  logTime: boolean;
+  log: ConfigLog | LogLevel;
+  logFormat?: 'text' | 'json' | undefined;
+  logTime?: boolean | undefined;
 }
 
-export type ResolvedConfig = Omit<Config, 'servers'> & { servers: ConfigServer[] };
+export type ResolvedConfig = Omit<Config, 'servers' | 'log' | 'logFormat' | 'logTime'> & {
+  servers: ConfigServer[];
+  log: ConfigLog;
+};

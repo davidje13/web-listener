@@ -34,25 +34,47 @@
       "default": false
     },
     "log": {
-      "title": "Set the logging level. \"ready\" prints only the \"all servers ready\" line, \"progress\" prints server startup and shutdown progress.",
-      "enum": ["none", "ready", "progress"],
-      "default": "progress"
-    },
-    "logFile": {
-      "title": "The file to log to, or null to log to stderr.",
-      "anyOf": [{ "type": "string", "format": "uri-reference" }, { "type": "null" }],
-      "default": null
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "file": {
+              "title": "The file to log to, or null to log to stderr.",
+              "anyOf": [{ "type": "string", "format": "uri-reference" }, { "type": "null" }],
+              "default": null
+            },
+            "format": {
+              "title": "Set the logging format. \"text\" is the most human-readable, \"json\" prints each log message as a machine-readable JSON document (one per line).",
+              "enum": ["text", "json"],
+              "default": "text"
+            },
+            "level": {
+              "title": "Set the logging level. \"ready\" prints only the \"all servers ready\" line, \"progress\" prints server startup and shutdown progress.",
+              "enum": ["none", "ready", "progress"],
+              "default": "progress"
+            },
+            "time": {
+              "title": "Include a timestamp with each log message.",
+              "type": "boolean",
+              "default": true
+            }
+          }
+        },
+        {
+          "deprecated": true,
+          "title": "Use log.level instead",
+          "enum": ["none", "ready", "progress"]
+        }
+      ],
+      "default": { "file": null, "format": "text", "level": "progress", "time": true }
     },
     "logFormat": {
-      "title": "Set the logging format. \"text\" is the most human-readable, \"json\" prints each log message as a machine-readable JSON document (one per line).",
-      "enum": ["text", "json"],
-      "default": "text"
+      "deprecated": true,
+      "title": "Use log.format instead",
+      "enum": ["text", "json"]
     },
-    "logTime": {
-      "title": "Include a timestamp with each log message.",
-      "type": "boolean",
-      "default": true
-    }
+    "logTime": { "deprecated": true, "title": "Use log.time instead", "type": "boolean" }
   },
 
   "$defs": {

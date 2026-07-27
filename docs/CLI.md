@@ -18,6 +18,7 @@ This tool supports:
 - [registering custom Javascript handlers](#custom-handlers)
 - [loading config and serving files directly from zips](#using-zips)
 - [combining multiple configuration files](#combining-configuration-one-server)
+- [logging to a file](#logging-to-a-file)
 
 Simple servers can be configured via CLI flags. Complex servers can be configured via JSON.
 
@@ -688,3 +689,34 @@ An alternative way to combine configuration is to let each config file define it
 ```
 
 This allows the referenced config to set options on the server.
+
+### Logging to a File
+
+By default, all logs are written to stderr. You can use a file instead for production use, and
+integrate with tools such as `logrotate` (the log file will be reopened when `SIGUSR2` is received,
+or when the configuration is reloaded using `SIGHUP`).
+
+In this example, we also set the format to JSON to make the log file machine-readable.
+
+#### CLI Flags
+
+```sh
+npx web-listener . --log-file output.log --log-format json
+```
+
+#### Equivalent JSON Configuration
+
+```json
+{
+  "servers": [
+    {
+      "port": 8080,
+      "mount": [{ "type": "files", "path": "/", "dir": "." }]
+    }
+  ],
+  "log": {
+    "file": "output.log",
+    "format": "json"
+  }
+}
+```

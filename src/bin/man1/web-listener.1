@@ -181,7 +181,7 @@ This replaces any headers set on specific routes in the configuration.
 .It Fl h , Fl -help
 Open this man page.
 .
-.It Fl -log Cm none | ready | progress | full
+.It Fl -log Cm none | ready | progress | full , Fl -log-level Cm none | ready | progress | full
 Logging verbosity.
 Defaults to
 .Qq "full" .
@@ -209,6 +209,9 @@ processing time.
 File to write logs to.
 Defaults to
 .Qq /dev/stderr .
+This file will be reopened if a SIGHUP or SIGUSR2 signal is received.
+This behaviour can be used by tools such as
+.Xr logrotate 8 .
 .
 .It Fl -log-format Cm text | json
 Logging format.
@@ -483,10 +486,12 @@ is:
   "writeCompressed": false,
   "minCompress": 300,
   "noServe": false,
-  "log": "progress",
-  "logFile": null,
-  "logFormat": "text",
-  "logTime": true
+  "log": {
+    "file": "/dev/stderr",
+    "format": "text",
+    "level": "progress",
+    "time": true
+  }
 }
 .Ed
 .Pp
