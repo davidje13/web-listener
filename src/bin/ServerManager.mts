@@ -265,7 +265,7 @@ export class ServerManager {
           thread: context,
           type: 'error',
           path: request?.url,
-          message: String(error),
+          message: error,
         });
       }
     });
@@ -354,12 +354,7 @@ export class ServerManager {
 
 function watchOutput(readable: Readable, lineHandler: (ln: string) => void) {
   let line = '';
-  const writeln = (ln: string) =>
-    lineHandler(
-      ln
-        .replaceAll(/\x1b\[[\d;]*[A-K]/g, '')
-        .replaceAll(/[\x00-\x1f]/g, (c) => `\\x${c.charCodeAt(0).toString(16).padStart(2, '0')}`),
-    );
+  const writeln = (ln: string) => lineHandler(ln.replaceAll(/\x1b\[[\d;]*[A-K]/g, ''));
   readable.addListener('data', (chunk) => {
     line += chunk;
     const parts = line.split('\n');

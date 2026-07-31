@@ -26,6 +26,7 @@ const originalStdErrWrite = process.stderr.write.bind(process.stderr);
 const originalStdErrTTY = process.stderr.isTTY;
 const STDERR = '/dev/stderr';
 const LOG_TARGET_STDERR = { write: originalStdErrWrite, isTTY: originalStdErrTTY };
+process.stdout.isTTY = process.stderr.isTTY = false;
 
 let logConfig: ConfigLog = { file: STDERR, format: 'json', level: 'progress', time: true };
 let logTarget: {
@@ -123,13 +124,7 @@ async function run() {
           config.backgroundTasks,
           (level, parts) => log(level, parts),
           (error) => {
-            if (error instanceof AggregateError) {
-              for (const subError of error.errors) {
-                log(0, { type: 'error', message: subError });
-              }
-            } else {
-              log(0, { type: 'error', message: error });
-            }
+            log(0, { type: 'error', message: error });
             process.stdin.destroy();
             process.exit(1);
           },
@@ -200,7 +195,6 @@ async function updateLog(newLogConfig: ConfigLog) {
 }
 
 function buildLogger() {
-  process.stdout.isTTY = process.stderr.isTTY = logTarget.isTTY ?? false;
   if (logConfig.format === 'json') {
     return jsonLogger(logTarget, logConfig.level, logConfig.time);
   } else {
