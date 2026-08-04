@@ -1,5 +1,6 @@
 import { join } from 'node:path';
 import { open } from 'node:fs/promises';
+import { constants } from 'node:fs';
 import { makeTestTempDir } from '../../test-helpers/makeFileStructure.mts';
 import { generateStrongETag, generateWeakETag } from './etag.mts';
 import 'lean-test';
@@ -54,7 +55,7 @@ describe('generateStrongETag', () => {
   it('accepts a file handle', async ({ getTyped }) => {
     const tag = await generateStrongETag(join(getTyped(TEST_DIR), 'one.txt'));
 
-    const handle = await open(join(getTyped(TEST_DIR), 'one.txt'), 'r');
+    const handle = await open(join(getTyped(TEST_DIR), 'one.txt'), constants.O_RDONLY);
     try {
       const handleTag = await generateStrongETag(handle);
       expect(handleTag).equals(tag);

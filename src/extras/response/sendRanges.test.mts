@@ -1,4 +1,5 @@
 import { open } from 'node:fs/promises';
+import { constants } from 'node:fs';
 import { Readable } from 'node:stream';
 import { ReadableStream } from 'node:stream/web';
 import { makeTestTempFile } from '../../test-helpers/makeFileStructure.mts';
@@ -52,7 +53,7 @@ describe('sendRanges', () => {
     it('accepts an existing file handle', { timeout: 3000 }, ({ getTyped }) => {
       const filePath = getTyped(TEST_FILE);
       const handler = requestHandler(async (req, res) => {
-        const handle = await open(filePath);
+        const handle = await open(filePath, constants.O_RDONLY);
         try {
           await sendRanges(req, res, handle, {
             ranges: [{ start: 10, end: 19 }],
@@ -182,7 +183,7 @@ describe('sendRanges', () => {
     it('accepts an existing file handle', { timeout: 3000 }, ({ getTyped }) => {
       const filePath = getTyped(TEST_FILE);
       const handler = requestHandler(async (req, res) => {
-        const handle = await open(filePath);
+        const handle = await open(filePath, constants.O_RDONLY);
         try {
           await sendRanges(req, res, handle, {
             ranges: [

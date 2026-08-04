@@ -105,4 +105,15 @@ describe('createSafeReadStream', () => {
       }
     },
   );
+
+  it('rejects attempts to read negative ranges', { timeout: 3000 }, async () => {
+    const handle = await open(testPath, constants.O_RDONLY);
+    try {
+      await expect(() =>
+        createSafeReadStream(handle, { start: 2, end: 1, autoClose: false }),
+      ).throws('invalid byte range');
+    } finally {
+      await handle.close();
+    }
+  });
 });

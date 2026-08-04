@@ -1,5 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { open } from 'node:fs/promises';
+import { constants } from 'node:fs';
 import type { ReadableStream } from 'node:stream/web';
 import type { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
@@ -116,7 +117,7 @@ async function getSlicer(
   _end?: () => Promise<void>;
 }> {
   if (typeof file === 'string') {
-    const handle = await open(file, 'r');
+    const handle = await open(file, constants.O_RDONLY);
     return {
       _get: (start, end) => createSafeReadStream(handle, { start, end, autoClose: false }),
       _end: () => handle.close(),

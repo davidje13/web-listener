@@ -6,10 +6,18 @@ export function createSafeReadStream<S extends Readable, O>(
     createReadStream(options: O): S;
     close?: () => Promise<void>;
   },
-  options: O & { autoClose?: boolean | undefined },
+  options: O & {
+    start?: number | undefined;
+    end?: number | undefined;
+    autoClose?: boolean | undefined;
+  },
 ): S {
   if (!(handle instanceof EventEmitter)) {
     return handle.createReadStream(options);
+  }
+
+  if (options.end !== undefined && options.end < (options.start ?? 0)) {
+    throw new RangeError('invalid byte range');
   }
 
   // this helper is a workaround for https://github.com/nodejs/node/issues/64214

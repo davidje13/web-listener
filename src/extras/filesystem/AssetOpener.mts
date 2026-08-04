@@ -1,7 +1,8 @@
 import { join, sep } from 'node:path';
+import { open, stat } from 'node:fs/promises';
+import { constants } from 'node:fs';
 import { readZip, type ZipDirectory, type ZipNode } from './readZip.mts';
 import type { ReadOnlyFileHandle } from '../../util/ReadOnlyFileHandle.mts';
-import { open, stat } from 'node:fs/promises';
 
 export class AssetOpener {
   /** @internal */ declare private readonly _zipCache: { path: string; root: ZipDirectory }[];
@@ -13,7 +14,7 @@ export class AssetOpener {
   async open(path: string): Promise<ReadOnlyFileHandle> {
     const zip = await this._readZipPath(path, true);
     if (!zip) {
-      return open(path, 'r');
+      return open(path, constants.O_RDONLY);
     }
     const zipNode = zip.root.find(zip.remaining);
     if (!zipNode || zipNode.isDirectory) {

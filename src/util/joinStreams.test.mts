@@ -1,4 +1,5 @@
 import { open } from 'node:fs/promises';
+import { constants } from 'node:fs';
 import { text } from 'node:stream/consumers';
 import { Readable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
@@ -53,7 +54,7 @@ describe('joinStreams', () => {
   });
 
   it('respects autoClose of contained streams', async () => {
-    const handle1 = await open(fileURLToPath(import.meta.url));
+    const handle1 = await open(fileURLToPath(import.meta.url), constants.O_RDONLY);
     try {
       const joined = joinStreams(
         {},
@@ -66,7 +67,7 @@ describe('joinStreams', () => {
       handle1.close();
     }
 
-    const handle2 = await open(fileURLToPath(import.meta.url));
+    const handle2 = await open(fileURLToPath(import.meta.url), constants.O_RDONLY);
     try {
       const joined = joinStreams(
         {},

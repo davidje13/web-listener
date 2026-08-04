@@ -3,6 +3,7 @@ import { open, readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { constants } from 'node:fs';
 import { SHARED_ASSET_OPENER } from '../index.mts';
 import { loadConfig, readArgs } from './config/loader.mts';
 import type { Config, ConfigLog } from './config/types.mts';
@@ -178,7 +179,11 @@ async function updateLog(newLogConfig: ConfigLog) {
     logTarget = LOG_TARGET_STDERR;
   } else {
     try {
-      const fd = await open(newLogFile, 'a', 0o640);
+      const fd = await open(
+        newLogFile,
+        constants.O_WRONLY | constants.O_APPEND | constants.O_CREAT,
+        0o640,
+      );
       const s = fd.createWriteStream();
       logTarget = {
         write: s.write.bind(s),

@@ -1,6 +1,7 @@
 import { open, stat } from 'node:fs/promises';
 import { ReadableStream } from 'node:stream/web';
 import { Readable } from 'node:stream';
+import { constants } from 'node:fs';
 import { makeTestTempFile } from '../../test-helpers/makeFileStructure.mts';
 import { rawRequestStream } from '../../test-helpers/rawRequest.mts';
 import { withServer } from '../../test-helpers/withServer.mts';
@@ -57,7 +58,7 @@ describe('sendFile', () => {
   it('accepts an existing file handle', { timeout: 3000 }, ({ getTyped }) => {
     const filePath = getTyped(TEST_FILE);
     const handler = requestHandler(async (req, res) => {
-      const handle = await open(filePath);
+      const handle = await open(filePath, constants.O_RDONLY);
       try {
         const stats = await handle.stat();
         await sendFile(req, res, handle, stats);
