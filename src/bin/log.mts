@@ -33,6 +33,7 @@ export const textLogger = (
     if (level > logLevel) {
       return;
     }
+    let lines = null;
     const out: string[] = [];
     if (logTime) {
       out.push(addColour('2', new Date().toISOString()));
@@ -52,6 +53,10 @@ export const textLogger = (
     } else if (parts.type === 'error') {
       out.push(addColour('91', 'error') + ':');
     }
+    const code = getErrorCode(parts.message);
+    if (code) {
+      out.push(addColour('33', `[${code}]`));
+    }
     if (parts.method !== undefined) {
       out.push(addColour('1', parts.method.replaceAll(/[^a-zA-Z0-9\-_]/g, '?') || '?'));
     }
@@ -66,7 +71,8 @@ export const textLogger = (
       if (parts.type === 'detail') {
         out.push(addColour('2', message));
       } else {
-        out.push(makeSafe(message));
+        lines = message.split('\n');
+        out.push(makeSafe(lines[0]!));
       }
     }
     if (parts.stats) {
@@ -80,6 +86,11 @@ export const textLogger = (
       );
     }
     log.write(`${out.join(' ')}\n`);
+    if (lines && lines.length > 1) {
+      for (let l = 1; l < lines.length; ++l) {
+        log.write(`${addColour('2', '>')} ${lines[l]}\n`);
+      }
+    }
   };
 };
 
@@ -98,6 +109,10 @@ export const jsonLogger = (
       entity['time'] = Date.now();
     }
     Object.assign(entity, parts);
+    const code = getErrorCode(message);
+    if (code) {
+      entity['code'] = code;
+    }
     entity['message'] = readMessage(message);
     log.write(`${JSON.stringify(entity)}\n`);
   };
@@ -112,6 +127,14 @@ function readMessage(message: unknown) {
   }
   return readBasicErrorMessage(message);
 }
+
+const getErrorCode = (error: unknown) =>
+  error &&
+  typeof error === 'object' &&
+  'code' in error &&
+  (typeof error.code === 'string' || typeof error.code === 'number')
+    ? String(error.code)
+    : null;
 
 function readBasicErrorMessage(error: unknown): string | undefined {
   if (error === undefined || error === null) {

@@ -1,4 +1,4 @@
-#!/usr/bin/env -S node --disable-proto=delete --disallow-code-generation-from-strings --force-node-api-uncaught-exceptions-policy --no-addons --disable-sigusr1 --experimental-import-meta-resolve
+#!/usr/bin/env -S node --disable-proto=delete --disallow-code-generation-from-strings --force-node-api-uncaught-exceptions-policy --no-addons --disable-sigusr1 --experimental-import-meta-resolve --no-warnings
 import { open, readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -29,7 +29,7 @@ const STDERR = '/dev/stderr';
 const LOG_TARGET_STDERR = { write: originalStdErrWrite, isTTY: originalStdErrTTY };
 process.stdout.isTTY = process.stderr.isTTY = false;
 
-let logConfig: ConfigLog = { file: STDERR, format: 'json', level: 'progress', time: true };
+let logConfig: ConfigLog = { file: STDERR, format: 'text', level: 'progress', time: true };
 let logTarget: {
   write: (content: string) => void;
   isTTY?: boolean;
@@ -66,6 +66,7 @@ const wrapLog =
 
 process.on('unhandledRejection', handleError);
 process.on('uncaughtException', handleError);
+process.on('warning', (warning) => log(0, { type: 'warn', message: warning }));
 
 let args: Map<string, unknown>;
 try {
@@ -147,7 +148,7 @@ async function run() {
 
   // wrap console.log / .warn / etc with logger
   process.stdout.write = wrapLog(2, undefined, 'stdout');
-  process.stderr.write = wrapLog(0, 'warn', 'stderr');
+  process.stderr.write = wrapLog(0, undefined, 'stderr');
 
   load();
   process.on('SIGHUP', update);

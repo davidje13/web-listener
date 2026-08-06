@@ -138,10 +138,30 @@ describe('cli', () => {
         { timeout: 2000, interval: 100 },
       );
 
+      // console
       const logContent = await readFile(logPath, { encoding: 'utf-8' });
       expect(logContent).contains('[stdout] custom handler startup log\n');
-      expect(logContent).contains('[stderr] warning: custom handler startup warning\n');
-      expect(logContent).contains('[stderr] warning: custom handler startup error\n');
+      expect(logContent).contains('[stderr] custom handler startup warning\n');
+      expect(logContent).contains('[stderr] custom handler startup error\n');
+
+      // error
+      expect((await fetch(`http://localhost:${port}/custom?err`)).status).equals(500);
+      await expect.poll(
+        () => readFile(logPath, { encoding: 'utf-8' }).catch(() => {}),
+        resolves(contains('[handling request] error: /custom?err Error: nope')),
+        { timeout: 1000, interval: 50 },
+      );
+
+      // warning
+      expect((await fetch(`http://localhost:${port}/custom?warn`)).status).equals(200);
+      await expect.poll(
+        () => readFile(logPath, { encoding: 'utf-8' }).catch(() => {}),
+        resolves(contains('warning: [W1234] CustomWarning: oh no')),
+        { timeout: 1000, interval: 50 },
+      );
+
+      const logContent2 = await readFile(logPath, { encoding: 'utf-8' });
+      expect(logContent2).not(contains('[stderr] (node'));
 
       await rename(logPath, logPath + '-old');
       p.signal('SIGHUP');
