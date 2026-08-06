@@ -85,10 +85,13 @@ configuration, and to provide editor assistance in compatible IDEs:
 
 ```json
 {
-  "$schema": "./node_modules/web-listener/schema.json",
+  "$schema": "https://davidje13.com/schema/web-listener.1.5.0.json",
   "servers": [{ "port": 8080, "mount": [] }]
 }
 ```
+
+If you want to avoid network dependencies, you can instead reference a local copy of the schema:
+`"./node_modules/web-listener/schema.json"`.
 
 ### Inline JSON
 
