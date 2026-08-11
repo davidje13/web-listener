@@ -195,10 +195,10 @@ r.mount('/no-params', subRouter);
 // @ts-expect-error
 r.mount('/:foo', new Router<WithPathParameters<{ foo: string; bar: string }>>());
 
-r.mount('~/foo', () => {});
+r.mount('i/foo', () => {});
 r.mount('!/foo', () => {});
 r.mount('%/foo', () => {});
-r.mount('~!%/foo', () => {});
+r.mount('i!%/foo', () => {});
 const path: string = '/foo';
 r.mount(path, () => {});
 
