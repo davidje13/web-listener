@@ -85,7 +85,7 @@ configuration, and to provide editor assistance in compatible IDEs:
 
 ```json
 {
-  "$schema": "https://davidje13.com/schema/web-listener.1.5.1.json",
+  "$schema": "https://davidje13.com/schema/web-listener.1.5.3.json",
   "servers": [{ "port": 8080, "mount": [] }]
 }
 ```
