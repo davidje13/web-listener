@@ -90,6 +90,35 @@ describe('buildRouter', () => {
       });
     });
 
+    it('omits headers if the template variables are not set', { timeout: 3000 }, async () => {
+      const router = await buildRouter([
+        {
+          type: 'fixture',
+          method: 'GET',
+          path: '/',
+          status: 200,
+          headers: { direct: '${?p}', empty: '', fallback: '${?p:-}' },
+          body: '',
+        },
+      ]);
+      return withServer(router, async (url) => {
+        const resultSet = await fetch(url + '/?p=1');
+        expect(resultSet.headers.get('direct')).equals('1');
+        expect(resultSet.headers.get('empty')).equals('');
+        expect(resultSet.headers.get('fallback')).equals('1');
+
+        const resultBlank = await fetch(url + '/?p=');
+        expect(resultBlank.headers.get('direct')).equals('');
+        expect(resultBlank.headers.get('empty')).equals('');
+        expect(resultBlank.headers.get('fallback')).equals('');
+
+        const resultOmit = await fetch(url + '/');
+        expect(resultOmit.headers.get('direct')).equals(null);
+        expect(resultOmit.headers.get('empty')).equals('');
+        expect(resultOmit.headers.get('fallback')).equals('');
+      });
+    });
+
     it('supports encoding in template values', { timeout: 3000 }, async () => {
       const router = await buildRouter([
         {

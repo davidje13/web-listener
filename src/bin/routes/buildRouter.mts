@@ -107,18 +107,21 @@ export async function buildRouter(
         const handler = (req: IncomingMessage, res: ServerResponse) => {
           for (const [key, value] of Object.entries(item.headers)) {
             if (typeof value === 'string') {
-              res.setHeader(key, render(value, getParam(req)));
+              const rendered = render(value, getParam(req));
+              if (rendered !== null) {
+                res.setHeader(key, rendered);
+              }
             } else if (typeof value === 'number') {
               res.setHeader(key, value);
             } else {
               res.setHeader(
                 key,
-                value.map((v) => render(v, getParam(req))),
+                value.map((v) => render(v, getParam(req))).filter((v) => v !== null),
               );
             }
           }
           res.statusCode = item.status;
-          res.end(render(item.body, getParam(req)));
+          res.end(render(item.body, getParam(req)) ?? '');
         };
         if (item.method === 'GET') {
           router.onRequest('HEAD', item.path, handler);
@@ -130,7 +133,7 @@ export async function buildRouter(
         router.at(
           item.path,
           requestHandler((req, res) => {
-            let redirect = render(item.target, getParam(req), 'uri');
+            let redirect = render(item.target, getParam(req), 'uri') ?? '';
             if (item.target[0] === '/') {
               // ensure location has exactly one leading /, else some clients may interpret it as a full URL
               redirect = redirect.replace(/^\/{2,}/, '/');

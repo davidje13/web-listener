@@ -10,12 +10,24 @@ describe('render', () => {
     expect(render('${greeting} ${name}', getter)).equals('Hello Sam');
   });
 
-  it('prints nothing if the requested value is not set', () => {
-    expect(render('${one}', makeGetter(null))).equals('');
+  it('returns null if the requested value is not set and there is no other content', () => {
+    expect(render('${one}', makeGetter(null))).equals(null);
+  });
+
+  it('returns null if all requested values are not set and there is no other content', () => {
+    expect(render('${one}${two}${three}', makeGetter(null))).equals(null);
+  });
+
+  it('returns surrounding text if the requested value is not set', () => {
+    expect(render('is-${one}:${two}', makeGetter(null))).equals('is-:');
   });
 
   it('prints a fallback if configured', () => {
     expect(render('${one:-fallback}', makeGetter(null))).equals('fallback');
+  });
+
+  it('returns fallback even if empty', () => {
+    expect(render('${one:-}', makeGetter(null))).equals('');
   });
 
   it('does not encode values by default', () => {

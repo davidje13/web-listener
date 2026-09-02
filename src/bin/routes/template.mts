@@ -4,8 +4,9 @@ export const render = (
   template: string,
   getParam: (name: string) => { _value: string | string[] | null | undefined; _encoding: string },
   defaultEncoding = 'raw',
-) =>
-  template.replaceAll(
+) => {
+  let blanks = 0;
+  const substituted = template.replaceAll(
     /\$\{(?:(raw|html|json|int|uri)\()?([^${}():]+)(?:(\))?:-((?:[^})\\]|\\.)*))?(\))?\}/g,
     (
       original: string,
@@ -26,7 +27,11 @@ export const render = (
       if (cl1 && p && encoder) {
         p = encoder(p);
       }
-      p ??= def?.replaceAll(/\\(.)/g, '$1') ?? '';
+      p ??= def?.replaceAll(/\\(.)/g, '$1') ?? null;
+      if (p === null) {
+        blanks += original.length;
+      }
+      p ??= '';
       if (cl2 && encoder) {
         p = encoder(p);
       }
@@ -36,6 +41,8 @@ export const render = (
       return joinPath(p);
     },
   );
+  return blanks && blanks === template.length ? null : substituted;
+};
 
 const ENCODERS: Record<string, (v: string | string[]) => string | string[]> = {
   html: (v) =>
