@@ -30,6 +30,11 @@ describe('render', () => {
     expect(render('${one:-}', makeGetter(null))).equals('');
   });
 
+  it('replaces $$ with a $', () => {
+    const getter = makeGetter('value');
+    expect(render('a$$b$${foo}$$${foo}', getter)).equals('a$b${foo}$value');
+  });
+
   it('does not encode values by default', () => {
     const getter = makeGetter('<some"thing">');
     expect(render('${one}', getter)).equals('<some"thing">');

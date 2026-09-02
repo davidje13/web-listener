@@ -7,7 +7,7 @@ export const render = (
 ) => {
   let blanks = 0;
   const substituted = template.replaceAll(
-    /\$\{(?:(raw|html|json|int|uri)\()?([^${}():]+)(?:(\))?:-((?:[^})\\]|\\.)*))?(\))?\}/g,
+    /\$\{(?:(raw|html|json|int|uri)\()?([^${}():]+)(?:(\))?:-((?:[^})\\]|\\.)*))?(\))?\}|(\$\$)/g,
     (
       original: string,
       enc: string | undefined,
@@ -15,7 +15,11 @@ export const render = (
       cl1: unknown,
       def: string | undefined,
       cl2: unknown,
+      escDollar: string | undefined,
     ) => {
+      if (escDollar) {
+        return '$';
+      }
       const closeCount = (cl1 ? 1 : 0) + (cl2 ? 1 : 0);
       if (closeCount !== (enc ? 1 : 0)) {
         return original;
