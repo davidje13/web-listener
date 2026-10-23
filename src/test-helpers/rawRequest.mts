@@ -10,17 +10,16 @@ import { ReadableStream } from 'node:stream/web';
 // the request (unlike fetch() and request() which wait for the request to
 // complete before streaming the response)
 
-export async function rawRequest(
-  target: string,
-  init?: Pick<RequestInit, 'method' | 'body' | 'headers'>,
-) {
+type RawRequestInit = Pick<RequestInit, 'method' | 'body' | 'headers'> & { nodelay?: boolean };
+
+export async function rawRequest(target: string, init?: RawRequestInit) {
   const socket = await rawRequestStream(target, init);
   return await text(socket);
 }
 
 export async function rawRequestStream(
   target: string,
-  init: Pick<RequestInit, 'method' | 'body' | 'headers'> = {},
+  { nodelay = false, ...init }: RawRequestInit = {},
 ) {
   const parts = /^(http:\/\/[^\/]+)(\/.*)?$/.exec(target);
   if (!parts) {
@@ -28,6 +27,9 @@ export async function rawRequestStream(
   }
   const url = new URL(parts[1]!);
   const socket = await openRawSocket(url);
+  if (nodelay) {
+    socket.setNoDelay(true);
+  }
   makeRequestOnSocket(socket, url.host, parts[2] ?? '/', init);
   return socket;
 }

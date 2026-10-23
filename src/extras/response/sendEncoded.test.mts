@@ -308,7 +308,7 @@ describe('sendEncoded', () => {
     });
 
     return withServer(handler, async (url) => {
-      const res = await rawRequest(url);
+      const res = await rawRequest(url, { nodelay: true });
       // chunk ends after large value, then shorter values are still combined into 1 chunk
       expect(res).contains('xxx\r\nc\r\nafter1after2\r\n0\r\n\r\n');
     });

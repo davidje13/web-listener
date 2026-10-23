@@ -94,13 +94,19 @@ describe('ServerSentEvents', () => {
     const handler = requestHandler(async (req, res) => {
       const sse = new ServerSentEvents(req, res);
       await sse.send({ data: 'one' });
+
+      // leave enough time to avoid automatic merging of chunks
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
       sse.ping();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
       await sse.send({ data: 'two' });
       await sse.close();
     });
 
     return withServer(handler, async (url) => {
-      const res = await rawRequest(url);
+      const res = await rawRequest(url, { nodelay: true });
       expect(res).endsWith('data:one\n\n\r\n3\r\n:\n\n\r\na\r\ndata:two\n\n\r\n0\r\n\r\n');
     });
   });
@@ -118,7 +124,7 @@ describe('ServerSentEvents', () => {
     });
 
     return withServer(handler, async (url) => {
-      const res = await rawRequest(url);
+      const res = await rawRequest(url, { nodelay: true });
       const pingPacket = '3\r\n:\n\n\r\n';
       const closePacket = '0\r\n\r\n';
       expect(res).endsWith(

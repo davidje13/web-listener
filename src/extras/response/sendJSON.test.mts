@@ -308,7 +308,7 @@ describe('sendJSONStream', () => {
     });
 
     return withServer(handler, async (url) => {
-      const res = await rawRequest(url);
+      const res = await rawRequest(url, { nodelay: true });
       // chunk ends after large value, then shorter values are still combined into 1 chunk
       expect(res).contains('xxx"\r\n13\r\n,"after1","after2"]\r\n0\r\n\r\n');
     });
