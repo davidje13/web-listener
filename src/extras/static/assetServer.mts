@@ -186,9 +186,11 @@ export const assetServer = (
           }
         }
 
-        const contentType =
-          file.headers['content-type'] ?? getMime(extname(file.canonicalFilename));
-        res.setHeader('content-type', contentType);
+        if (!res.hasHeader('content-type')) {
+          const contentType =
+            file.headers['content-type'] ?? getMime(extname(file.canonicalFilename));
+          res.setHeader('content-type', contentType);
+        }
 
         const contentLanguage = file.headers['content-language'];
         if (contentLanguage) {

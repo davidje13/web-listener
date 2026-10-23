@@ -10,6 +10,7 @@ import {
   rawRequest,
   rawRequestStream,
 } from '../../test-helpers/rawRequest.mts';
+import { CONTINUE } from '../../core/RoutingInstruction.mts';
 import { requestHandler } from '../../core/handler.mts';
 import { Router } from '../../core/Router.mts';
 import { negotiateEncoding, Negotiator } from '../request/Negotiator.mts';
@@ -68,6 +69,23 @@ describe('assetServer', () => {
       const resHtml = await fetch(url + '/sub');
       expect(resHtml.status).equals(200);
       expect(resHtml.headers.get('content-type')).equals('text/html; charset=utf-8');
+    });
+  });
+
+  it('does not change content-type if already set', { timeout: 3000 }, async ({ getTyped }) => {
+    const handler = new Router();
+    handler.use(
+      (_, res) => {
+        res.setHeader('Content-Type', 'foo');
+        return CONTINUE;
+      },
+      assetServer(await dynamicFileFinder(getTyped(TEST_DIR))),
+    );
+
+    return withServer(handler, async (url) => {
+      const resText = await fetch(url + '/file.txt');
+      expect(resText.status).equals(200);
+      expect(resText.headers.get('content-type')).equals('foo');
     });
   });
 
